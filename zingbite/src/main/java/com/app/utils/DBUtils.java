@@ -6,7 +6,7 @@ import java.sql.SQLException;
 
 public class DBUtils {
 	
-	private static final  String URL = "jdbc:mysql://localhost:3306/jee";
+	private static final  String URL = "jdbc:mysql://localhost:3306/foodapp";
 	private static final String DB_USERNAME = "root";
 	private static final String DB_PASSWORD = "Srinivas@192004";
 	private static Connection con;
