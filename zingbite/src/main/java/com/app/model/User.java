@@ -1,4 +1,4 @@
-package com.tap.model;
+package com.app.model;
 
 import java.util.Date;
 

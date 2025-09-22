@@ -1,6 +1,6 @@
 package com.app.DAO;
 
-import com.tap.model.User;
+import com.app.model.User;
 
 public interface UserDAO {
 	int addUser(User u);
