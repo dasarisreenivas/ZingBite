@@ -82,9 +82,10 @@ public class OrderHistory {
 	public void setOrderStatus(String orderStatus) {
 		this.orderStatus = orderStatus;
 	}
-
+	
 	@Override
 	public String toString() {
+		
 		return "OrderHistory [orderHistoryId=" + orderHistoryId + ", orderId=" + orderId + ", userID=" + userID
 				+ ", orderDate=" + orderDate + ", totalAmount=" + totalAmount + ", orderStatus=" + orderStatus + "]";
 	}

@@ -65,6 +65,7 @@ public class OrderItem {
 	
 	@Override
 	public String toString() {
+		
 		return "OrderItem [orderItemId=" + orderItemId + ", intOrderId=" + intOrderId + ", menuId=" + menuId
 				+ ", quantity=" + quantity + ", subTotal=" + subTotal + "]";
 	}

@@ -80,7 +80,7 @@ public class Menu {
 	public boolean isAvailable() {
 		return isAvailable;
 	}
-
+	
 	public void setAvailable(boolean isAvailable) {
 		this.isAvailable = isAvailable;
 	}
