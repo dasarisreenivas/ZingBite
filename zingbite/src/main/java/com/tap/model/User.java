@@ -36,6 +36,12 @@ public class User {
 		this.createdOn = createdOn;
 		this.lastLogin = lastLogin;
 	}
+
+	@Override
+	public String toString() {
+		return "User [userID=" + userID + ", userName=" + userName + ", email=" + email + ", password=" + password
+				+ ", phoneNumber=" + phoneNumber + ", createdOn=" + createdOn + ", lastLogin=" + lastLogin + "]";
+	}
 	
 	
 }
