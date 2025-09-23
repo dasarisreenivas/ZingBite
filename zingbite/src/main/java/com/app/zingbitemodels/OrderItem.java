@@ -1,4 +1,4 @@
-package com.app.model;
+package com.app.zingbitemodels;
 
 public class OrderItem {
 	

@@ -1,8 +1,8 @@
-package com.app.DAO;
+package com.app.zingbitedao;
 
 import java.util.List;
 
-import com.app.model.Menu;
+import com.app.zingbitemodels.Menu;
 
 public interface MenuDAO {
 	int addMenu(Menu menu);

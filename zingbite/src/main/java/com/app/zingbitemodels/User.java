@@ -1,4 +1,4 @@
-package com.app.model;
+package com.app.zingbitemodels;
 
 import java.util.Date;
 

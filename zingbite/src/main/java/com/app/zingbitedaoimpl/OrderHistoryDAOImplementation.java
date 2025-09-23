@@ -1,4 +1,4 @@
-package com.app.daoimplementation;
+package com.app.zingbitedaoimpl;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -7,9 +7,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.app.DAO.OrderHistoryDAO;
-import com.app.model.OrderHistory;
-import com.app.utils.DBUtils;
+import com.app.zingbitedao.OrderHistoryDAO;
+import com.app.zingbitemodels.OrderHistory;
+import com.app.zingbiteutils.DBUtils;
 
 public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 

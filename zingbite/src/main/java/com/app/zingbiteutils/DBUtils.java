@@ -1,4 +1,4 @@
-package com.app.utils;
+package com.app.zingbiteutils;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

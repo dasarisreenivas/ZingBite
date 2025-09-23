@@ -1,4 +1,4 @@
-package com.app.daoimplementation;
+package com.app.zingbitedaoimpl;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -7,9 +7,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.app.DAO.MenuDAO;
-import com.app.model.Menu;
-import com.app.utils.DBUtils;
+import com.app.zingbitedao.MenuDAO;
+import com.app.zingbitemodels.Menu;
+import com.app.zingbiteutils.DBUtils;
 
 public class MenuDAOImplementation implements MenuDAO {
 

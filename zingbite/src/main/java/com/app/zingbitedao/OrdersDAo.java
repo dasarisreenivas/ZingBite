@@ -1,8 +1,8 @@
-package com.app.DAO;
+package com.app.zingbitedao;
 
 import java.util.List;
 
-import com.app.model.Orders;
+import com.app.zingbitemodels.Orders;
 
 public interface OrdersDAo {
 	int addOrders(Orders orders);

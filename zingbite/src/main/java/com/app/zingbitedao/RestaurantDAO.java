@@ -1,8 +1,8 @@
-package com.app.DAO;
+package com.app.zingbitedao;
 
 import java.util.List;
 
-import com.app.model.Restaurant;
+import com.app.zingbitemodels.Restaurant;
 
 
 public interface RestaurantDAO {

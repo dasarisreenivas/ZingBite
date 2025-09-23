@@ -1,8 +1,8 @@
- package com.app.DAO;
+ package com.app.zingbitedao;
 
 import java.util.List;
 
-import com.app.model.OrderHistory;
+import com.app.zingbitemodels.OrderHistory;
 
 public interface OrderHistoryDAO {
 	int addOrderHIstory(OrderHistory oH);

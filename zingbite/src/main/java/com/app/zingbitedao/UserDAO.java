@@ -1,8 +1,8 @@
-package com.app.DAO;
+package com.app.zingbitedao;
 
 import java.util.List;
 
-import com.app.model.User;
+import com.app.zingbitemodels.User;
 
 public interface UserDAO {
 	int addUser(User u);
