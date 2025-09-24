@@ -8,6 +8,7 @@
 <title>Insert title here</title>
 </head>
 <body>
+
 	<% User user = (User)session.getAttribute("loggedInUser"); %>
 	<h1>name <%= user.getUserName()%></h1>
 	<h1>name <%= user.getEmail()%></h1>
