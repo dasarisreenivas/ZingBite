@@ -121,7 +121,7 @@ public class RestaurantDAOImplementation implements RestaurantDAO {
                     res.getString("DELIVERYTIME"),
                     res.getString("CUSINETYPE"),
                     res.getString("ADDRESS"),
-                    res.getFloat("RATING"),
+                    res.getFloat("RATINGS"),
                     res.getBoolean("ISACTIVE"),
                     res.getInt("ADMINID"),
                     res.getString("IMAGEPATH")
