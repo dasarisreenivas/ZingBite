@@ -1,0 +1,112 @@
+@charset "UTF-8";
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  min-height: 100vh;
+}
+
+.container { 
+  display: flex; 
+  min-height: 100vh; 
+  overflow: hidden;
+}
+
+/* Hero Section */
+.hero-section { 
+  display: none; 
+  width: 50%; 
+  position: relative; 
+  overflow: hidden; 
+}
+.hero-slideshow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.hero-slideshow img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
+}
+.hero-slideshow img.active { opacity: 1; }
+.hero-overlay {
+  position: absolute; 
+  inset: 0; 
+  background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 50%, transparent 100%); 
+}
+.hero-content { 
+  position: absolute; 
+  bottom: 2rem; 
+  left: 2rem; 
+  color: white; 
+}
+.logo-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #F7374F;
+  margin: 0;
+  line-height: 0.9;
+}
+.logo-subtitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+  margin-top: 0.2rem;
+}
+.hero-description { font-size: 1.125rem; opacity: 0.9; max-width: 28rem; line-height: 1.6; }
+
+/* Form Section */
+.login-section { 
+  flex: 1; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  padding: 2rem; 
+  overflow-y: auto; 
+  max-height: 100vh;
+}
+.login-container { width: 100%; max-width: 28rem; padding-bottom: 2rem; }
+
+/* Mobile Logo */
+.mobile-logo { text-align: center; margin-bottom: 2rem; display: block; }
+.mobile-logo .logo-title { font-size: 2rem; color: #F7374F; }
+.mobile-logo .logo-subtitle { font-size: 1rem; color: #111827; line-height: 1.4; display: block; }
+
+/* Card */
+.login-card { 
+  background: white; 
+  border-radius: 0.75rem; 
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+  border: 1px solid #e5e7eb; 
+}
+.card-header { padding: 1.5rem 1.5rem 0; text-align: center; }
+.card-title { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-bottom: 0.5rem; }
+.card-description { color: #6b7280; font-size: 0.875rem; }
+.card-content { padding: 1.5rem; }
+
+/* Form Styling */
+.form { display: flex; flex-direction: column; gap: 1rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.form-label { font-size: 0.875rem; font-weight: 500; color: #374151; }
+.form-input { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; background: #f9fafb; }
+.form-input:focus { outline: none; border-color: #F7374F; background: white; box-shadow: 0 0 0 3px rgba(247,55,79,0.1); }
+.form-row { display: flex; justify-content: space-between; align-items: center; }
+.checkbox-label { font-size: 0.875rem; color: #374151; }
+.submit-button, .login-btn { width: 100%; padding: 0.75rem; background: #F7374F; color: white; border: none; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
+.submit-button:hover, .login-btn:hover { background: #111827; }
+.signup-link { text-align: center; font-size: 0.875rem; color: #6b7280; }
+.signup-link a { color: #2563eb; text-decoration: underline; }
+
+/* Desktop Only */
+@media (min-width: 1024px) { 
+  .hero-section { display: block; } 
+  .mobile-logo { display: none; } 
+  .login-section { width: 50%; } 
+}
