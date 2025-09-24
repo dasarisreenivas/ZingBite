@@ -103,10 +103,58 @@ body {
 .submit-button:hover, .login-btn:hover { background: #111827; }
 .signup-link { text-align: center; font-size: 0.875rem; color: #6b7280; }
 .signup-link a { color: #2563eb; text-decoration: underline; }
-
+.error-box {
+  background-color: #ffe6e6;
+  color: #cc0000;
+  border: 1px solid #ff4d4d;
+  padding: 10px 14px;
+  margin-bottom: 15px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: center;
+  animation: fadeIn 0.3s ease-in-out;
+}
 /* Desktop Only */
+.feedback-box {
+  font-size: 0.85rem;
+  margin-top: 4px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  display: block;
+}
+
+.feedback-box.error {
+  color: #b91c1c;
+  background-color: #fee2e2;
+  border: 1px solid #fca5a5;
+}
+
+.feedback-box.success {
+  color: #065f46;
+  background-color: #d1fae5;
+  border: 1px solid #34d399;
+}
+
+input.error, textarea.error {
+  border: 1px solid #dc2626;
+  background-color: #fff5f5;
+}
+
+input.success, textarea.success {
+  border: 1px solid #10b981;
+  background-color: #f0fdf4;
+}
+
 @media (min-width: 1024px) { 
   .hero-section { display: block; } 
   .mobile-logo { display: none; } 
   .login-section { width: 50%; } 
 }
+
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+

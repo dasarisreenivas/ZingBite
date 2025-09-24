@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8"
     pageEncoding="UTF-8"%>
+<%@ page import = "com.app.zingbitemodels.User" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -7,6 +8,11 @@
 <title>Insert title here</title>
 </head>
 <body>
-	<h1>home page</h1>
+	<% User user = (User)session.getAttribute("loggedInUser"); %>
+	<h1>name <%= user.getUserName()%></h1>
+	<h1>name <%= user.getEmail()%></h1>
+	<h1>name <%= user.getPhoneNumber()%></h1>
+	<h1>name <%= user.getAddress()%></h1>
+	
 </body>
 </html>

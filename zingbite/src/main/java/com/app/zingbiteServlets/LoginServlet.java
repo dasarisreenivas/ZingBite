@@ -23,14 +23,20 @@ public class LoginServlet extends HttpServlet {
         UserDAO userDao = new UserDAOImplementation();
         User user = userDao.getUserById(email); // rename for clarity
 
-        if (user != null && password.equals(user.getPassword())) { 
-            // ✅ TODO: Replace with BCrypt check later
-            HttpSession session = req.getSession();
-            session.setAttribute("user", user);
-            resp.sendRedirect("index.jsp");
-        } else {
-            req.setAttribute("errorMessage", "Invalid email or password");
-            req.getRequestDispatcher("login.jsp").forward(req, resp);
+        if (user != null) {
+	        	if( password.equals(user.getPassword())) { 
+	            // ✅ TODO: Replace with BCrypt check later
+	            HttpSession session = req.getSession();
+	            session.setAttribute("loggedInUser", user);
+	            resp.sendRedirect("index.jsp");
+	        }else {
+	            req.setAttribute("errorMessage", "Invalid email or password");
+	            req.getRequestDispatcher("login.jsp").forward(req, resp);
+	        }
+        }else {
+                req.setAttribute("errorMessage", "Email not registered");
+                req.getRequestDispatcher("login.jsp").forward(req, resp);
+            }
         }
     }
-}
+

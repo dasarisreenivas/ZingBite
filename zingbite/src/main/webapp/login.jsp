@@ -5,8 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ZingBite - Login</title>
-  <link rel = "stylesheet" href="css/login.css">
- 
+  <link rel="stylesheet" href="css/login.css">
 </head>
 <body>
   <div class="container">
@@ -40,19 +39,25 @@
             <p class="card-description">Sign in to your ZingBite account</p>
           </div>
           <div class="card-content">
-          
-          <!-- form begin -->
+
+            <!-- Error Message -->
+            <% 
+               String errorMessage = (String) request.getAttribute("errorMessage");
+               if (errorMessage != null) { 
+            %>
+              <div class="error-message"><%= errorMessage %></div>
+            <% } %>
+
+            <!-- form begin -->
             <form id="loginForm" class="form" action="login" method="post">
               <div class="form-group">
                 <label for="email" class="form-label"><b>Email</b></label>
                 <input type="email" name="email" id="email" class="form-input" placeholder="Enter your email" required>
-                
               </div>
 
               <div class="form-group">
                 <label for="password" class="form-label"><b>Password</b></label>
                 <input type="password" name="password" id="password" class="form-input" placeholder="Enter your password" required>
-               
               </div>
 
               <div class="form-row">
@@ -66,7 +71,7 @@
               <button type="submit" class="submit-button">Sign in</button>
 
               <div class="signup-link">
-                <p>Don't have an account?  <a href="register.jsp" class="signup-button">Sign up</a></p>
+                <p>Don't have an account? <a href="register.jsp" class="signup-button">Sign up</a></p>
               </div>
             </form>
           </div>
@@ -80,6 +85,7 @@
       </div>
     </div>
   </div>
+
   <script src="script/loginscript.js"></script>
 </body>
 </html>
