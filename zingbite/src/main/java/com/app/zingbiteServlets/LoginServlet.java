@@ -28,7 +28,7 @@ public class LoginServlet extends HttpServlet {
 	            // ✅ TODO: Replace with BCrypt check later
 	            HttpSession session = req.getSession();
 	            session.setAttribute("loggedInUser", user);
-	            resp.sendRedirect("index.jsp");
+	            resp.sendRedirect("home");
 	        }else {
 	            req.setAttribute("errorMessage", "Invalid email or password");
 	            req.getRequestDispatcher("login.jsp").forward(req, resp);

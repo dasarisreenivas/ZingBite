@@ -82,8 +82,15 @@ document.addEventListener('DOMContentLoaded', () => {
       // Optional: redirect after 2s
       setTimeout(() => {
         registerForm.submit(); // actually submit the form
-      }, 2000);
+      }, 1000);
       e.preventDefault(); // prevent immediate submission to allow showing success message
     }
   });
 });
+const slides = document.querySelectorAll('.hero-slideshow img');
+let current = 0;
+setInterval(() => {
+    slides[current].classList.remove('active');
+    current = (current + 1) % slides.length;
+    slides[current].classList.add('active');
+}, 2000);
