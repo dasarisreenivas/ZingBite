@@ -53,7 +53,7 @@ body {
   line-height: 0.9;
 }
 .logo-subtitle {
-  font-size: 1.25rem;
+  font-size: 1.50rem;
   font-weight: 700;
   color: #111827; /* Dark text (mobile default) */
   margin-top: 0.2rem;
@@ -86,10 +86,10 @@ body {
   margin-bottom: 2rem;
   display: block;
 }
-.mobile-logo .logo-title { font-size: 2rem; color: #F7374F; }
+.mobile-logo .logo-title { font-size: 2.5rem; color: #F7374F; }
 .mobile-logo .logo-subtitle {
   line-height: 1.4;
-  font-size: 1rem;
+  font-size: 1.5rem;
   display: block;
   margin-left: 0;
   color: #111827;
