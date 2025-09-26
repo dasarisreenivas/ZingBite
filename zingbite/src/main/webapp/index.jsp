@@ -66,7 +66,7 @@
                 <div class="restaurant-overlay">
                     <h3><%= restaurant.getRestaurantName() %></h3>
                     <p><%= restaurant.getCusineType() %> • <%= restaurant.getDeliveryTime() %> min</p>
-                    <a class="view-menu" href="viewMenu?restaurantId=<%= restaurant.getRestaurantId() %>">View Menu</a>
+                    <a class="view-menu" href="menu?restaurantId=<%= restaurant.getRestaurantId() %>">View Menu</a>
                 </div>
             </div>
         <%

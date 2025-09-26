@@ -1,0 +1,228 @@
+@charset "UTF-8";
+
+/* General glassy background */
+body {
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 0;
+    background: url('../images/food-bg.jpg') no-repeat center center fixed;
+    background-size: cover;
+    color: #333;
+}
+
+/* Default glassy header */
+header {
+    background: rgba(255, 255, 255, 0.35);
+    padding: 16px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    backdrop-filter: blur(12px);
+    border-bottom: 3px solid #F7374F;
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* White solid header on scroll */
+header.scrolled {
+    background: #fff;
+    backdrop-filter: none;
+}
+
+header.scrolled nav a {
+    color: #333;
+}
+
+header.scrolled .logo-text {
+    -webkit-text-fill-color: #F7374F;
+    background: none;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Logo + tagline */
+.logo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.logo-text {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: #F7374F;
+    margin: 0;
+}
+
+.tagline-text {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: black;
+    margin-top: 0;
+    line-height: 0.9;
+}
+
+/* Navigation */
+nav {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+nav a {
+    text-decoration: none;
+    color: #333;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 25px;
+    transition: background 0.3s ease, color 0.3s ease, transform 0.2s ease;
+}
+
+nav a:hover {
+    color: #F7374F;
+    transform: translateY(-2px);
+}
+
+nav .welcome {
+    font-weight: 500;
+    color: #F7374F;
+    margin-right: 10px;
+}
+
+/* Section header */
+.section-header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin: 25px 15px;
+    padding: 12px 18px;
+    background: rgba(255,255,255,0.35);
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+}
+
+.section-header h2 {
+    font-size: 26px;
+    color: #F7374F;
+    margin: 0;
+    font-weight: bold;
+}
+
+/* Menu Grid */
+.menu-list {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 22px;
+    padding: 20px;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 1200px) {
+    .menu-list { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 900px) {
+    .menu-list { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+    .menu-list { grid-template-columns: 1fr; }
+}
+
+/* Menu Card */
+.menu-card {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.menu-card img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 12px;
+    margin-bottom: 8px;
+}
+
+.menu-card h3 {
+    font-size: 20px;
+    color: #F7374F;
+    margin: 5px 0;
+    font-weight: bold;
+}
+
+.menu-card p {
+    font-size: 14px;
+    color: #333;
+    margin: 4px 0 8px 0;
+}
+
+.menu-card .price {
+    font-size: 16px;
+    font-weight: bold;
+    color: #F7374F;
+}
+
+/* Quantity controls */
+.qty-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.qty-controls button {
+    padding: 4px 10px;
+    background: #F7374F;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.qty-controls button:hover {
+    transform: scale(1.05);
+    background: #ff5a70;
+}
+
+.qty-controls .qty-input {
+    width: 35px;
+    text-align: center;
+    border: none;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.5);
+    font-weight: bold;
+}
+
+/* Add to Cart Button */
+.add-btn {
+    padding: 8px 14px;
+    background: #F7374F;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.add-btn:hover {
+    transform: scale(1.05);
+    background: #ff5a70;
+}
+
+/* Empty state */
+.no-data {
+    font-size: 18px;
+    color: #F7374F;
+    background: rgba(255,255,255,0.35);
+    padding: 12px 18px;
+    border-radius: 12px;
+    text-align: center;
+    backdrop-filter: blur(8px);
+}

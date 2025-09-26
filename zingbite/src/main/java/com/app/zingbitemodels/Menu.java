@@ -3,7 +3,7 @@ package com.app.zingbitemodels;
 public class Menu {
 	
 	private int menuId;
-	private int RestaurantId;
+	private int restaurantId;
 	private String menuName;
 	private double price;
 	private String description;
@@ -17,7 +17,7 @@ public class Menu {
 	public Menu(int restaurantId, String menuName, double price, String description, boolean isAvailable,
 			String imagePath) {
 		super();
-		RestaurantId = restaurantId;
+		this.restaurantId = restaurantId;
 		this.menuName = menuName;
 		this.price = price;
 		this.description = description;
@@ -29,7 +29,7 @@ public class Menu {
 			String imagePath) {
 		super();
 		this.menuId = menuId;
-		RestaurantId = restaurantId;
+		this.restaurantId = restaurantId;
 		this.menuName = menuName;
 		this.price = price;
 		this.description = description;
@@ -46,11 +46,11 @@ public class Menu {
 	}
 
 	public int getRestaurantId() {
-		return RestaurantId;
+		return restaurantId;
 	}
 
 	public void setRestaurantId(int restaurantId) {
-		RestaurantId = restaurantId;
+		this.restaurantId = restaurantId;
 	}
 
 	public String getMenuName() {
@@ -95,7 +95,7 @@ public class Menu {
 
 	@Override
 	public String toString() {
-		return "Menu [menuId=" + menuId + ", RestaurantId=" + RestaurantId + ", menuName=" + menuName + ", price="
+		return "Menu [menuId=" + menuId + ", RestaurantId=" + restaurantId + ", menuName=" + menuName + ", price="
 				+ price + ", description=" + description + ", isAvailable=" + isAvailable + ", imagePath=" + imagePath
 				+ "]";
 	}

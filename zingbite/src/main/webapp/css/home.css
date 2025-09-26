@@ -208,6 +208,7 @@ nav .welcome {
 .restaurant-card h3,
 .restaurant-card p,
 .restaurant-card .view-menu {
+	align-items :center;
     position: relative;
     z-index: 1;
     margin: 5px 0;
