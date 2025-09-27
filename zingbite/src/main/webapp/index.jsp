@@ -13,10 +13,10 @@
 <div class="container">
 
     <header>
-    <div class="logo-container">
-        <h1 class="logo-text">ZingBite</h1>
-        <p class="tagline-text">Taste the Best</p>
-    </div>
+        <div class="logo-container">
+            <h1 class="logo-text">ZingBite</h1>
+            <p class="tagline-text">Taste the Best</p>
+        </div>
         <nav>
             <a href="home">Home</a>
             <%
@@ -62,11 +62,30 @@
                 for (Restaurant restaurant : restaurantList) {
         %>
             <div class="restaurant-card"
-                 style="background-image: url('https://th.bing.com/th/id/OIP._iymr27O_84b9tR7Lz5E1gHaHa?w=196&h=196&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3');">
+                 style="background-image: url('https://th.bing.com/th/id/OIP.jJI3bTJ-diLfKDHb9-vwmwHaE8?w=277&h=185&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3');">
+                
+                <!-- Rating Badge -->
+                <div class="rating-badge">
+                    <%
+                        int rating = (int)restaurant.getRating(); // assuming 0-5 integer
+                        for (int i = 1; i <= 5; i++) {
+                            if (i <= rating) {
+                    %>
+                        <span class="star filled">&#9733;</span>
+                    <%
+                            } else {
+                    %>
+                        <span class="star">&#9733;</span>
+                    <%
+                            }
+                        }
+                    %>
+                </div>
+
                 <div class="restaurant-overlay">
                     <h3><%= restaurant.getRestaurantName() %></h3>
                     <p><%= restaurant.getCusineType() %> • <%= restaurant.getDeliveryTime() %> min</p>
-                    <a class="view-menu" href="menu?restaurantId=<%= restaurant.getRestaurantId() %>">View Menu</a>
+                    <a class="view-menu" href="menu?restaurantId=<%= restaurant.getRestaurantId() %>&restaurantName=<%= restaurant.getRestaurantName() %>">View Menu</a>
                 </div>
             </div>
         <%

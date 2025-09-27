@@ -16,27 +16,35 @@ import com.app.zingbitemodels.User;
 public class LoginServlet extends HttpServlet {
     
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) 
+            throws ServletException, IOException {
         String email = req.getParameter("email");
         String password = req.getParameter("password");
 
+        String restaurantId = req.getParameter("restaurantId");
+        String restaurantName = req.getParameter("restaurantName");
+
         UserDAO userDao = new UserDAOImplementation();
-        User user = userDao.getUserById(email); // rename for clarity
+        User user = userDao.getUserById(email);
 
         if (user != null) {
-	        	if( password.equals(user.getPassword())) { 
-	            // ✅ TODO: Replace with BCrypt check later
-	            HttpSession session = req.getSession();
-	            session.setAttribute("loggedInUser", user);
-	            resp.sendRedirect("home");
-	        }else {
-	            req.setAttribute("errorMessage", "Invalid email or password");
-	            req.getRequestDispatcher("login.jsp").forward(req, resp);
-	        }
-        }else {
-                req.setAttribute("errorMessage", "Email not registered");
+            if (password.equals(user.getPassword())) {
+                HttpSession session = req.getSession();
+                session.setAttribute("loggedInUser", user);
+
+                // Redirect back to MenuServlet if restaurantId present
+                if (restaurantId != null && !restaurantId.isEmpty()) {
+                    resp.sendRedirect("menu?restaurantId=" + restaurantId + "&restaurantName=" + restaurantName);
+                } else {
+                    resp.sendRedirect("home"); // fallback
+                }
+            } else {
+                req.setAttribute("errorMessage", "Invalid email or password");
                 req.getRequestDispatcher("login.jsp").forward(req, resp);
             }
+        } else {
+            req.setAttribute("errorMessage", "Email not registered");
+            req.getRequestDispatcher("login.jsp").forward(req, resp);
         }
     }
-
+}

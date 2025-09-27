@@ -1,6 +1,6 @@
 @charset "UTF-8";
 
-/* General glassy background */
+/* ---------------- General glassy background ---------------- */
 body {
     font-family: 'Segoe UI', sans-serif;
     margin: 0;
@@ -10,7 +10,7 @@ body {
     color: #333;
 }
 
-/* Default glassy header */
+/* ---------------- Header ---------------- */
 header {
     background: rgba(255, 255, 255, 0.35);
     padding-top:16px;
@@ -102,7 +102,7 @@ nav .welcome {
     margin-right: 10px;
 }
 
-/* Section header with sorting */
+/* ---------------- Section Header ---------------- */
 .section-header {
     display: flex;
     justify-content: space-between;
@@ -111,7 +111,7 @@ nav .welcome {
     padding: 12px 18px;
     flex-wrap: wrap;
     gap: 12px;
-    background: rgba(255,255,255,0.35);
+    background: rgba(255, 255, 255, 0.35);
     border-radius: 12px;
     backdrop-filter: blur(8px);
 }
@@ -157,7 +157,7 @@ nav .welcome {
     transform: translateY(-2px);
 }
 
-/* Restaurant Grid */
+/* ---------------- Restaurant Grid ---------------- */
 .restaurant-list {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -179,7 +179,7 @@ nav .welcome {
     .sort-form select { width: 100%; }
 }
 
-/* Restaurant Card with background image */
+/* ---------------- Restaurant Card ---------------- */
 .restaurant-card {
     position: relative;
     border-radius: 16px;
@@ -208,7 +208,6 @@ nav .welcome {
 .restaurant-card h3,
 .restaurant-card p,
 .restaurant-card .view-menu {
-	align-items :center;
     position: relative;
     z-index: 1;
     margin: 5px 0;
@@ -248,7 +247,33 @@ nav .welcome {
     transform: scale(1.05);
 }
 
-/* Empty State */
+/* ---------------- Rating Badge ---------------- */
+/* ---------------- Rating Badge ---------------- */
+.rating-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(0,0,0,1);
+    padding: 4px 8px;
+    border-radius: 12px;
+    display: flex;
+    gap: 2px;
+    z-index: 10; /* ensure it sits above the overlay */
+}
+
+.rating-badge .star {
+    font-size: 25px;
+    color: #ccc; /* default grey for empty stars */
+    line-height: 1;
+    display: inline-block;
+}
+
+.rating-badge .star.filled {
+    color: #FFE100 !important; /* gold stars */
+}
+
+
+/* ---------------- Empty State ---------------- */
 .no-data {
     font-size: 18px;
     color: #F7374F;

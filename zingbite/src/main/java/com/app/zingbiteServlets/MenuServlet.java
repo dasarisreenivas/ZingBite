@@ -20,21 +20,21 @@ public class MenuServlet extends HttpServlet {
             throws ServletException, IOException {
 
         String restaurantIdParam = request.getParameter("restaurantId");
-
+        String restaurantName = request.getParameter("restaurantName");
         if (restaurantIdParam != null) {
             try {
                 int restaurantId = Integer.parseInt(restaurantIdParam);
 
                 MenuDAO menuDAO = new MenuDAOImplementation();
                 List<Menu> menuList = menuDAO.getMenuRestaurantById(restaurantId);
-
+                
+                request.setAttribute("restaurantName", restaurantName);
                 request.setAttribute("menuList", menuList);
             } catch (NumberFormatException e) {
                 request.setAttribute("menuList", null);
             }
         }
 
-        // Forward to JSP
         request.getRequestDispatcher("viewmenu.jsp").forward(request, response);
     }
 }

@@ -1,6 +1,6 @@
 @charset "UTF-8";
 
-/* General glassy background */
+/* ---------------- General Background ---------------- */
 body {
     font-family: 'Segoe UI', sans-serif;
     margin: 0;
@@ -10,33 +10,42 @@ body {
     color: #333;
 }
 
-/* Default glassy header */
+/* ---------------- Header ---------------- */
 header {
     background: rgba(255, 255, 255, 0.35);
-    padding: 16px 28px;
+    padding-top:16px;
+    padding-left:  28px;
+    padding-right:  28px;
     display: flex;
+    margin-bottom:15px;
     justify-content: space-between;
     align-items: center;
     backdrop-filter: blur(12px);
     border-bottom: 3px solid #F7374F;
+    /*box-shadow: 0 2px 10px rgba(0,0,0,0.2);*/
+    /*position: sticky;
+    top: 0;
+    z-index: 999;*/
     transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 
 /* White solid header on scroll */
 header.scrolled {
     background: #fff;
+    /*box-shadow: 0 4px 12px rgba(0,0,0,0.25);*/
     backdrop-filter: none;
 }
 
 header.scrolled nav a {
-    color: #333;
+    color: #ffffff; /* Ensure nav links stay visible on white background */
 }
 
 header.scrolled .logo-text {
-    -webkit-text-fill-color: #F7374F;
+    -webkit-text-fill-color: #F7374F; /* Gradient removed, solid pink text */
     background: none;
     text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
 }
+
 
 /* Logo + tagline */
 .logo-container {
@@ -48,7 +57,10 @@ header.scrolled .logo-text {
 .logo-text {
     font-size: 1.9rem;
     font-weight: 700;
-    color: #F7374F;
+  	 color:#F7374F;
+    
+    
+    
     margin: 0;
 }
 
@@ -56,8 +68,8 @@ header.scrolled .logo-text {
     font-size: 1.15rem;
     font-weight: 700;
     color: black;
-    margin-top: 0;
-    line-height: 0.9;
+   margin-top:0px;
+   line-height:0.9;
 }
 
 /* Navigation */
@@ -65,6 +77,8 @@ nav {
     display: flex;
     gap: 20px;
     align-items: center;
+    margin-right:26px;
+    
 }
 
 nav a {
@@ -77,6 +91,7 @@ nav a {
 }
 
 nav a:hover {
+   /* background: rgba(247, 55, 79, 0.15);*/
     color: #F7374F;
     transform: translateY(-2px);
 }
@@ -86,95 +101,121 @@ nav .welcome {
     color: #F7374F;
     margin-right: 10px;
 }
-
-/* Section header */
-.section-header {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    margin: 25px 15px;
-    padding: 12px 18px;
-    background: rgba(255,255,255,0.35);
-    border-radius: 12px;
-    backdrop-filter: blur(8px);
-}
-
-.section-header h2 {
-    font-size: 26px;
-    color: #F7374F;
-    margin: 0;
-    font-weight: bold;
-}
-
-/* Menu Grid */
-.menu-list {
+/* ---------------- Menu Container ---------------- */
+.menu-container {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 22px;
-    padding: 20px;
+    gap: 24px;
+    padding: 24px;
 }
 
 /* Responsive breakpoints */
 @media (max-width: 1200px) {
-    .menu-list { grid-template-columns: repeat(3, 1fr); }
+    .menu-container { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 900px) {
-    .menu-list { grid-template-columns: repeat(2, 1fr); }
+    .menu-container { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 600px) {
-    .menu-list { grid-template-columns: 1fr; }
+    .menu-container { grid-template-columns: 1fr; }
 }
 
-/* Menu Card */
-.menu-card {
+/* ---------------- Menu Item Card ---------------- */
+.menu-item {
     position: relative;
     border-radius: 16px;
     overflow: hidden;
-    background: rgba(255,255,255,0.15);
+    background: rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(10px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     display: flex;
     flex-direction: column;
-    padding: 12px;
+    padding: 16px;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.menu-card img {
+.menu-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* ---------------- Menu Image ---------------- */
+.menu-item img.item-img {
     width: 100%;
-    height: 180px;
+    height: 250px;
     object-fit: cover;
     border-radius: 12px;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
 }
 
-.menu-card h3 {
-    font-size: 20px;
-    color: #F7374F;
-    margin: 5px 0;
+/* ---------------- Availability Badge ---------------- */
+.menu-item .availability-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 12px;
     font-weight: bold;
+    color: white;
+    text-transform: uppercase;
+    backdrop-filter: blur(5px);
+    z-index: 10;
 }
 
-.menu-card p {
-    font-size: 14px;
+.menu-item .availability-badge.available {
+    background-color: #34634f; /* green */
+}
+
+.menu-item .availability-badge.unavailable {
+    background-color: #CB0404; /* red */
+}
+
+/* ---------------- Menu Details ---------------- */
+.menu-details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.menu-details .item-name {
+    font-size: 22px;
+    color: #F7374F;
+    font-weight: bold;
+    margin: 0;
+}
+
+.menu-details .description {
+    font-size: 15px;
+    font-weight: 500;
     color: #333;
-    margin: 4px 0 8px 0;
+    line-height: 1.4;
+    margin: 0;
+    padding-bottom: 10px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
-.menu-card .price {
-    font-size: 16px;
-    font-weight: bold;
+.menu-details .price {
+    font-size: 20px;
+    font-weight: 700;
     color: #F7374F;
+    margin: 0 0 5px 0;
 }
 
-/* Quantity controls */
-.qty-controls {
+/* ---------------- Quantity Controls ---------------- */
+.quantity {
     display: flex;
     align-items: center;
     gap: 6px;
     margin-bottom: 8px;
 }
 
-.qty-controls button {
+.qty-btn {
     padding: 4px 10px;
     background: #F7374F;
     color: white;
@@ -185,23 +226,23 @@ nav .welcome {
     transition: transform 0.2s ease, background 0.2s ease;
 }
 
-.qty-controls button:hover {
+.qty-btn:hover {
     transform: scale(1.05);
-    background: #ff5a70;
+    background: black;
 }
 
-.qty-controls .qty-input {
-    width: 35px;
+.qty-input {
+    width: 45px;
     text-align: center;
     border: none;
     border-radius: 6px;
-    background: rgba(255,255,255,0.5);
+    background: rgba(255, 255, 255, 0.5);
     font-weight: bold;
 }
 
-/* Add to Cart Button */
-.add-btn {
-    padding: 8px 14px;
+/* ---------------- Add to Cart Button ---------------- */
+.order-btn {
+    padding: 10px 22px;
     background: #F7374F;
     color: white;
     border: none;
@@ -211,18 +252,47 @@ nav .welcome {
     transition: transform 0.2s ease, background 0.2s ease;
 }
 
-.add-btn:hover {
+.order-btn:hover {
     transform: scale(1.05);
-    background: #ff5a70;
+    background: black;
 }
 
-/* Empty state */
+.order-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* ---------------- Cart Popup ---------------- */
+.cart-popup {
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 5px;
+    text-align: center;
+    font-weight: bold;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.popup-hidden {
+    display: none;
+    opacity: 0;
+}
+
+/* ---------------- Empty State ---------------- */
 .no-data {
     font-size: 18px;
     color: #F7374F;
-    background: rgba(255,255,255,0.35);
+    background: rgba(255, 255, 255, 0.35);
     padding: 12px 18px;
     border-radius: 12px;
     text-align: center;
     backdrop-filter: blur(8px);
+}
+
+/* ---------------- Mobile Adjustments ---------------- */
+@media (max-width: 600px) {
+    .menu-details .item-name { font-size: 20px; }
+    .menu-details .description { font-size: 14px; -webkit-line-clamp: 3; }
+    .menu-details .price { font-size: 18px; }
+    .menu-item img.item-img { height: 200px; }
+    .menu-item .availability-badge { font-size: 10px; padding: 4px 10px; top: 8px; right: 8px; }
 }
