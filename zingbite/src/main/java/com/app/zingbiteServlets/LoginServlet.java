@@ -26,17 +26,18 @@ public class LoginServlet extends HttpServlet {
 
         UserDAO userDao = new UserDAOImplementation();
         User user = userDao.getUserById(email);
-
+        
         if (user != null) {
             if (password.equals(user.getPassword())) {
                 HttpSession session = req.getSession();
                 session.setAttribute("loggedInUser", user);
 
-                // Redirect back to MenuServlet if restaurantId present
-                if (restaurantId != null && !restaurantId.isEmpty()) {
-                    resp.sendRedirect("menu?restaurantId=" + restaurantId + "&restaurantName=" + restaurantName);
-                } else {
-                    resp.sendRedirect("home"); // fallback
+                String redirectUrl = (String)session.getAttribute("redirectAfterLogin");
+                if(redirectUrl!=null) {
+                	session.removeAttribute("redirectAfterLogin");
+                	resp.sendRedirect(redirectUrl);
+                }else {
+                	resp.sendRedirect("home");
                 }
             } else {
                 req.setAttribute("errorMessage", "Invalid email or password");
