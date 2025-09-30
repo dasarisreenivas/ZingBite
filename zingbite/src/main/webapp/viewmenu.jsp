@@ -65,7 +65,7 @@
         %>
             <div class="menu-item">
                 <!-- Menu Image -->
-                <img src="https://wallpaperaccess.com/full/767054.jpg"
+                <img src="https://th.bing.com/th/id/OIP.jUfCu2A6ilKJAdybISEMgwHaHa?w=175&h=180&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3"
                      alt="<%= item.getMenuName() %>" class="item-img">
 
                 <!-- Availability Badge -->
