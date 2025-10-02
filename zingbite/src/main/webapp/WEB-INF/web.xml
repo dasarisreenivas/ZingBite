@@ -14,4 +14,14 @@
     <servlet-name>Menu</servlet-name>
     <url-pattern>/Menu</url-pattern>
   </servlet-mapping>
+  <servlet>
+    <description></description>
+    <display-name>CartServlet</display-name>
+    <servlet-name>CartServlet</servlet-name>
+    <servlet-class>com.app.zingbiteServlets.CartServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>CartServlet</servlet-name>
+    <url-pattern>/CartServlet</url-pattern>
+  </servlet-mapping>
 </web-app>
