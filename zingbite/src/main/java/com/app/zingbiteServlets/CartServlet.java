@@ -26,6 +26,18 @@ public class CartServlet extends HttpServlet {
 		}
 		
 		String action = req.getParameter("actions");
+		if("add".equals(action)) {
+			addItemToCart(req,cart);
+		}
+		else if("update".equals(action)) {
+			updateCartItem(req,cart);
+		}
+		else if("remove".equals(action)) {
+			removeItemFromCart(req,cart);
+		}
+		
+		session.setAttribute("cart", cart);
+		
 	}
 	
 	
