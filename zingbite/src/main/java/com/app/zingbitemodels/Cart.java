@@ -11,7 +11,7 @@ public class Cart {
 		this.items = new HashMap<>();
 	}
 	
-	public void addItem(CartItem item) {
+	public void addItemToCart(CartItem item) {
 		int itemId = item.getItemId();
 		if(items.containsKey(itemId)) {
 			CartItem existingItem = items.get(itemId);
@@ -21,7 +21,7 @@ public class Cart {
 		}
 	}
 	
-	public void updateItem(int itemId,int quantity) {
+	public void updateCartItem(int itemId,int quantity) {
 		if(items.containsKey(itemId)) {
 			if(quantity<=0) {
 				items.remove(itemId);
@@ -31,7 +31,7 @@ public class Cart {
 		}
 	}
 	
-	public void removeItem(int itemId) {
+	public void removeItemFromCart(int itemId) {
 		items.remove(itemId);
 	}
 	
