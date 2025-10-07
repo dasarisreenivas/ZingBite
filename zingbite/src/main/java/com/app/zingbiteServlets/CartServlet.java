@@ -48,10 +48,11 @@ public class CartServlet extends HttpServlet {
 		int quantity = Integer.parseInt(req.getParameter("quantity"));
 		
 		MenuDAO menuDAO = new MenuDAOImplementation();
+		
 	}
 
 	private void updateCartItem(HttpServletRequest req, Cart cart) {
-		// TODO Auto-generated method stub
+		
 		
 	}
 
