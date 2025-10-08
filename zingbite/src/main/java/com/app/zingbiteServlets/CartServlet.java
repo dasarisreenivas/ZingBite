@@ -11,7 +11,10 @@ import javax.servlet.http.HttpSession;
 
 import com.app.zingbitedao.MenuDAO;
 import com.app.zingbitedaoimpl.MenuDAOImplementation;
+import com.app.zingbitedaoimpl.RestaurantDAOImplementation;
 import com.app.zingbitemodels.Cart;
+import com.app.zingbitemodels.CartItem;
+import com.app.zingbitemodels.Menu;
 
 
 @WebServlet("/cart")
@@ -44,10 +47,6 @@ public class CartServlet extends HttpServlet {
 	}
 	
 	private void removeItemFromCart(HttpServletRequest req, Cart cart) {
-		int itemID = Integer.parseInt(req.getParameter("itemId"));
-		int quantity = Integer.parseInt(req.getParameter("quantity"));
-		
-		MenuDAO menuDAO = new MenuDAOImplementation();
 		
 	}
 
@@ -62,7 +61,27 @@ public class CartServlet extends HttpServlet {
 	}
 
 	private void addItemToCart(HttpServletRequest req, Cart cart) {
-		// TODO Auto-generated method stub
+		int itemID = Integer.parseInt(req.getParameter("itemId"));
+		int quantity = Integer.parseInt(req.getParameter("quantity"));
+		
+		MenuDAO menuDAO = new MenuDAOImplementation();
+		Menu menuItem = menuDAO.getMenuById(itemID);
+		
+		HttpSession session = req.getSession();
+		int restaurantID = menuItem.getRestaurantId();
+		session.setAttribute("restaurantId", restaurantID);
+		session.setAttribute("restaurantName", new RestaurantDAOImplementation().getRestaurantById(restaurantID));
+		if(menuItem!=null) {
+			CartItem item = new CartItem(
+						menuItem.getMenuId(),
+						menuItem.getMenuName(),
+						menuItem.getPrice(),
+						quantity,
+						0.0f
+						
+					);
+			cart.addItemToCart(item);
+		}
 		
 	}
 	
