@@ -46,20 +46,11 @@ public class CartServlet extends HttpServlet {
 		
 	}
 	
-	private void removeItemFromCart(HttpServletRequest req, Cart cart) {
-		
-	}
-
-	private void updateCartItem(HttpServletRequest req, Cart cart) {
-		
-		
-	}
-
 	@Override
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		req.getRequestDispatcher("cart.jsp").forward(req, resp);
 	}
-
+	
 	private void addItemToCart(HttpServletRequest req, Cart cart) {
 		int itemID = Integer.parseInt(req.getParameter("itemId"));
 		int quantity = Integer.parseInt(req.getParameter("quantity"));
@@ -70,7 +61,7 @@ public class CartServlet extends HttpServlet {
 		HttpSession session = req.getSession();
 		int restaurantID = menuItem.getRestaurantId();
 		session.setAttribute("restaurantId", restaurantID);
-		session.setAttribute("restaurantName", new RestaurantDAOImplementation().getRestaurantById(restaurantID));
+		session.setAttribute("restaurantName", new RestaurantDAOImplementation().getRestaurantById(restaurantID).getRestaurantName());
 		if(menuItem!=null) {
 			CartItem item = new CartItem(
 						menuItem.getMenuId(),
@@ -84,6 +75,22 @@ public class CartServlet extends HttpServlet {
 		}
 		
 	}
+	
+	private void removeItemFromCart(HttpServletRequest req, Cart cart) {
+		int itemID = Integer.parseInt(req.getParameter("itemId"));
+		cart.removeItemFromCart(itemID);
+		
+	}
+
+	private void updateCartItem(HttpServletRequest req, Cart cart) {
+		int itemID = Integer.parseInt(req.getParameter("itemId"));
+		int quantity = Integer.parseInt(req.getParameter("quantity"));
+		cart.updateCartItem(itemID, quantity);
+	}
+
+	
+
+
 	
 	
 

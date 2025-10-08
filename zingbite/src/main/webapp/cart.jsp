@@ -18,6 +18,7 @@
         %>
         <div class="cart-item">
             <div class="item-details">
+            	<h3><%= session.getAttribute("restaurantName") %></h3>
                 <h3><%= item.getItemName() %></h3>
                 <p>Price: ₹<%= item.getPrice() %></p>
                 <p>Quantity: <%= item.getQuantity() %></p>
