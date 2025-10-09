@@ -46,7 +46,13 @@
         }
         double shipping = 50.00;
         double tax = 50.00;
-        double total = subtotal + shipping + tax;
+        double total = subtotal + tax;
+        
+        if(total>=1000 || subtotal>=1000){
+        	total = subtotal+tax;
+        }else{
+        	total = subtotal+shipping+tax;
+        }
     %>
 
     <main class="cart-container">
@@ -113,7 +119,11 @@
             </div>
             <div class="summary-row">
                 <span>shipping</span>
+                <%if(total>=1000 || subtotal>=1000){ %>
+                <span id="summary-shipping">₹0</span>
+                <%}else{ %>
                 <span id="summary-shipping">₹<%= String.format("%.2f", shipping) %></span>
+                <%} %>
             </div>
             <div class="summary-row">
                 <span>tax</span>
