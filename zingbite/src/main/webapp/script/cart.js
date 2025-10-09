@@ -55,6 +55,7 @@ document.addEventListener("DOMContentLoaded", function() {
     function updateCartUI(itemId, action) {
         var itemElement = document.getElementById("item-" + itemId);
         if (!itemElement) return;
+
         var qtyDisplay = itemElement.querySelector(".quantity-display");
         var subtotalElement = itemElement.querySelector(".subtotal");
         if (!qtyDisplay || !subtotalElement) return;
@@ -67,6 +68,7 @@ document.addEventListener("DOMContentLoaded", function() {
             itemElement.parentNode.removeChild(itemElement);
         } else {
             qtyDisplay.textContent = quantity;
+
             var subtotalText = subtotalElement.textContent.replace(/[^\d.]/g, '');
             var unitPrice = parseFloat(subtotalText) / (quantity - (action === "increase" ? 1 : -1) || 1);
             subtotalElement.textContent = "Subtotal: ₹" + (unitPrice * quantity).toFixed(2);
@@ -87,7 +89,7 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }
 
-        var shipping = 50.00;
+        var shipping = subtotal > 1000 ? 0 : 50.00;
         var tax = 50.00;
         var total = subtotal + shipping + tax;
 
@@ -107,7 +109,11 @@ document.addEventListener("DOMContentLoaded", function() {
     function checkEmptyCart() {
         var cartItems = document.querySelectorAll(".cart-item");
         if (cartItems.length === 0) {
-            location.reload();
+            var emptyMessage = document.querySelector(".empty-cart-message");
+            if (emptyMessage) emptyMessage.style.display = "block";
+
+            var grandTotal = document.getElementById("grand-total-section");
+            if (grandTotal) grandTotal.style.display = "none";
         }
     }
 });
