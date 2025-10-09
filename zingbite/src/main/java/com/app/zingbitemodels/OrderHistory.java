@@ -1,9 +1,14 @@
 package com.app.zingbitemodels;
 
+import java.io.Serializable;
 import java.util.Date;
 
-public class OrderHistory {
+public class OrderHistory implements Serializable{
 	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	private int orderHistoryId;
 	private int orderId;
 	private int userID;

@@ -1,7 +1,13 @@
 package com.app.zingbitemodels;
 
-public class Menu {
+import java.io.Serializable;
+
+public class Menu implements Serializable{
 	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	private int menuId;
 	private int restaurantId;
 	private String menuName;

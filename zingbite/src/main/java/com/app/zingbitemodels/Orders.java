@@ -1,6 +1,12 @@
 package com.app.zingbitemodels;
 
-public class Orders {
+import java.io.Serializable;
+
+public class Orders implements Serializable{
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	private int orderId;
 	private int restaurantId;
 	private int userId;
