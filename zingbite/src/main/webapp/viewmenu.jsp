@@ -5,110 +5,85 @@
 <head>
     <meta charset="UTF-8">
     <title>ZingBite - Restaurant Menu</title>
-    <link rel="stylesheet" href="css/viewmenu.css">
-    <style>
-        /* Inline CSS for cart popup */
-        .cart-popup {
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 5px;
-            text-align: center;
-            font-weight: bold;
-            transition: opacity 0.3s ease-in-out;
-        }
-        .popup-hidden {
-            display: none;
-            opacity: 0;
-        }
-    </style>
+    <link rel="stylesheet" href="css/viewmenu.css?v=1.1">
 </head>
 <body>
-    <!-- Header -->
-    <header>
-        <div class="logo-container">
-        	<h1 class="logo-text">ZingBite</h1>
-        	<p class="tagline-text">Taste the Best</p>
-    	</div>
-        <nav>
-            <a href="home">Home</a>
-            <%
-                User user = (User) session.getAttribute("loggedInUser");
-                if (user != null) {
-            %>
-                <span class="welcome">Welcome, <%= user.getUserName() %>!</span>
-                <a href="cart">Cart</a>
-                <a href="orderhistory">Orders</a>
-                <a href="logOut">Logout</a>
-            <%
-                } else {
-                    String queryString = request.getQueryString();
-                    String servletUrl = "menu";
-                    if (queryString != null) {
-                        servletUrl += "?" + queryString;
-                    }
-                    session.setAttribute("redirectAfterLogin", servletUrl);
-            %>
-                <a href="login.jsp">Login</a>
-                <a href="register.jsp">Register</a>
-            <%
-                }
-            %>
-        </nav>
-    </header>
 
-    <!-- Menu Container -->
-    <div class="menu-container">
+<!-- Header -->
+<header>
+    <div class="logo-container">
+        <h1 class="logo-text">ZingBite</h1>
+        <p class="tagline-text">Taste the Best</p>
+    </div>
+    <nav>
+        <a href="home">Home</a>
         <%
-            List<Menu> menuList = (List<Menu>) request.getAttribute("menuList");
-            if (menuList != null && !menuList.isEmpty()) {
-                for (Menu item : menuList) {
+            User user = (User) session.getAttribute("loggedInUser");
+            if (user != null) {
         %>
-            <div class="menu-item">
-                <!-- Menu Image -->
-                <img src="https://th.bing.com/th/id/OIP.jUfCu2A6ilKJAdybISEMgwHaHa?w=175&h=180&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3"
-                     alt="<%= item.getMenuName() %>" class="item-img">
-
-                <!-- Availability Badge -->
-                <div class="availability-badge <%= item.isAvailable() ? "available" : "unavailable" %>">
-                    <%= item.isAvailable() ? "Available" : "Not Available" %>
-                </div>
-
-                <!-- Menu Details -->
-                <div class="menu-details">
-                    <h2 class="item-name"><%= item.getMenuName() %></h2>
-                    <p class="price">₹ <%= item.getPrice() %></p>
-                    <p class="description"><%= item.getDescription() %></p>
-
-                    <% if (user != null) { %>
-                        <form class="add-to-cart-form">
-                            <input type="hidden" name="itemId" value="<%= item.getMenuId() %>">
-                            <input type="hidden" name="action" value="add">
-
-                            <div class="quantity">
-                                <button type="button" class="qty-btn" onclick="decreaseQty(this)"><b>-</b></button>
-                                <input type="number" name="quantity" value="1" min="1" class="qty-input">
-                                <button type="button" class="qty-btn" onclick="increaseQty(this)"><b>+</b></button>
-                            </div>
-
-                            <button type="submit" class="order-btn" <%= item.isAvailable() ? "not avail" : "disabled" %>>
-                                Add to Cart
-                            </button>
-                        </form>
-                        <div class="cart-popup popup-hidden"></div>
-                    <% } %>
-                </div>
-            </div>
+            <span class="welcome">Welcome, <%= user.getUserName() %>!</span>
+            <a href="cart.jsp">Cart</a>
+            <a href="orderhistory">Orders</a>
+            <a href="logOut">Logout</a>
         <%
-                }
             } else {
         %>
-            <p class="no-data">No menu items available for this restaurant.</p>
+            <a href="login.jsp">Login</a>
+            <a href="register.jsp">Register</a>
         <%
             }
         %>
-    </div>
+    </nav>
+</header>
 
-    <!-- Menu JS -->
-    <script src="script/menu.js"></script>
+<!-- Menu Container -->
+<div class="menu-container">
+    <%
+        List<Menu> menuList = (List<Menu>) request.getAttribute("menuList");
+        if (menuList != null && !menuList.isEmpty()) {
+            for (Menu item : menuList) {
+    %>
+        <div class="menu-item">
+            <img src="https://th.bing.com/th/id/OIP.jUfCu2A6ilKJAdybISEMgwHaHa?w=175&h=180&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3"
+                 alt="<%= item.getMenuName() %>" class="item-img">
+
+            <div class="availability-badge <%= item.isAvailable() ? "available" : "unavailable" %>">
+                <%= item.isAvailable() ? "Available" : "Not Available" %>
+            </div>
+
+            <div class="menu-details">
+                <h2 class="item-name"><%= item.getMenuName() %></h2>
+                <p class="price">₹ <%= item.getPrice() %></p>
+                <p class="description"><%= item.getDescription() %></p>
+
+                <% if (user != null) { %>
+                    <div class="quantity">
+                        <button type="button" class="decrease-btn">-</button>
+                        <input type="number" class="qty-input" value="1" min="1">
+                        <button type="button" class="increase-btn">+</button>
+                    </div>
+
+                    <button type="button" class="add-to-cart-btn"
+                            data-item-id="<%= item.getMenuId() %>"
+                            <%= item.isAvailable() ? "" : "disabled" %>>
+                        Add to Cart
+                    </button>
+                <% } %>
+            </div>
+        </div>
+    <%
+            }
+        } else {
+    %>
+        <p class="no-data">No menu items available for this restaurant.</p>
+    <%
+        }
+    %>
+</div>
+
+<!-- Global Cart Popup -->
+<div id="global-cart-popup" class="popup-hidden"></div>
+
+<script src="script/menu.js?v=1.1"></script>
 </body>
 </html>

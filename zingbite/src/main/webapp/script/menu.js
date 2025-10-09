@@ -1,69 +1,61 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const allForms = document.querySelectorAll('.add-to-cart-form');
+document.addEventListener("DOMContentLoaded", () => {
 
-    allForms.forEach(form => {
-        form.addEventListener('submit', function(event) {
-            event.preventDefault();
+    const globalPopup = document.getElementById("global-cart-popup");
 
-            const popup = form.nextElementSibling;
-            const formData = new FormData(form);
+    function showPopup(message) {
+        if (!globalPopup) return;
+        globalPopup.textContent = message;
+        globalPopup.classList.add("show");  // add .show
+        setTimeout(() => globalPopup.classList.remove("show"), 1500);
+    }
 
-            fetch('cart', {
-                method: 'POST',
-                body: new URLSearchParams(formData)
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw new Error(err.message || 'Server error'); });
+    function sendAction(action, itemId, quantity) {
+        let body = `action=${action}&itemId=${itemId}&quantity=${quantity}`;
+        fetch('cart', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: body
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.restaurantConflict) {
+                if (confirm("Your cart contains items from another restaurant. Remove them and add this item?")) {
+                    sendAction("clearAndAdd", data.newItemId, data.newQuantity);
                 }
-                return response.json();
-            })
-            .then(data => {
-                if (data.status === 'success') {
-                    showPopup(popup, data.message || 'Item added to cart! ✅');
-                } else {
-                    showPopup(popup, data.message || 'Could not add item.', true);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showPopup(popup, 'Request failed. Please try again.', true);
-            });
+            } else {
+                showPopup("Item added to cart!");
+            }
+        })
+        .catch(err => console.error("Cart AJAX Error:", err));
+    }
+
+    // Add-to-cart buttons
+    document.querySelectorAll(".add-to-cart-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const itemId = btn.dataset.itemId;
+            const container = btn.closest(".menu-details");
+            const qtyInput = container.querySelector(".qty-input");
+            const quantity = qtyInput ? qtyInput.value : 1;
+            sendAction("add", itemId, quantity);
         });
     });
+
+    // Quantity increase/decrease
+    document.querySelectorAll(".increase-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const input = btn.previousElementSibling;
+            input.value = parseInt(input.value) + 1;
+        });
+    });
+
+    document.querySelectorAll(".decrease-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const input = btn.nextElementSibling;
+            if (parseInt(input.value) > 1) input.value = parseInt(input.value) - 1;
+        });
+    });
+
 });
-
-/**
- * Show popup and hide after delay
- */
-function showPopup(popupElement, message, isError = false) {
-    if (!popupElement) return;
-
-    popupElement.textContent = message;
-    popupElement.style.color = '#fff';
-    popupElement.style.backgroundColor = isError ? '#dc3545' : '#28a745';
-
-    popupElement.classList.remove('popup-hidden');
-    popupElement.classList.add('show');
-
-    setTimeout(() => {
-        popupElement.classList.remove('show');
-        setTimeout(() => {
-            popupElement.classList.add('popup-hidden');
-        }, 400);
-    }, 1500);
-}
-
-// Quantity
-function increaseQty(button) {
-    const input = button.previousElementSibling;
-    input.value = parseInt(input.value, 10) + 1;
-}
-
-function decreaseQty(button) {
-    const input = button.nextElementSibling;
-    const currentValue = parseInt(input.value, 10);
-    if (currentValue > 1) {
-        input.value = currentValue - 1;
-    }
-}
