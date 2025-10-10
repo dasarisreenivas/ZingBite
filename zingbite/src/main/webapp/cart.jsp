@@ -141,6 +141,8 @@
     window.newQuantity = <%= (newQuantity != null ? newQuantity : 0) %>;
 </script>
 <script src="script/cart.js" defer></script>
+<!-- Global Popup -->
+<div id="global-cart-popup" class="popup-hidden">Cart Updated!</div>
 
 
 </body>

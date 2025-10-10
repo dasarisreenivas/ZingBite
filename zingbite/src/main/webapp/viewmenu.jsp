@@ -22,11 +22,20 @@
             if (user != null) {
         %>
             <span class="welcome">Welcome, <%= user.getUserName() %>!</span>
-            <a href="cart.jsp">Cart</a>
+            <a href="cart">Cart</a>
             <a href="orderhistory">Orders</a>
             <a href="logOut">Logout</a>
         <%
             } else {
+                // Get query params like ?restaurantId=5&restaurantName=KFC
+                String queryString = request.getQueryString();
+                String servletUrl = "menu";
+                if (queryString != null) {
+                    servletUrl += "?" + queryString;
+                }
+
+                // Save redirectAfterLogin to MenuServlet (not JSP)
+                session.setAttribute("redirectAfterLogin", servletUrl);
         %>
             <a href="login.jsp">Login</a>
             <a href="register.jsp">Register</a>
@@ -82,7 +91,10 @@
 </div>
 
 <!-- Global Cart Popup -->
-<div id="global-cart-popup" class="popup-hidden"></div>
+
+<div id="cartPopup" class="cart-popup popup-hidden">
+    <span id="popupItemName"></span>
+</div>
 
 <script src="script/menu.js?v=1.1"></script>
 </body>

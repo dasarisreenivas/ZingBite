@@ -12,6 +12,7 @@
 <body>
 <div class="container">
 
+    <!-- Header -->
     <header>
         <div class="logo-container">
             <h1 class="logo-text">ZingBite</h1>
@@ -38,6 +39,7 @@
         </nav>
     </header>
 
+    <!-- Section Header + Sorting -->
     <div class="section-header glass-card">
         <h2>🍴 Featured Restaurants</h2>
         <form action="home" method="get" class="sort-form">
@@ -55,19 +57,27 @@
         </form>
     </div>
 
+    <!-- Restaurant List -->
     <section class="restaurant-list">
         <%
             List<Restaurant> restaurantList = (List<Restaurant>) session.getAttribute("restaurantList");
             if (restaurantList != null && !restaurantList.isEmpty()) {
                 for (Restaurant restaurant : restaurantList) {
         %>
-            <div class="restaurant-card"
-                 style="background-image: url('https://th.bing.com/th/id/OIP.jJI3bTJ-diLfKDHb9-vwmwHaE8?w=277&h=185&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3');">
-                
+            <div class="restaurant-card">
+                <!-- Video element -->
+                <video class="card-video" muted loop>
+                    <source src="videos/foodvide.mp4" type="video/mp4">
+                    <!--  Your browser does not support the video tag.-->
+                </video>
+
+                <!-- Background image -->
+                <div class="card-bg" style="background-image: url('https://th.bing.com/th/id/OIP.jJI3bTJ-diLfKDHb9-vwmwHaE8?w=277&h=185&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3');"></div>
+
                 <!-- Rating Badge -->
                 <div class="rating-badge">
                     <%
-                        int rating = (int)restaurant.getRating(); // assuming 0-5 integer
+                        int rating = (int)restaurant.getRating(); 
                         for (int i = 1; i <= 5; i++) {
                             if (i <= rating) {
                     %>
@@ -82,6 +92,7 @@
                     %>
                 </div>
 
+                <!-- Overlay content -->
                 <div class="restaurant-overlay">
                     <h3><%= restaurant.getRestaurantName() %></h3>
                     <p><%= restaurant.getCusineType() %> • <%= restaurant.getDeliveryTime() %> min</p>
@@ -100,34 +111,6 @@
 
 </div>
 
-<script>
-const select = document.querySelector('.custom-select');
-const trigger = select.querySelector('.custom-select-trigger');
-const options = select.querySelectorAll('.custom-option');
-const hiddenInput = document.getElementById('sort');
-const form = document.querySelector('.sort-form');
-
-trigger.addEventListener('click', () => {
-    select.classList.toggle('open');
-});
-
-options.forEach(option => {
-    option.addEventListener('click', () => {
-        trigger.textContent = "Sort by: " + option.textContent;
-        hiddenInput.value = option.dataset.value;
-        select.classList.remove('open');
-        options.forEach(opt => opt.classList.remove('selected'));
-        option.classList.add('selected');
-        form.submit();
-    });
-});
-
-window.addEventListener('click', e => {
-    if (!select.contains(e.target)) {
-        select.classList.remove('open');
-    }
-});
-</script>
-
+<script src="script/home.js"></script>
 </body>
 </html>

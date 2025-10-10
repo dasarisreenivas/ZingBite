@@ -21,7 +21,6 @@ public class CartServlet extends HttpServlet {
 
         HttpSession session = req.getSession();
         Cart cart = (Cart) session.getAttribute("cart");
-
         if (cart == null) {
             cart = new Cart();
             session.setAttribute("cart", cart);
@@ -33,18 +32,12 @@ public class CartServlet extends HttpServlet {
             switch (action) {
                 case "add":
                     addItemToCart(req, cart, resp, session);
-                    return; // handled inside addItemToCart for JSON response
-                case "update":
-                    updateCartItem(req, cart);
-                    break;
-                case "increase":
-                    adjustQuantity(req, cart, 1);
-                    break;
-                case "decrease":
-                    adjustQuantity(req, cart, -1);
+                    return;
+                case "updateQuantity":
+                    updateQuantity(req, cart);
                     break;
                 case "remove":
-                    removeItemFromCart(req, cart);
+                    removeItem(req, cart);
                     break;
                 case "clear":
                     cart.clear();
@@ -56,9 +49,7 @@ public class CartServlet extends HttpServlet {
                     session.removeAttribute("restaurantId");
                     session.removeAttribute("restaurantName");
                     addItemToCart(req, cart, resp, session);
-                    return; // handled inside addItemToCart
-                default:
-                    System.out.println("⚠️ Unknown cart action: " + action);
+                    return;
             }
 
             session.setAttribute("cart", cart);
@@ -102,59 +93,37 @@ public class CartServlet extends HttpServlet {
                 );
                 resp.setContentType("application/json");
                 resp.getWriter().write(json);
-                return; // Stop adding
+                return;
             }
 
-            // No conflict, add item normally
-            proceedAddItem(cart, session, menuItem, quantity);
+            // No conflict, add item
+            CartItem item = new CartItem(
+                    menuItem.getMenuId(),
+                    menuItem.getRestaurantId(),
+                    menuItem.getMenuName(),
+                    menuItem.getPrice(),
+                    quantity,
+                    0f
+            );
+            cart.addItemToCart(item);
 
-            // Return updated totals
+            session.setAttribute("restaurantId", menuItem.getRestaurantId());
+            session.setAttribute("restaurantName",
+                    new RestaurantDAOImplementation().getRestaurantById(menuItem.getRestaurantId()).getRestaurantName());
+
             sendCartTotals(resp, cart);
         }
     }
 
-    private void proceedAddItem(Cart cart, HttpSession session, Menu menuItem, int quantity) {
-        int restaurantId = menuItem.getRestaurantId();
-
-        session.setAttribute("restaurantId", restaurantId);
-        session.setAttribute("restaurantName",
-                new RestaurantDAOImplementation().getRestaurantById(restaurantId).getRestaurantName());
-
-        CartItem item = new CartItem(
-                menuItem.getMenuId(),
-                menuItem.getRestaurantId(),
-                menuItem.getMenuName(),
-                menuItem.getPrice(),
-                quantity,
-                0.0f
-        );
-
-        cart.addItemToCart(item);
-    }
-
-    private void removeItemFromCart(HttpServletRequest req, Cart cart) {
-        int itemId = Integer.parseInt(req.getParameter("itemId"));
-        cart.removeItemFromCart(itemId);
-    }
-
-    private void updateCartItem(HttpServletRequest req, Cart cart) {
+    private void updateQuantity(HttpServletRequest req, Cart cart) {
         int itemId = Integer.parseInt(req.getParameter("itemId"));
         int quantity = Integer.parseInt(req.getParameter("quantity"));
         cart.updateCartItem(itemId, quantity);
     }
 
-    private void adjustQuantity(HttpServletRequest req, Cart cart, int delta) {
+    private void removeItem(HttpServletRequest req, Cart cart) {
         int itemId = Integer.parseInt(req.getParameter("itemId"));
-        CartItem item = cart.getItems().get(itemId);
-
-        if (item != null) {
-            int newQty = item.getQuantity() + delta;
-            if (newQty <= 0) {
-                cart.removeItemFromCart(itemId);
-            } else {
-                cart.updateCartItem(itemId, newQty);
-            }
-        }
+        cart.removeItemFromCart(itemId);
     }
 
     // ---------------------- Send JSON Totals ----------------------
@@ -169,12 +138,18 @@ public class CartServlet extends HttpServlet {
 
         double total = (subtotal >= 1000) ? subtotal + tax : subtotal + shipping + tax;
 
+        // Build items array for live update
+        StringBuilder itemsJson = new StringBuilder("[");
+        for (CartItem ci : cart.getItems().values()) {
+            itemsJson.append(String.format("{\"itemId\":%d,\"price\":%.2f,\"quantity\":%d},",
+                    ci.getItemId(), ci.getPrice(), ci.getQuantity()));
+        }
+        if (itemsJson.length() > 1) itemsJson.deleteCharAt(itemsJson.length() - 1);
+        itemsJson.append("]");
+
         String json = String.format(
-                "{\"itemCount\":%d,\"subtotal\":%.2f,\"shipping\":%.2f,\"total\":%.2f}",
-                cart.getItems().size(),
-                subtotal,
-                (subtotal >= 1000 ? 0 : shipping),
-                total
+                "{\"itemCount\":%d,\"subtotal\":%.2f,\"shipping\":%.2f,\"tax\":%.2f,\"total\":%.2f,\"items\":%s}",
+                cart.getItems().size(), subtotal, (subtotal >= 1000 ? 0 : shipping), tax, total, itemsJson.toString()
         );
 
         resp.setContentType("application/json");
