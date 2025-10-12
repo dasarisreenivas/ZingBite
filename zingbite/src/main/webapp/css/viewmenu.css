@@ -87,8 +87,7 @@ nav .welcome {
 	display: flex;
 	flex-direction: column;
 	transition: 0.3s;
-	border-style:solid;
-	border-color:#c5bcbf;
+	border: 1px solid #ccc;
 }
 
 .menu-item:hover {

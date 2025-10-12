@@ -111,8 +111,7 @@ nav .welcome {
 .restaurant-card {
 	position: relative;
 	border-radius: 5px;
-	border-style: solid;
-	border-color: red;
+	border:1px soid #ccc;
 	overflow: hidden;
 	height: 300px;
 	display: flex;
