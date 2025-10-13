@@ -272,3 +272,42 @@ nav .welcome {
     transform: translateX(-50%) scale(1);
     pointer-events: auto;
 }
+
+/* ---------------- Delivery Address Section ---------------- */
+.delivery-address-section {
+    margin-top: 25px;
+    border-top: 1px solid #ccc;
+    padding-top: 20px;
+}
+
+.delivery-address-section h3 {
+    margin-bottom: 10px;
+    font-size: 20px;
+    font-weight: 500;
+    color: #F7374F;
+}
+
+#delivery-address {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    outline: none;
+    transition: 0.3s;
+}
+
+#delivery-address:focus {
+    border-color: #F7374F;
+    box-shadow: 0 0 6px rgba(247, 55, 79, 0.4);
+}
+
+#map {
+    width: 100%;
+    height: 300px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+
