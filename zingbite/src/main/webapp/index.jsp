@@ -13,32 +13,7 @@
 <div class="container">
 
     <!-- Header -->
-    <header>
-        <div class="logo-container">
-            <h1 class="logo-text">ZingBite</h1>
-            <p class="tagline-text">Taste the Best</p>
-        </div>
-        <nav>
-            <a href="home">Home</a>
-            <%
-                User user = (User) session.getAttribute("loggedInUser");
-                if (user != null) {
-            %>
-                <span class="welcome">Welcome, <%= user.getUserName() %>!</span>
-                <a href="cart">Cart</a>
-                <a href="orderhistory">Orders</a>
-                <a href="logOut">Logout</a>
-            <%
-                } else {
-            %>
-                <a href="login.jsp">Login</a>
-                <a href="register.jsp">Register</a>
-            <%
-                }
-            %>
-        </nav>
-    </header>
-
+   <%@ include file="includes/header.jsp" %>
     <!-- Section Header + Sorting -->
     <div class="section-header glass-card">
         <h2>🍴 Featured Restaurants</h2>
