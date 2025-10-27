@@ -136,7 +136,7 @@
 <script>
 document.getElementById('proceed-pay').onclick = function(e) {
     var options = {
-        "key": "rzp_test_RU5HIdwTwlQNOw", //Razorpay Test Key
+        "key": "rzp_test_XXXXXXXXXXXXXX", //Razorpay Test Key
         "amount": "<%= totalPaise %>", // amount in paise
         "currency": "INR",
         "name": "ZingBite",
