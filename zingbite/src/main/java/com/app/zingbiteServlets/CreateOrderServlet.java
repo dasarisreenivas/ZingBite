@@ -23,7 +23,7 @@ public class CreateOrderServlet extends HttpServlet {
 
         try {
             // ✅ Razorpay Test Keys
-            RazorpayClient client = new RazorpayClient("rzp_test_RU5HIdwTwlQNOw", "zD11WBQEbgpiX10AfUaHunTJ");
+            RazorpayClient client = new RazorpayClient("rzp_test_XXXXXXXXXXXXXX", "XXXXXXXXXXXXXXXXXXXXXXXX");
 
             // ✅ Amount from form
             int amount = Integer.parseInt(request.getParameter("amount")) * 100;
