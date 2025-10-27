@@ -13,7 +13,9 @@
 <div class="container">
 
     <!-- Header -->
-   <%@ include file="includes/header.jsp" %>
+	
+	<jsp:include page="includes/header.jsp"/>
+	
     <!-- Section Header + Sorting -->
     <div class="section-header glass-card">
         <h2>🍴 Featured Restaurants</h2>
