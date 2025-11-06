@@ -4,9 +4,7 @@ import java.io.Serializable;
 import java.util.Date;
 
 public class User implements Serializable{
-	/**
-	 * 
-	 */
+	
 	private static final long serialVersionUID = 1L;
 	private int userID;
 	private String userName;
@@ -20,7 +18,7 @@ public class User implements Serializable{
 	public User() {
 		super();
 	}
-
+	
 	public User(String userName, String email, String password, long phoneNumber,String address) {
 		super();
 		this.userName = userName;
@@ -40,8 +38,6 @@ public class User implements Serializable{
 		this.address = address;
 	}
 
-	
-	
 	public int getUserID() {
 		return userID;
 	}
@@ -86,8 +82,6 @@ public class User implements Serializable{
 		return createdOn;
 	}
 	
-	
-
 	public String getAddress() {
 		return address;
 	}
