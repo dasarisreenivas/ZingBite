@@ -5,6 +5,7 @@ import java.util.List;
 import com.app.zingbitemodels.Menu;
 
 public interface MenuDAO {
+	/*MenuDAO Interface*/
 	int addMenu(Menu menu);
 	List<Menu> getAllMenu();
 	Menu getMenuById(int menuId);
