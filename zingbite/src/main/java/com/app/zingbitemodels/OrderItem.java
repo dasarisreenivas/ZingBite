@@ -2,16 +2,24 @@ package com.app.zingbitemodels;
 
 import java.io.Serializable;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+@Entity
+@Table(name="")
 public class OrderItem implements Serializable{
 	
-	/**
-	 * 
-	 */
+	
 	private static final long serialVersionUID = 1L;
+	@Column(name = "")
 	private int orderItemId;
+	@Column(name = "")
 	private int orderId;
+	@Column(name = "")
 	private int menuId;
+	@Column(name = "")
 	private int quantity;
+	@Column(name = "")
 	private double subTotal;
 	
 	public OrderItem() {

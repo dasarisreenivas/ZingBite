@@ -2,20 +2,32 @@ package com.app.zingbitemodels;
 
 import java.io.Serializable;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "")
 public class Restaurant implements Serializable{
 	
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
+	@Column(name = "")
 	private int restaurantId;
+	@Column(name = "")
 	private String restaurantName;
+	@Column(name = "")
 	private String deliveryTime;
+	@Column(name = "")
 	private String cusineType;
+	@Column(name = "")
 	private String address;
+	@Column(name = "")
 	private float rating;
+	@Column(name = "")
 	private boolean isActive;
+	@Column(name = "")
 	private int adminId;
+	@Column(name = "")
 	private String imagePath;
 	
 	public Restaurant() {

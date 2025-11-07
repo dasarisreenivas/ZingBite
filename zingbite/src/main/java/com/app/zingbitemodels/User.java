@@ -3,17 +3,32 @@ package com.app.zingbitemodels;
 import java.io.Serializable;
 import java.util.Date;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name="")
 public class User implements Serializable{
 	
 	private static final long serialVersionUID = 1L;
+	@Column(name="")
 	private int userID;
+	@Column(name="")
 	private String userName;
+	@Column(name="")
 	private String email;
+	@Column(name="")
 	private String password;
+	@Column(name="")
 	private long phoneNumber;
+	@Column(name="")
 	private String address;
+	@Column(name="")
 	private Date createdOn;
+	@Column(name="")
 	private Date lastLogin;
+	
 	
 	public User() {
 		super();

@@ -3,17 +3,27 @@ package com.app.zingbitemodels;
 import java.io.Serializable;
 import java.util.Date;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "")
 public class OrderHistory implements Serializable{
 	
-	/**
-	 * 
-	 */
+	
 	private static final long serialVersionUID = 1L;
+	@Column(name = "")
 	private int orderHistoryId;
+	@Column(name = "")
 	private int orderId;
+	@Column(name = "")
 	private int userID;
+	@Column(name = "")
 	private Date orderDate;
+	@Column(name = "")
 	private double totalAmount;
+	@Column(name = "")
 	private String orderStatus;
 	
 	public OrderHistory() {
