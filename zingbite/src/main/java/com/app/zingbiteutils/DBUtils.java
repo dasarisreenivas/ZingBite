@@ -4,13 +4,27 @@ import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 
+import com.app.zingbitemodels.Menu;
+import com.app.zingbitemodels.OrderHistory;
+import com.app.zingbitemodels.OrderItem;
+import com.app.zingbitemodels.Orders;
+import com.app.zingbitemodels.Restaurant;
+import com.app.zingbitemodels.User;
+
 public class DBUtils {
 
 	private static SessionFactory sf;
 
 	static {
 		try {
-			sf = new Configuration().configure().buildSessionFactory();
+			Configuration config = new Configuration().configure("hibernate.cfg.xml")
+									.addAnnotatedClass(Menu.class)
+									.addAnnotatedClass(OrderHistory.class)
+									.addAnnotatedClass(Orders.class)
+									.addAnnotatedClass(OrderItem.class)
+									.addAnnotatedClass(Restaurant.class)
+									.addAnnotatedClass(User.class);
+			sf =config.buildSessionFactory();
 			System.out.println("session factory created successfully");
 
 		} catch (Exception e) {
