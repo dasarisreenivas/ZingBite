@@ -1,11 +1,14 @@
 package com.app.zingbitedaoimpl;
 
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.hibernate.query.Query;
 
 import com.app.zingbitedao.UserDAO;
 import com.app.zingbitemodels.User;
@@ -13,108 +16,132 @@ import com.app.zingbiteutils.DBUtils;
 
 public class UserDAOImplementation implements UserDAO {
 
-    private Connection con;
+//    private Connection con;
+//
+//    // SQL Queries
+//    private static final String ADD_USER =
+//            "INSERT INTO USER(USERNAME, EMAIL, PASSWORD, PHONENUMBER, ADDRESS) VALUES (?,?,?,?,?)";
+//    private static final String GET_ALL_USERS =
+//            "SELECT * FROM USER";
+//    private static final String GET_USER_BY_EMAIL =
+//            "SELECT * FROM USER WHERE EMAIL=?";
+//    private static final String UPDATE_USER_ON_EMAIL =
+//            "UPDATE USER SET USERNAME=?, PASSWORD=?, PHONENUMBER=?, ADDRESS=? WHERE EMAIL=?";
+//    private static final String DELETE_USER_ON_USER_ID =
+//            "DELETE FROM USER WHERE USERID=?";
+//
+//    public UserDAOImplementation() {
+//        try {
+//            con = DBUtils.myConnect();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
 
-    // SQL Queries
-    private static final String ADD_USER =
-            "INSERT INTO USER(USERNAME, EMAIL, PASSWORD, PHONENUMBER, ADDRESS) VALUES (?,?,?,?,?)";
-    private static final String GET_ALL_USERS =
-            "SELECT * FROM USER";
-    private static final String GET_USER_BY_EMAIL =
-            "SELECT * FROM USER WHERE EMAIL=?";
-    private static final String UPDATE_USER_ON_EMAIL =
-            "UPDATE USER SET USERNAME=?, PASSWORD=?, PHONENUMBER=?, ADDRESS=? WHERE EMAIL=?";
-    private static final String DELETE_USER_ON_USER_ID =
-            "DELETE FROM USER WHERE USERID=?";
+	@Override
+	public int addUser(User u) {
+		Transaction tx = null;
+		try (Session session = DBUtils.openSession()) {
+			tx = session.beginTransaction();
+			session.persist(u);
+			tx.commit();
+			return u.getUserID();
+		} catch (Exception e) {
+			if (tx != null)
+				tx.rollback();
+			e.printStackTrace();
+		}
+		return 0;
+	}
 
-    public UserDAOImplementation() {
-        try {
-            con = DBUtils.myConnect();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+	@Override
+	public List<User> getAllUsers() {
+		List<User> userList = new ArrayList<>();
+		Transaction tx = null;
+		try (Session session = DBUtils.openSession()) {
+			tx = session.beginTransaction();
+			String hql = "from User";
+			Query<User> query = session.createQuery(hql, User.class);
+			userList = query.list();
+			tx.commit();
 
-    @Override
-    public int addUser(User u) {
-        try (PreparedStatement pstm = con.prepareStatement(ADD_USER)) {
-            pstm.setString(1, u.getUserName());
-            pstm.setString(2, u.getEmail());
-            pstm.setString(3, u.getPassword());
-            pstm.setLong(4, u.getPhoneNumber());
-            pstm.setString(5, u.getAddress());
-            return pstm.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return 0;
-    }
+		} catch (Exception e) {
+			if (tx != null)
+				tx.rollback();
+			e.printStackTrace();
+		}
+		return userList;
+	}
 
-    @Override
-    public List<User> getAllUsers() {
-        List<User> userList = new ArrayList<>();
-        try (PreparedStatement pstm = con.prepareStatement(GET_ALL_USERS);
-             ResultSet res = pstm.executeQuery()) {
-            userList = extract(res);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return userList;
-    }
+	@Override
+	public User getUserById(String email) {
+		Transaction tx = null;
+		User user = null;
+		try (Session session = DBUtils.openSession()) {
 
-    @Override
-    public User getUserById(String email) {
-        try (PreparedStatement pstm = con.prepareStatement(GET_USER_BY_EMAIL)) {
-            pstm.setString(1, email);
-            try (ResultSet res = pstm.executeQuery()) {
-                List<User> userList = extract(res);
-                return userList.isEmpty() ? null : userList.get(0);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
+			tx = session.beginTransaction();
+			user = session.get(User.class, email);
+			tx.commit();
 
-    @Override
-    public int updateUser(User u) {
-        try (PreparedStatement pstm = con.prepareStatement(UPDATE_USER_ON_EMAIL)) {
-            pstm.setString(1, u.getUserName());
-            pstm.setString(2, u.getPassword());
-            pstm.setLong(3, u.getPhoneNumber());
-            pstm.setString(4, u.getAddress());
-            pstm.setString(5, u.getEmail());
-            return pstm.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return 0;
-    }
+		} catch (Exception e) {
+			if (tx != null)
+				tx.rollback();
+			e.printStackTrace();
+		}
+		return user;
+	}
 
-    @Override
-    public int deleteUser(int userID) {
-        try (PreparedStatement pstm = con.prepareStatement(DELETE_USER_ON_USER_ID)) {
-            pstm.setInt(1, userID);
-            return pstm.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return 0;
-    }
+	@Override
+	public int updateUser(User u) {
+		int result = 0;
+		Transaction tx = null;
+		try (Session session = DBUtils.openSession()) {
+			tx = session.beginTransaction();
+			session.merge(u);
+			tx.commit();
+			result = 1;
+		} catch (Exception e) {
+			if (tx != null)
+				tx.rollback();
+			e.printStackTrace();
+		}
+		return result;
+	}
 
-    // Helper method to map ResultSet to List<User>
-    private List<User> extract(ResultSet res) throws SQLException {
-        List<User> list = new ArrayList<>();
-        while (res.next()) {
-            list.add(new User(
-                    res.getInt("USERID"),
-                    res.getString("USERNAME"),
-                    res.getString("EMAIL"),
-                    res.getString("PASSWORD"),
-                    res.getLong("PHONENUMBER"),
-                    res.getString("ADDRESS")
-            ));
-        }
-        return list;
-    }
+	@Override
+	public int deleteUser(int userID) {
+		int result = 0;
+		Transaction tx = null;
+
+		try (Session session = DBUtils.openSession()) {
+			tx = session.beginTransaction();
+			User user = session.get(User.class, userID);
+			if (user != null) {
+				session.remove(user);
+				tx.commit();
+				result = 1;
+			}
+		} catch (Exception e) {
+			if (tx != null)
+				tx.rollback();
+			e.printStackTrace();
+		}
+		return result;
+	}
+
+//    // Helper method to map ResultSet to List<User>
+//    private List<User> extract(ResultSet res) throws SQLException {
+//        List<User> list = new ArrayList<>();
+//        while (res.next()) {
+//            list.add(new User(
+//                    res.getInt("USERID"),
+//                    res.getString("USERNAME"),
+//                    res.getString("EMAIL"),
+//                    res.getString("PASSWORD"),
+//                    res.getLong("PHONENUMBER"),
+//                    res.getString("ADDRESS")
+//            ));
+//        }
+//        return list;
+//    }
 }
