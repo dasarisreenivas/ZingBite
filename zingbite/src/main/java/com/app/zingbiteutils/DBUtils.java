@@ -1,24 +1,35 @@
 package com.app.zingbiteutils;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
 
 public class DBUtils {
-	
-	private static final  String URL = "jdbc:mysql://localhost:3306/foodapp";
-	private static final String DB_USERNAME = "root";
-	private static final String DB_PASSWORD = "Srinivas@192004";
-	private static Connection con;
-	
-	public static  Connection myConnect() {
+
+	private static SessionFactory sf;
+
+	static {
 		try {
-			Class.forName("com.mysql.cj.jdbc.Driver");
-			con = DriverManager.getConnection(URL,DB_USERNAME,DB_PASSWORD);
-		} catch (ClassNotFoundException | SQLException e) {
-			e.printStackTrace();
+			sf = new Configuration().configure().buildSessionFactory();
+			System.out.println("session factory created successfully");
+
+		} catch (Exception e) {
+			System.out.println("Session factory failed to create" + e);
 		}
-		return con;
 	}
-	
+
+	public static SessionFactory getSessionFactory() {
+		return sf;
+	}
+
+	public static Session openSession() {
+		return getSessionFactory().openSession();
+	}
+
+	public static void closeFactory() {
+		if (sf != null && !sf.isClosed()) {
+			sf.close();
+		}
+	}
+
 }
