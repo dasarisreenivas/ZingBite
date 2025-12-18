@@ -4,26 +4,28 @@ import java.io.Serializable;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name ="")
+@Table(name ="orders")
 
 public class Orders implements Serializable{
 	private static final long serialVersionUID = 1L;
-	@Column(name ="")
+	@Id
+	@Column(name ="orderId")
 	private int orderId;
-	@Column(name ="")
-	private int restaurantId;
-	@Column(name ="")
+	@Column(name ="restaurant")
+	private Restaurant restaurant;
+	@Column(name ="userId")
 	private int userId;
-	@Column(name ="")
+	@Column(name ="orderTime")
 	private String orderTime;
-	@Column(name ="")
+	@Column(name ="totalAmount")
 	private float totalAmount;
-	@Column(name ="")	
+	@Column(name ="orderStatus")	
 	private String orderStatus;
-	@Column(name ="")
+	@Column(name ="paymentMethod")
 	private String paymentMethod;
 	
 	public Orders() {
@@ -33,7 +35,7 @@ public class Orders implements Serializable{
 	public Orders(int restaurantId, int userId, String orderTime, float totalAmount, String orderStatus,
 			String paymentMethod) {
 		super();
-		this.restaurantId = restaurantId;
+		this.restaurant = restaurantId;
 		this.userId = userId;
 		this.orderTime = orderTime;
 		this.totalAmount = totalAmount;
@@ -45,7 +47,7 @@ public class Orders implements Serializable{
 			String paymentMethod) {
 		super();
 		this.orderId = orderId;
-		this.restaurantId = restaurantId;
+		this.restaurant = restaurantId;
 		this.userId = userId;
 		this.orderTime = orderTime;
 		this.totalAmount = totalAmount;
@@ -62,11 +64,11 @@ public class Orders implements Serializable{
 	}
 
 	public int getRestaurantId() {
-		return restaurantId;
+		return restaurant;
 	}
 
 	public void setRestaurantId(int restaurantId) {
-		this.restaurantId = restaurantId;
+		this.restaurant = restaurantId;
 	}
 
 	public int getUserId() {
@@ -112,7 +114,7 @@ public class Orders implements Serializable{
 	@Override
 	public String toString() {
 		System.out.println("to Stirng() in Orders Model class");
-		return "Orders [orderId=" + orderId + ", restaurantId=" + restaurantId + ", userId=" + userId + ", orderTime="
+		return "Orders [orderId=" + orderId + ", restaurantId=" + restaurant + ", userId=" + userId + ", orderTime="
 				+ orderTime + ", totalAmount=" + totalAmount + ", orderStatus=" + orderStatus + ", paymentMethod="
 				+ paymentMethod + "]";
 	}

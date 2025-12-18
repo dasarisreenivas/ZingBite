@@ -82,7 +82,7 @@ public class CartServlet extends HttpServlet {
         Menu menuItem = menuDAO.getMenuById(itemId);
 
         if (menuItem != null) {
-            int newRestaurantId = menuItem.getRestaurantId();
+            int newRestaurantId = menuItem.getRestaurant().getRestaurantId();
             Integer currentRestaurantId = (Integer) session.getAttribute("restaurantId");
 
             if (currentRestaurantId != null && currentRestaurantId != newRestaurantId) {
@@ -99,7 +99,7 @@ public class CartServlet extends HttpServlet {
             // No conflict, add item
             CartItem item = new CartItem(
                     menuItem.getMenuId(),
-                    menuItem.getRestaurantId(),
+                    menuItem.getRestaurant().getRestaurantId(),
                     menuItem.getMenuName(),
                     menuItem.getPrice(),
                     quantity,
@@ -107,9 +107,9 @@ public class CartServlet extends HttpServlet {
             );
             cart.addItemToCart(item);
 
-            session.setAttribute("restaurantId", menuItem.getRestaurantId());
+            session.setAttribute("restaurantId", newRestaurantId/*menuItem.getRestaurant().getRestaurantId()*/);
             session.setAttribute("restaurantName",
-                    new RestaurantDAOImplementation().getRestaurantById(menuItem.getRestaurantId()).getRestaurantName());
+                    new RestaurantDAOImplementation().getRestaurantById(menuItem.getRestaurant().getRestaurantId()).getRestaurantName());
 
             sendCartTotals(resp, cart);
         }

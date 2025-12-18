@@ -5,28 +5,30 @@ import java.util.Date;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name="")
+@Table(name="user")
 public class User implements Serializable{
 	
 	private static final long serialVersionUID = 1L;
-	@Column(name="")
+	@Id
+	@Column(name="userid")
 	private int userID;
-	@Column(name="")
+	@Column(name="USERNAME")
 	private String userName;
-	@Column(name="")
+	@Column(name="EMAIL")
 	private String email;
-	@Column(name="")
+	@Column(name="PASSWORD")
 	private String password;
-	@Column(name="")
+	@Column(name="PHONENUMBER")
 	private long phoneNumber;
-	@Column(name="")
+	@Column(name="ADDRESS")
 	private String address;
-	@Column(name="")
+	@Column(name="CREATEDON")
 	private Date createdOn;
-	@Column(name="")
+	@Column(name="LASTLOGIN")
 	private Date lastLogin;
 	
 	

@@ -60,7 +60,7 @@ public class UserDAOImplementation implements UserDAO {
 		Transaction tx = null;
 		try (Session session = DBUtils.openSession()) {
 			tx = session.beginTransaction();
-			String hql = "from User";
+			String hql = "from User ";
 			Query<User> query = session.createQuery(hql, User.class);
 			userList = query.list();
 			tx.commit();
@@ -80,13 +80,22 @@ public class UserDAOImplementation implements UserDAO {
 		try (Session session = DBUtils.openSession()) {
 
 			tx = session.beginTransaction();
-			user = session.get(User.class, email);
-			tx.commit();
+			String hql = "FROM User WHERE email = :email";
+			Query<User> query = session.createQuery(hql, User.class);
+			query.setParameter("email", email);
 
+			user = query.uniqueResult();
+
+			tx.commit();
+			return user;
 		} catch (Exception e) {
-			if (tx != null)
-				tx.rollback();
-			e.printStackTrace();
+			try {
+				if (tx != null && tx.isActive())
+					tx.rollback();
+			} catch (Exception rbf) {
+				System.err.println("rollback failed" + rbf);
+				e.printStackTrace();
+			}
 		}
 		return user;
 	}

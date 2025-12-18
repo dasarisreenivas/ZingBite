@@ -5,14 +5,16 @@ import java.util.Date;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "")
+@Table(name = "orderhistory")
 public class OrderHistory implements Serializable{
 	
 	
 	private static final long serialVersionUID = 1L;
+	@Id
 	@Column(name = "")
 	private int orderHistoryId;
 	@Column(name = "")

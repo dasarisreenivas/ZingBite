@@ -4,30 +4,35 @@ import java.io.Serializable;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "")
+@Table(name = "restaurant")
 public class Restaurant implements Serializable{
 	
 	private static final long serialVersionUID = 1L;
-	@Column(name = "")
+	@Id
+	@GeneratedValue(strategy=GenerationType.IDENTITY)
+	@Column(name = "RESTAURANTID")
 	private int restaurantId;
-	@Column(name = "")
+	@Column(name = "RESTAURANTNAME")
 	private String restaurantName;
-	@Column(name = "")
+	@Column(name = "DELIVERYTIME")
 	private String deliveryTime;
-	@Column(name = "")
+	@Column(name = "CUSINETYPE")
 	private String cusineType;
-	@Column(name = "")
+	@Column(name = "ADDRESS")
 	private String address;
-	@Column(name = "")
+	@Column(name = "RATINGS")
 	private float rating;
-	@Column(name = "")
+	@Column(name = "ISACTIVE")
 	private boolean isActive;
-	@Column(name = "")
-	private int adminId;
-	@Column(name = "")
+	@Column(name = "ADMINID")
+	private Integer adminId;
+	@Column(name = "IMAGEPATH")
 	private String imagePath;
 	
 	public Restaurant() {
@@ -35,7 +40,7 @@ public class Restaurant implements Serializable{
 	}
 
 	public Restaurant(String restaurantName, String deliveryTime, String cusineType, String address, float rating,
-			boolean isActive, int adminId, String imagePath) {
+			boolean isActive, Integer adminId, String imagePath) {
 		super();
 		this.restaurantName = restaurantName;
 		this.deliveryTime = deliveryTime;
@@ -117,11 +122,11 @@ public class Restaurant implements Serializable{
 		this.isActive = isActive;
 	}
 
-	public int getAdminId() {
+	public Integer getAdminId() {
 		return adminId;
 	}
 
-	public void setAdminId(int adminId) {
+	public void setAdminId(Integer adminId) {
 		this.adminId = adminId;
 	}
 

@@ -84,7 +84,7 @@ public class MenuDAOImplementation implements MenuDAO {
 		Transaction tx = null;
 		int result = 0;
 		try (Session session = DBUtils.openSession()) {
-			tx = session.getTransaction();
+			tx = session.beginTransaction();
 			session.merge(m);
 			tx.commit();
 			result = 1;
@@ -123,9 +123,10 @@ public class MenuDAOImplementation implements MenuDAO {
 		try (Session session = DBUtils.openSession()) {
 
 			tx = session.beginTransaction();
-			String hql = " from Menu where RESTAURANTID = restaurantId";
+			String hql = " from Menu m where m.restaurant.restaurantId = :rid";
 			Query<Menu> query = session.createQuery(hql, Menu.class);
-			query.list();
+			query.setParameter("rid", restaurantId);
+			menuList = query.list();
 			tx.commit();
 
 		} catch (Exception e) {

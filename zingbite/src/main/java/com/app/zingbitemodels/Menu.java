@@ -4,54 +4,66 @@ import java.io.Serializable;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
+
 @Entity
-@Table(name = "")
-public class Menu implements Serializable{
-	
+@Table(name = "menu")
+public class Menu implements Serializable {
+
 	private static final long serialVersionUID = 1L;
-	@Column(name="")
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY,generator="MenuId_seq_gen")
+	@SequenceGenerator(
+			name = "MenuId_seq_gen",
+			sequenceName = "MenuId_seq",
+			allocationSize =  1
+			
+			)
+	
+	@Column(name = "MENUID", nullable = false)
 	private int menuId;
-	@Column(name="")
-	private int restaurantId;
-	@Column(name="")
+
+	// FK mapping
+	@ManyToOne
+	@JoinColumn(name = "RESTAURANTID", nullable = false)
+	private Restaurant restaurant;
+
+	@Column(name = "MENUNAME", nullable = false)
 	private String menuName;
-	@Column(name="")
+
+	@Column(name = "PRICE", nullable = false)
 	private double price;
-	@Column(name="")
+
+	@Column(name = "ITEMDESCRIPTION", nullable = false)
 	private String description;
-	@Column(name="")
+
+	@Column(name = "ISAVAILABLE", nullable = false)
 	private boolean isAvailable;
-	@Column(name="")
+
+	@Column(name = "IMAGEPATH", nullable = false)
 	private String imagePath;
-	
+
 	public Menu() {
-		super();
 	}
-	
-	public Menu(int restaurantId, String menuName, double price, String description, boolean isAvailable,
+
+	public Menu(Restaurant restaurant, String menuName, double price, String description, boolean isAvailable,
 			String imagePath) {
-		super();
-		this.restaurantId = restaurantId;
+
+		this.restaurant = restaurant;
 		this.menuName = menuName;
 		this.price = price;
 		this.description = description;
 		this.isAvailable = isAvailable;
 		this.imagePath = imagePath;
 	}
-	
-	public Menu(int menuId, int restaurantId, String menuName, double price, String description, boolean isAvailable,
-			String imagePath) {
-		super();
-		this.menuId = menuId;
-		this.restaurantId = restaurantId;
-		this.menuName = menuName;
-		this.price = price;
-		this.description = description;
-		this.isAvailable = isAvailable;
-		this.imagePath = imagePath;
-	}
-	
+
 	public int getMenuId() {
 		return menuId;
 	}
@@ -60,12 +72,12 @@ public class Menu implements Serializable{
 		this.menuId = menuId;
 	}
 
-	public int getRestaurantId() {
-		return restaurantId;
+	public Restaurant getRestaurant() {
+		return restaurant;
 	}
 
-	public void setRestaurantId(int restaurantId) {
-		this.restaurantId = restaurantId;
+	public void setRestaurant(Restaurant restaurant) {
+		this.restaurant = restaurant;
 	}
 
 	public String getMenuName() {
@@ -95,7 +107,7 @@ public class Menu implements Serializable{
 	public boolean isAvailable() {
 		return isAvailable;
 	}
-	
+
 	public void setAvailable(boolean isAvailable) {
 		this.isAvailable = isAvailable;
 	}
@@ -110,10 +122,8 @@ public class Menu implements Serializable{
 
 	@Override
 	public String toString() {
-		return "Menu [menuId=" + menuId + ", RestaurantId=" + restaurantId + ", menuName=" + menuName + ", price="
-				+ price + ", description=" + description + ", isAvailable=" + isAvailable + ", imagePath=" + imagePath
-				+ "]";
+		return "Menu [menuId=" + menuId + ", restaurantId=" + (restaurant != null ? restaurant.getRestaurantId() : null)
+				+ ", menuName=" + menuName + ", price=" + price + ", description=" + description + ", isAvailable="
+				+ isAvailable + ", imagePath=" + imagePath + "]";
 	}
-	
-	
 }

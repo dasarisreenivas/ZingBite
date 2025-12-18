@@ -62,11 +62,15 @@ public class RestaurantDAOImplementation implements RestaurantDAO {
 			Query<Restaurant> query = session.createQuery(hql, Restaurant.class);
 			restuarantList = query.list();
 			tx.commit();
-
+			return restuarantList;
 		} catch (Exception e) {
-			if (tx != null)
+			try {
+			if (tx != null && tx.isActive())
 				tx.rollback();
-			e.printStackTrace();
+			}catch(Exception rbf) {
+				System.err.println("rollback failed"+rbf);
+				e.printStackTrace();
+			}
 		}
 		return restuarantList;
 	}
