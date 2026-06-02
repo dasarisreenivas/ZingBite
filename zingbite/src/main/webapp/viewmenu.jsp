@@ -35,9 +35,7 @@
 
 			<div class="menu-details">
 				<h2 class="item-name"><%=item.getMenuName()%></h2>
-				<p class="price">
-					₹
-					<%=item.getPrice()%></p>
+				<p class="price">&#8377;<%=item.getPrice()%></p>
 				<p class="description"><%=item.getDescription()%></p>
 
 				<%

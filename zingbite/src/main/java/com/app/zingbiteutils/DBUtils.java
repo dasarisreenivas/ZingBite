@@ -28,7 +28,8 @@ public class DBUtils {
 			System.out.println("session factory created successfully");
 
 		} catch (Exception e) {
-			System.out.println("Session factory failed to create" + e);
+			e.printStackTrace();
+			//System.out.println("Session factory failed to create" + e);
 		}
 	}
 

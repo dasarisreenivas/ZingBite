@@ -1,9 +1,9 @@
 package com.app.zingbiteServlets;
 
 import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.*;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.*;
 
 import com.app.zingbitedao.MenuDAO;
 import com.app.zingbitedaoimpl.MenuDAOImplementation;
@@ -15,7 +15,9 @@ import com.app.zingbitemodels.Menu;
 @WebServlet("/cart")
 public class CartServlet extends HttpServlet {
 
-    @Override
+	private static final long serialVersionUID = 1L;
+
+	@Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 

@@ -64,7 +64,7 @@
 						<p class="description">A short description of the menu item
 							would go here.</p>
 						<p class="subtotal" id="subtotal-<%=cItem.getItemId()%>">
-							Subtotal: ₹<%=String.format("%.2f", cItem.getPrice() * cItem.getQuantity())%>
+							Subtotal: &#8377;<%=String.format("%.2f", cItem.getPrice() * cItem.getQuantity())%>
 						</p>
 
 						<div class="item-controls">
@@ -114,17 +114,17 @@
 			<div class="summary-row">
 				<span id="summary-item-count">Subtotal (<%=items.size()%>
 					items)
-				</span> <span id="summary-subtotal">₹<%=String.format("%.2f", subtotal)%></span>
+				</span> <span id="summary-subtotal">&#8377;<%=String.format("%.2f", subtotal)%></span>
 			</div>
 			<div class="summary-row">
-				<span>Shipping</span> <span id="summary-shipping">₹<%=(subtotal >= 1000) ? 0 : shipping%></span>
+				<span>Shipping</span> <span id="summary-shipping">&#8377;<%=(subtotal >= 1000) ? 0 : shipping%></span>
 			</div>
 			<div class="summary-row">
-				<span>Tax</span> <span id="summary-tax">₹<%=tax%></span>
+				<span>Tax</span> <span id="summary-tax">&#8377;<%=tax%></span>
 			</div>
 			<hr>
 			<div class="summary-row total-row">
-				<span>Total</span> <span id="summary-total">₹<%=total%></span>
+				<span>Total</span> <span id="summary-total">&#8377;<%=total%></span>
 			</div>
 			<div class="summary-actions">
 				<button class="checkout-btn"

@@ -18,7 +18,7 @@
 	
     <!-- Section Header + Sorting -->
     <div class="section-header glass-card">
-        <h2>🍴 Featured Restaurants</h2>
+        <h2>Featured Restaurants</h2>
         <form action="home" method="get" class="sort-form">
             <div class="custom-select-wrapper">
                 <div class="custom-select">
@@ -72,7 +72,7 @@
                 <!-- Overlay content -->
                 <div class="restaurant-overlay">
                     <h3><%= restaurant.getRestaurantName() %></h3>
-                    <p><%= restaurant.getCusineType() %> • <%= restaurant.getDeliveryTime() %> min</p>
+                    <p><%= restaurant.getCusineType() %> &bull; <%= restaurant.getDeliveryTime() %> min</p>
                     <a class="view-menu" href="menu?restaurantId=<%= restaurant.getRestaurantId() %>&restaurantName=<%= restaurant.getRestaurantName() %>">View Menu</a>
                 </div>
             </div>

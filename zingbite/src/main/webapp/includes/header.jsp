@@ -1,19 +1,14 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8"
     pageEncoding="UTF-8"%>
 <%@ page import="com.app.zingbitemodels.User" %>
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Insert title here</title>
-</head>
-<body>
-	    <header>
+<header>
     <div class="logo-container">
-        <h1 class="logo-text">ZingBite</h1>
-        <p class="tagline-text">Taste the Best</p>
+        <a class="brand-link" href="home" aria-label="ZingBite home">
+            <h1 class="logo-text">ZingBite</h1>
+            <p class="tagline-text">Taste the Best</p>
+        </a>
     </div>
-    <nav>
+    <nav aria-label="Primary navigation">
         <a href="home">Home</a>
         <%
             User user = (User) session.getAttribute("loggedInUser");
@@ -42,6 +37,3 @@
         %>
     </nav>
 </header>
-	
-</body>
-</html>

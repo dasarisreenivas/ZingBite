@@ -299,3 +299,164 @@ body {
 		width: 50%;
 	}
 }
+
+/* Front-end refresh: same brand colors, more polished auth screen */
+:root {
+	--brand-red: #F7374F;
+	--ink: #111827;
+	--text: #333;
+	--muted: #6b7280;
+	--surface: #fff;
+	--surface-soft: #f8f9fa;
+	--line: #e5e7eb;
+	--shadow: 0 18px 45px rgba(17, 24, 39, 0.14);
+}
+
+body {
+	background:
+		linear-gradient(135deg, rgba(247, 55, 79, 0.08), rgba(255, 255, 255, 0.96) 42%, rgba(17, 24, 39, 0.06)),
+		var(--surface-soft);
+	color: var(--text);
+}
+
+.hero-section {
+	background: var(--ink);
+}
+
+.hero-overlay {
+	background:
+		linear-gradient(180deg, rgba(17, 24, 39, 0.1) 0%, rgba(17, 24, 39, 0.38) 42%, rgba(17, 24, 39, 0.86) 100%),
+		linear-gradient(135deg, rgba(247, 55, 79, 0.3), transparent 55%);
+}
+
+.hero-content {
+	right: 2rem;
+	bottom: 2.5rem;
+}
+
+.logo-title {
+	color: var(--brand-red);
+	letter-spacing: 0;
+}
+
+.logo-subtitle,
+.mobile-logo .logo-subtitle {
+	color: var(--ink);
+	letter-spacing: 0;
+}
+
+.hero-description {
+	margin-top: 1rem;
+	color: rgba(255, 255, 255, 0.92);
+}
+
+.login-section {
+	padding: clamp(1.25rem, 4vw, 3rem);
+}
+
+.login-container {
+	max-width: 29rem;
+}
+
+.mobile-logo {
+	margin-bottom: 1.5rem;
+}
+
+.login-card {
+	overflow: hidden;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.94);
+	box-shadow: var(--shadow);
+}
+
+.card-header {
+	padding: 1.75rem 1.75rem 0;
+	border: 0;
+}
+
+.card-content {
+	padding: 1.75rem;
+	border: 0;
+}
+
+.card-title {
+	color: var(--ink);
+	letter-spacing: 0;
+}
+
+.card-description,
+.signup-link,
+.demo-credentials p {
+	color: var(--muted);
+}
+
+.form {
+	gap: 1.05rem;
+}
+
+.form-label {
+	color: var(--ink);
+}
+
+.form-input {
+	min-height: 46px;
+	border-color: var(--line);
+	border-radius: 8px;
+	background: var(--surface);
+	color: var(--ink);
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-input:focus {
+	border-color: var(--brand-red);
+	box-shadow: 0 0 0 3px rgba(247, 55, 79, 0.12);
+}
+
+.checkbox {
+	accent-color: var(--brand-red);
+}
+
+.forgot-password,
+.signup-link a {
+	color: var(--brand-red);
+	font-weight: 700;
+}
+
+.submit-button {
+	min-height: 46px;
+	border-radius: 8px;
+	background: var(--brand-red);
+	font-weight: 700;
+	box-shadow: 0 12px 24px rgba(247, 55, 79, 0.22);
+	transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.submit-button:hover,
+.submit-button:focus-visible {
+	background: var(--ink);
+	outline: none;
+	transform: translateY(-2px);
+}
+
+.demo-credentials {
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.72);
+}
+
+.error-message {
+	border-radius: 8px;
+}
+
+@media (max-width: 560px) {
+	.login-section {
+		padding: 1rem;
+	}
+
+	.form-row {
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+}

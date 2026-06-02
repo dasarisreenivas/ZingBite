@@ -16,7 +16,7 @@ public class Orders implements Serializable{
 	@Column(name ="orderId")
 	private int orderId;
 	@Column(name ="restaurant")
-	private Restaurant restaurant;
+	private Restaurant restaurantId;
 	@Column(name ="userId")
 	private int userId;
 	@Column(name ="orderTime")
@@ -32,10 +32,10 @@ public class Orders implements Serializable{
 		super();
 	}
 	
-	public Orders(int restaurantId, int userId, String orderTime, float totalAmount, String orderStatus,
+	public Orders(Restaurant restaurantId, int userId, String orderTime, float totalAmount, String orderStatus,
 			String paymentMethod) {
 		super();
-		this.restaurant = restaurantId;
+		this.restaurantId = restaurantId;
 		this.userId = userId;
 		this.orderTime = orderTime;
 		this.totalAmount = totalAmount;
@@ -43,11 +43,11 @@ public class Orders implements Serializable{
 		this.paymentMethod = paymentMethod;
 	}
 	
-	public Orders(int orderId, int restaurantId, int userId, String orderTime, float totalAmount, String orderStatus,
+	public Orders(int orderId, Restaurant restaurantId, int userId, String orderTime, float totalAmount, String orderStatus,
 			String paymentMethod) {
 		super();
 		this.orderId = orderId;
-		this.restaurant = restaurantId;
+		this.restaurantId = restaurantId;
 		this.userId = userId;
 		this.orderTime = orderTime;
 		this.totalAmount = totalAmount;
@@ -63,12 +63,12 @@ public class Orders implements Serializable{
 		this.orderId = orderId;
 	}
 
-	public int getRestaurantId() {
-		return restaurant;
+	public Restaurant getRestaurantId() {
+		return restaurantId;
 	}
 
-	public void setRestaurantId(int restaurantId) {
-		this.restaurant = restaurantId;
+	public void setRestaurantId(Restaurant restaurantId) {
+		this.restaurantId = restaurantId;
 	}
 
 	public int getUserId() {
@@ -114,7 +114,7 @@ public class Orders implements Serializable{
 	@Override
 	public String toString() {
 		System.out.println("to Stirng() in Orders Model class");
-		return "Orders [orderId=" + orderId + ", restaurantId=" + restaurant + ", userId=" + userId + ", orderTime="
+		return "Orders [orderId=" + orderId + ", restaurantId=" + restaurantId + ", userId=" + userId + ", orderTime="
 				+ orderTime + ", totalAmount=" + totalAmount + ", orderStatus=" + orderStatus + ", paymentMethod="
 				+ paymentMethod + "]";
 	}

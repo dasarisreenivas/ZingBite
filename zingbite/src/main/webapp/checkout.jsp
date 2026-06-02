@@ -7,43 +7,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkout | ZingBite</title>
     <link rel="stylesheet" href="css/checkout.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body class="light">
 
-<header>
-    <div class="logo-container">
-        <h1 class="logo-text">ZingBite</h1>
-        <p class="tagline-text">Taste the Best</p>
-    </div>
-    <nav>
-        <a href="home">Home</a>
-        <%
-            User user = (User) session.getAttribute("loggedInUser");
-            if (user != null) {
-        %>
-            <span class="welcome">Welcome, <%= user.getUserName() %>!</span>
-            <a href="cart">Cart</a>
-            <a href="orderhistory">Orders</a>
-            <a href="logOut">Logout</a>
-        <%
-            } else {
-                String queryString = request.getQueryString();
-                String servletUrl = "menu";
-                if (queryString != null) {
-                    servletUrl += "?" + queryString;
-                }
-                session.setAttribute("redirectAfterLogin", servletUrl);
-        %>
-            <a href="login.jsp">Login</a>
-            <a href="register.jsp">Register</a>
-        <%
-            }
-        %>
-    </nav>
-</header>
+<jsp:include page="includes/header.jsp" />
 
 <%
+    User user = (User) session.getAttribute("loggedInUser");
+
     // Cart and totals
     Cart cart = (Cart) session.getAttribute("cart");
     Map<Integer, CartItem> items = (cart != null) ? cart.getItems() : new HashMap<>();
