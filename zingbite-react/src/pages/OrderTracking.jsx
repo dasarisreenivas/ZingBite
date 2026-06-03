@@ -1323,14 +1323,25 @@ const OrderTracking = () => {
               </div>
     
               {/* Interactive Leaflet Map */}
-              <div className="map-wrapper" style={{ height: '320px' }}>
-                <div className="map-overlay-text">
+              <div className="map-wrapper" style={{ height: '320px', position: 'relative' }}>
+                <div className="map-overlay-text" style={{ zIndex: 10 }}>
                   {isRealGPS ? '🔴 LIVE REAL-TIME MAP' : '📍 PROJECTED ROUTE MAP'}
                 </div>
-                {leafletLoaded ? (
-                  <div ref={mapRef} style={{ width: '100%', height: '100%', borderRadius: 'inherit', zIndex: 1 }} />
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', background: '#f4f6f8', gap: '12px' }}>
+                
+                {/* The map container is always rendered in the DOM to avoid React Ref timing issues */}
+                <div 
+                  ref={mapRef} 
+                  style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    borderRadius: 'inherit', 
+                    zIndex: 1, 
+                    visibility: leafletLoaded ? 'visible' : 'hidden' 
+                  }} 
+                />
+
+                {!leafletLoaded && (
+                  <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f4f6f8', gap: '12px', zIndex: 5, borderRadius: 'inherit' }}>
                     <Loader size={24} style={{ animation: 'spin 1s linear infinite', color: '#8b5cf6' }} />
                     <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
                       Loading Leaflet Interactive Map...
