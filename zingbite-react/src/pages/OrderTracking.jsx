@@ -149,6 +149,15 @@ const OrderTracking = () => {
     }
   }, [orderDetail?.status]);
 
+  // Leaflet Interactive Maps Integration
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const mapRef = React.useRef(null);
+  const mapInstanceRef = React.useRef(null);
+  const riderMarkerRef = React.useRef(null);
+  const restaurantMarkerRef = React.useRef(null);
+  const customerMarkerRef = React.useRef(null);
+  const routePolylineRef = React.useRef(null);
+
   // Coordinates mapping
   const getRiderPosition = (p) => {
     if (p <= 0) return { x: 80, y: 140 };
@@ -170,6 +179,119 @@ const OrderTracking = () => {
   const riderPos = getRiderPosition(animationProgress);
   const totalPathLength = 350;
   const trailOffset = totalPathLength - ((animationProgress / 100) * totalPathLength);
+
+  // Resolve active telemetry latitude and longitude
+  let currentLat = (12.9716 + 0.0105 * (animationProgress / 100));
+  let currentLng = (77.5946 + 0.0139 * (animationProgress / 100));
+  let isRealGPS = false;
+
+  if (orderDetail && orderDetail.gpsCoordinates) {
+    const parts = orderDetail.gpsCoordinates.split(',');
+    if (parts.length === 2) {
+      const plat = parseFloat(parts[0]);
+      const plng = parseFloat(parts[1]);
+      if (!isNaN(plat) && !isNaN(plng)) {
+        currentLat = plat;
+        currentLng = plng;
+        isRealGPS = true;
+      }
+    }
+  }
+
+  // Load Leaflet dynamically
+  useEffect(() => {
+    let link = document.querySelector('link[href*="leaflet.css"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    let script = document.querySelector('script[src*="leaflet.js"]');
+    if (!script) {
+      script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.async = true;
+      script.onload = () => setLeafletLoaded(true);
+      document.body.appendChild(script);
+    } else {
+      setLeafletLoaded(true);
+    }
+  }, []);
+
+  // Initialize Map
+  useEffect(() => {
+    if (!leafletLoaded || !mapRef.current) return;
+    if (mapInstanceRef.current) return;
+
+    const L = window.L;
+    if (!L) return;
+
+    const map = L.map(mapRef.current, {
+      zoomControl: true,
+      scrollWheelZoom: true
+    }).setView([12.977, 77.601], 14);
+    mapInstanceRef.current = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const restaurantIcon = L.divIcon({
+      html: `<div style="background: #10b981; width: 14px; height: 14px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>`,
+      className: 'custom-map-marker-restaurant',
+      iconSize: [14, 14],
+      iconAnchor: [7, 7]
+    });
+
+    const customerIcon = L.divIcon({
+      html: `<div style="background: #ef4444; width: 14px; height: 14px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>`,
+      className: 'custom-map-marker-customer',
+      iconSize: [14, 14],
+      iconAnchor: [7, 7]
+    });
+
+    const riderIcon = L.divIcon({
+      html: `<div style="background: #8b5cf6; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4);"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg></div>`,
+      className: 'custom-map-marker-rider',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+
+    restaurantMarkerRef.current = L.marker([12.9716, 77.5946], { icon: restaurantIcon }).addTo(map).bindPopup('<b>ZingBite Kitchen (Restaurant)</b>');
+    customerMarkerRef.current = L.marker([12.9821, 77.6085], { icon: customerIcon }).addTo(map).bindPopup('<b>Delivery Address (Home)</b>');
+
+    const routePoints = [
+      [12.9716, 77.5946],
+      [12.9716, 77.6010],
+      [12.9821, 77.6010],
+      [12.9821, 77.6085]
+    ];
+
+    routePolylineRef.current = L.polyline(routePoints, { color: '#8b5cf6', weight: 4, opacity: 0.7, dashArray: '8, 8' }).addTo(map);
+
+    riderMarkerRef.current = L.marker([currentLat, currentLng], { icon: riderIcon }).addTo(map).bindPopup('<b>Rider (Live Location)</b>');
+
+    map.fitBounds([
+      [12.9716, 77.5946],
+      [12.9821, 77.6085]
+    ], { padding: [40, 40] });
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [leafletLoaded]);
+
+  // Update Rider Position
+  useEffect(() => {
+    if (!leafletLoaded || !riderMarkerRef.current) return;
+    riderMarkerRef.current.setLatLng([currentLat, currentLng]);
+  }, [currentLat, currentLng, leafletLoaded]);
 
   // Dynamic status details
   let etaVal = 25;
@@ -204,25 +326,8 @@ const OrderTracking = () => {
       etaVal = Math.max(1, Math.round(10 * remaining));
       distanceLeftVal = (3.2 * remaining).toFixed(1) + " km";
       
-      let currentLat = (12.9716 + 0.0105 * (animationProgress / 100)).toFixed(5);
-      let currentLng = (77.5946 + 0.0139 * (animationProgress / 100)).toFixed(5);
-      let isRealGPS = false;
-      
-      if (orderDetail.gpsCoordinates) {
-        const parts = orderDetail.gpsCoordinates.split(',');
-        if (parts.length === 2) {
-          const plat = parseFloat(parts[0]);
-          const plng = parseFloat(parts[1]);
-          if (!isNaN(plat) && !isNaN(plng)) {
-            currentLat = plat.toFixed(5);
-            currentLng = plng.toFixed(5);
-            isRealGPS = true;
-          }
-        }
-      }
-      
       displayHeading = `Arriving in ${etaVal} mins`;
-      displaySubtitle = `Rider is on the way! Distance left: ${distanceLeftVal} (${isRealGPS ? 'Real GPS' : 'Projected'}: ${currentLat}° N, ${currentLng}° E)`;
+      displaySubtitle = `Rider is on the way! Distance left: ${distanceLeftVal} (${isRealGPS ? 'Real GPS' : 'Projected'}: ${currentLat.toFixed(5)}° N, ${currentLng.toFixed(5)}° E)`;
     } else if (status === 'Delivered') {
       etaVal = 0;
       distanceLeftVal = "0 km";
@@ -1199,62 +1304,21 @@ const OrderTracking = () => {
                 </div>
               </div>
     
-              {/* Map Simulator */}
-              <div className="map-wrapper">
-                <div className="map-overlay-text">Live GPS Simulator</div>
-                <svg className="tracking-map-svg" viewBox="0 0 380 180">
-                  {/* City Blocks (Decoration) */}
-                  <rect x="20" y="20" width="100" height="30" fill="#eef1f4" rx="4" />
-                  <rect x="20" y="70" width="100" height="50" fill="#eef1f4" rx="4" />
-                  <rect x="180" y="20" width="80" height="110" fill="#eef1f4" rx="4" />
-                  <rect x="280" y="20" width="80" height="25" fill="#eef1f4" rx="4" />
-                  
-                  {/* Road Line network */}
-                  <path 
-                    d="M 80 140 L 160 140 L 160 60 L 300 60 L 300 110" 
-                    fill="none" 
-                    stroke="#e0e0e0" 
-                    strokeWidth="10" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                  />
-                  
-                  {/* Rider Path Trail (Grows as rider moves) */}
-                  <path 
-                    d="M 80 140 L 160 140 L 160 60 L 300 60 L 300 110" 
-                    fill="none" 
-                    stroke="var(--brand-red)" 
-                    strokeWidth="4" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                    strokeDasharray={totalPathLength}
-                    strokeDashoffset={trailOffset}
-                  />
-                  
-                  {/* Restaurant Point */}
-                  <g className={`map-point ${(orderDetail?.status === 'Accepted' || orderDetail?.status === 'Preparing') ? 'glow' : ''}`} transform="translate(80, 140)">
-                    <circle r="12" fill="#60b246" />
-                    <circle r="6" fill="#fff" />
-                    <text x="-25" y="24" className="map-label">RESTAURANT</text>
-                  </g>
-                  
-                  {/* Customer Home Point */}
-                  <g className={`map-point ${orderDetail?.status === 'Out for Delivery' ? 'glow' : ''}`} transform="translate(300, 110)">
-                    <circle r="12" fill="var(--brand-red)" />
-                    <circle r="6" fill="#fff" />
-                    <text x="-12" y="24" className="map-label">HOME</text>
-                  </g>
-                  
-                  {/* Moving Rider Point */}
-                  <g className="map-rider-marker" transform={`translate(${riderPos.x}, ${riderPos.y})`}>
-                    <circle r="10" fill="#171a29" stroke="#fff" strokeWidth="2" />
-                    <foreignObject x="-6" y="-6" width="12" height="12">
-                      <div style={{ color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Bike size={10} />
-                      </div>
-                    </foreignObject>
-                  </g>
-                </svg>
+              {/* Interactive Leaflet Map */}
+              <div className="map-wrapper" style={{ height: '320px' }}>
+                <div className="map-overlay-text">
+                  {isRealGPS ? '🔴 LIVE REAL-TIME MAP' : '📍 PROJECTED ROUTE MAP'}
+                </div>
+                {leafletLoaded ? (
+                  <div ref={mapRef} style={{ width: '100%', height: '100%', borderRadius: 'inherit', zIndex: 1 }} />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', background: '#f4f6f8', gap: '12px' }}>
+                    <Loader size={24} style={{ animation: 'spin 1s linear infinite', color: '#8b5cf6' }} />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      Loading Leaflet Interactive Map...
+                    </span>
+                  </div>
+                )}
               </div>
     
               {/* Timeline progress steps */}
