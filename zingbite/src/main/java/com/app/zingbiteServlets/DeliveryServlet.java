@@ -22,6 +22,8 @@ import com.app.zingbitemodels.User;
 import com.app.zingbitemodels.Orders;
 import com.app.zingbitemodels.OrderHistory;
 import com.app.zingbiteutils.DBUtils;
+import com.app.zingbiteutils.GeoUtils;
+import com.app.zingbiteutils.RouteOptimizer;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -46,10 +48,22 @@ public class DeliveryServlet extends HttpServlet {
         }
 
         User user = (User) session.getAttribute("loggedInUser");
+        if (!"delivery_partner".equals(user.getRole())) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Forbidden: Only delivery partners can access this resource.\"}");
+            return;
+        }
+
+        double riderLat = GeoUtils.getRiderLatitude(user.getUserID());
+        double riderLon = GeoUtils.getRiderLongitude(user.getUserID());
+
         JsonArray availableRuns = new JsonArray();
         JsonArray activeDeliveries = new JsonArray();
         JsonArray completedDeliveries = new JsonArray();
         int totalEarnings = 0;
+
+        List<JsonObject> availableList = new ArrayList<>();
+        List<JsonObject> activeList = new ArrayList<>();
 
         try (Session hibernateSession = DBUtils.openSession()) {
             String hql = "from Orders order by orderId desc";
@@ -71,21 +85,61 @@ public class DeliveryServlet extends HttpServlet {
                 oJson.addProperty("customerAddress", customer != null ? customer.getAddress() : "ZingBite Hub");
                 oJson.addProperty("customerPhone", customer != null ? String.valueOf(customer.getPhoneNumber()) : "");
 
+                double restLat = GeoUtils.getRestaurantLatitude(o.getRestaurantId() != null ? o.getRestaurantId().getRestaurantId() : 0);
+                double restLon = GeoUtils.getRestaurantLongitude(o.getRestaurantId() != null ? o.getRestaurantId().getRestaurantId() : 0);
+                double dist = GeoUtils.haversine(riderLat, riderLon, restLat, restLon);
+                oJson.addProperty("distance", Math.round(dist * 10.0) / 10.0);
+
                 if (o.getRiderId() == null) {
                     String status = o.getOrderStatus();
                     if ("Placed".equalsIgnoreCase(status) || 
                         "Preparing".equalsIgnoreCase(status) || 
                         "Waiting to Dispatch".equalsIgnoreCase(status) ||
                         "Out for Delivery".equalsIgnoreCase(status)) {
-                        availableRuns.add(oJson);
+                        availableList.add(oJson);
                     }
                 } else if (o.getRiderId() == user.getUserID()) {
                     if ("Delivered".equalsIgnoreCase(o.getOrderStatus())) {
                         completedDeliveries.add(oJson);
                         totalEarnings += 45; // 45 INR per trip
                     } else {
-                        activeDeliveries.add(oJson);
+                        activeList.add(oJson);
                     }
+                }
+            }
+
+            // Sort available runs by distance (Haversine)
+            availableList.sort((a, b) -> Double.compare(a.get("distance").getAsDouble(), b.get("distance").getAsDouble()));
+            for (JsonObject run : availableList) {
+                availableRuns.add(run);
+            }
+
+            // Route Optimization (TSP Nearest Neighbor) for Active runs
+            if (activeList.size() > 1) {
+                List<RouteOptimizer.Location> locations = new ArrayList<>();
+                for (int i = 0; i < activeList.size(); i++) {
+                    JsonObject act = activeList.get(i);
+                    int oId = act.get("orderId").getAsInt();
+                    Orders matchedOrder = null;
+                    for (Orders ord : ordersList) {
+                        if (ord.getOrderId() == oId) {
+                            matchedOrder = ord;
+                            break;
+                        }
+                    }
+                    int cId = matchedOrder != null ? matchedOrder.getUserId() : 0;
+                    double cLat = GeoUtils.getUserLatitude(cId);
+                    double cLon = GeoUtils.getUserLongitude(cId);
+                    locations.add(new RouteOptimizer.Location(i, cLat, cLon, act.get("customerName").getAsString()));
+                }
+
+                int[] optSequence = RouteOptimizer.optimizeRoute(riderLat, riderLon, locations);
+                for (int idx : optSequence) {
+                    activeDeliveries.add(activeList.get(idx));
+                }
+            } else {
+                for (JsonObject act : activeList) {
+                    activeDeliveries.add(act);
                 }
             }
 
@@ -120,6 +174,11 @@ public class DeliveryServlet extends HttpServlet {
         }
 
         User user = (User) session.getAttribute("loggedInUser");
+        if (!"delivery_partner".equals(user.getRole())) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Forbidden: Only delivery partners can perform this action.\"}");
+            return;
+        }
 
         try {
             BufferedReader reader = req.getReader();
@@ -175,6 +234,13 @@ public class DeliveryServlet extends HttpServlet {
                 resp.getWriter().write(jsonResponse.toString());
 
             } else {
+                // Verify ownership (IDOR check)
+                if (order.getRiderId() == null || order.getRiderId() != user.getUserID()) {
+                    resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    resp.getWriter().write("{\"error\":\"Forbidden: You cannot modify another rider's delivery task.\"}");
+                    return;
+                }
+
                 // Default update status
                 String status = requestBody.get("status").getAsString();
                 order.setOrderStatus(status);

@@ -52,6 +52,12 @@ public class RestaurantAdminServlet extends HttpServlet {
         }
 
         User user = (User) session.getAttribute("loggedInUser");
+        if (!"restaurant_admin".equals(user.getRole())) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Forbidden: Only restaurant admins can access this resource.\"}");
+            return;
+        }
+
         Gson gson = new Gson();
 
         try (Session hibernateSession = DBUtils.openSession()) {
@@ -148,6 +154,11 @@ public class RestaurantAdminServlet extends HttpServlet {
         }
 
         User user = (User) session.getAttribute("loggedInUser");
+        if (!"restaurant_admin".equals(user.getRole())) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Forbidden: Only restaurant admins can access this resource.\"}");
+            return;
+        }
 
         try {
             BufferedReader reader = req.getReader();
@@ -190,9 +201,21 @@ public class RestaurantAdminServlet extends HttpServlet {
                     tx = hibernateSession.beginTransaction();
                     Menu menu = hibernateSession.get(Menu.class, menuId);
                     if (menu != null) {
+                        // IDOR check: Verify ownership
+                        Restaurant restaurant = menu.getRestaurant();
+                        if (restaurant == null || restaurant.getAdminId() == null || restaurant.getAdminId() != user.getUserID()) {
+                            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            resp.getWriter().write("{\"error\":\"Forbidden: You do not own this restaurant item.\"}");
+                            return;
+                        }
+
                         menu.setAvailable(isAvailable);
                         hibernateSession.merge(menu);
                         tx.commit();
+
+                        // Invalidate LRU Cache
+                        MenuServlet.menuCache.remove(restaurant.getRestaurantId());
+
                         resp.getWriter().write("{\"success\":true}");
                     } else {
                         resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -212,12 +235,23 @@ public class RestaurantAdminServlet extends HttpServlet {
 
                 Restaurant restaurant = new RestaurantDAOImplementation().getRestaurantById(restaurantId);
                 if (restaurant != null) {
+                    // IDOR check: Verify ownership
+                    if (restaurant.getAdminId() == null || restaurant.getAdminId() != user.getUserID()) {
+                        resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        resp.getWriter().write("{\"error\":\"Forbidden: You do not own this restaurant.\"}");
+                        return;
+                    }
+
                     Menu menu = new Menu(restaurant, name, price, description, true, imagePath);
                     
                     try (Session hibernateSession = DBUtils.openSession()) {
                         tx = hibernateSession.beginTransaction();
                         hibernateSession.persist(menu);
                         tx.commit();
+
+                        // Invalidate LRU Cache
+                        MenuServlet.menuCache.remove(restaurantId);
+
                         resp.getWriter().write("{\"success\":true}");
                     } catch (Exception e) {
                         if (tx != null) tx.rollback();
@@ -236,6 +270,14 @@ public class RestaurantAdminServlet extends HttpServlet {
                 Orders order = ordersDAO.getOrdersById(orderId);
 
                 if (order != null) {
+                    // IDOR check: Verify restaurant admin ownership
+                    Restaurant restaurant = order.getRestaurantId();
+                    if (restaurant == null || restaurant.getAdminId() == null || restaurant.getAdminId() != user.getUserID()) {
+                        resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        resp.getWriter().write("{\"error\":\"Forbidden: This order does not belong to your restaurant.\"}");
+                        return;
+                    }
+
                     order.setOrderStatus(status);
                     ordersDAO.updateOrders(order);
 
