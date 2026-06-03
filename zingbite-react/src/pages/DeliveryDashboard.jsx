@@ -94,12 +94,20 @@ const DeliveryDashboard = () => {
       });
     } else {
       if (!navigator.geolocation) {
-        alert("Geolocation is not supported by your browser");
+        alert("Geolocation is not supported by your browser or is blocked in insecure contexts.");
         return;
       }
+      
+      // Geolocation API requires a secure context (HTTPS) or localhost
+      if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        alert("🔒 Browser Security Block:\nReal-time device Geolocation API is restricted by modern browsers to Secure Contexts (HTTPS) or localhost.\n\nSince you are accessing via HTTP/IP, please use the 'Auto-Simulation' or manual range slider instead, or run the app on localhost/HTTPS.");
+        return;
+      }
+
       if (simulators[orderId]) {
         toggleAutoSimulate(orderId);
       }
+      
       const watchId = navigator.geolocation.watchPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
@@ -108,10 +116,21 @@ const DeliveryDashboard = () => {
         },
         (error) => {
           console.error("Geolocation watch error:", error);
-          alert("Error retrieving geolocation: " + error.message);
+          if (error.code === error.PERMISSION_DENIED) {
+            alert("❌ Geolocation Permission Denied:\nPlease allow location access in your browser settings to track live rider coordinates, or use the 'Auto-Simulation' / manual range slider instead.");
+          } else {
+            alert("Error retrieving geolocation: " + error.message);
+          }
+          // Stop watching
+          setWatchers(prev => {
+            const copy = { ...prev };
+            delete copy[orderId];
+            return copy;
+          });
         },
         { enableHighAccuracy: true, maximumAge: 1000 }
       );
+      
       setWatchers(prev => ({
         ...prev,
         [orderId]: watchId
