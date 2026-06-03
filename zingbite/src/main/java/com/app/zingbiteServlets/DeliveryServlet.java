@@ -33,6 +33,9 @@ import com.google.gson.JsonParser;
 public class DeliveryServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
+    // Static map storing the current GPS route progress (0.0 to 100.0) for each active order
+    public static final java.util.Map<Integer, Double> activeGpsProgress = new java.util.concurrent.ConcurrentHashMap<>();
+
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -103,6 +106,8 @@ public class DeliveryServlet extends HttpServlet {
                         completedDeliveries.add(oJson);
                         totalEarnings += 45; // 45 INR per trip
                     } else {
+                        double currentGps = activeGpsProgress.containsKey(o.getOrderId()) ? activeGpsProgress.get(o.getOrderId()) : 0.0;
+                        oJson.addProperty("gpsProgress", currentGps);
                         activeList.add(oJson);
                     }
                 }
@@ -197,7 +202,23 @@ public class DeliveryServlet extends HttpServlet {
 
             Transaction tx = null;
 
-            if ("acceptOrder".equals(action)) {
+            if ("updateGPS".equals(action)) {
+                // Verify ownership (IDOR check)
+                if (order.getRiderId() == null || order.getRiderId() != user.getUserID()) {
+                    resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    resp.getWriter().write("{\"error\":\"Forbidden: You cannot update GPS for another rider's delivery task.\"}");
+                    return;
+                }
+
+                double progress = requestBody.get("progress").getAsDouble();
+                activeGpsProgress.put(orderId, progress);
+
+                JsonObject jsonResponse = new JsonObject();
+                jsonResponse.addProperty("success", true);
+                resp.getWriter().write(jsonResponse.toString());
+                return;
+
+            } else if ("acceptOrder".equals(action)) {
                 if (order.getRiderId() != null) {
                     resp.setStatus(HttpServletResponse.SC_CONFLICT);
                     resp.getWriter().write("{\"error\":\"Order already claimed by another rider.\"}");
@@ -245,6 +266,10 @@ public class DeliveryServlet extends HttpServlet {
                 String status = requestBody.get("status").getAsString();
                 order.setOrderStatus(status);
                 ordersDAO.updateOrders(order);
+
+                if ("Delivered".equalsIgnoreCase(status)) {
+                    activeGpsProgress.put(orderId, 100.0);
+                }
 
                 // Update OrderHistory
                 try (Session hibernateSession = DBUtils.openSession()) {

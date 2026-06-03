@@ -97,6 +97,13 @@ public class ProfileServlet extends HttpServlet {
                         statusVal = oh.getOrderStatus();
                     }
                     oJson.addProperty("status", statusVal);
+                    double gps = 0.0;
+                    if (DeliveryServlet.activeGpsProgress.containsKey(oh.getOrderId())) {
+                        gps = DeliveryServlet.activeGpsProgress.get(oh.getOrderId());
+                    } else if ("Delivered".equalsIgnoreCase(statusVal)) {
+                        gps = 100.0;
+                    }
+                    oJson.addProperty("gpsProgress", gps);
 
                     if (associatedOrder != null && associatedOrder.getRiderId() != null) {
                         oJson.addProperty("riderId", associatedOrder.getRiderId());

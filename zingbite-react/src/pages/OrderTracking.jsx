@@ -67,31 +67,33 @@ const OrderTracking = () => {
     setOrderDetail(matching || null);
   }, [orders, orderIdParam]);
 
-  // Smooth path animation when Out for Delivery
+  // Smoothly interpolate animationProgress towards orderDetail.gpsProgress from backend
   useEffect(() => {
     if (!orderDetail) return;
     
     if (orderDetail.status === 'Out for Delivery') {
-      const duration = 25000; // 25 seconds for a complete path run
-      const startTime = Date.now();
+      const target = orderDetail.gpsProgress || 0;
       
-      const animate = () => {
-        const elapsed = Date.now() - startTime;
-        const currentProgress = Math.min(99.5, (elapsed / duration) * 100);
-        setAnimationProgress(currentProgress);
-        
-        if (elapsed < duration) {
-          requestAnimationFrame(animate);
-        }
+      let animId;
+      const step = () => {
+        setAnimationProgress(current => {
+          const diff = target - current;
+          if (Math.abs(diff) < 0.2) {
+            return target;
+          }
+          const next = current + diff * 0.08;
+          animId = requestAnimationFrame(step);
+          return next;
+        });
       };
-      const animFrame = requestAnimationFrame(animate);
-      return () => cancelAnimationFrame(animFrame);
+      animId = requestAnimationFrame(step);
+      return () => cancelAnimationFrame(animId);
     } else if (orderDetail.status === 'Delivered') {
       setAnimationProgress(100);
     } else {
       setAnimationProgress(0);
     }
-  }, [orderDetail?.status]);
+  }, [orderDetail?.gpsProgress, orderDetail?.status]);
 
   const simulateStatusChange = async (newStatus) => {
     if (!orderDetail) return;
@@ -201,8 +203,10 @@ const OrderTracking = () => {
       const remaining = 1 - (animationProgress / 100);
       etaVal = Math.max(1, Math.round(10 * remaining));
       distanceLeftVal = (3.2 * remaining).toFixed(1) + " km";
+      const currentLat = (12.9716 + 0.0105 * (animationProgress / 100)).toFixed(5);
+      const currentLng = (77.5946 + 0.0139 * (animationProgress / 100)).toFixed(5);
       displayHeading = `Arriving in ${etaVal} mins`;
-      displaySubtitle = `Rider is on the way! Distance left: ${distanceLeftVal}`;
+      displaySubtitle = `Rider is on the way! Distance left: ${distanceLeftVal} (GPS: ${currentLat}° N, ${currentLng}° E)`;
     } else if (status === 'Delivered') {
       etaVal = 0;
       distanceLeftVal = "0 km";

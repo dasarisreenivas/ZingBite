@@ -10,6 +10,59 @@ const DeliveryDashboard = () => {
   const [data, setData] = useState({ available: [], active: [], completed: [], totalEarnings: 0, completedCount: 0 });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
+  const [simulators, setSimulators] = useState({});
+
+  const handleUpdateGPS = async (orderId, progress) => {
+    try {
+      await axios.post('/api/delivery', {
+        action: 'updateGPS',
+        orderId,
+        progress
+      });
+      setData(prev => ({
+        ...prev,
+        active: (prev.active || []).map(a => a.orderId === orderId ? { ...a, gpsProgress: progress } : a)
+      }));
+    } catch (err) {
+      console.error("Failed to update GPS progress:", err);
+    }
+  };
+
+  const toggleAutoSimulate = (orderId, currentProgress = 0) => {
+    if (simulators[orderId]) {
+      clearInterval(simulators[orderId]);
+      setSimulators(prev => {
+        const copy = { ...prev };
+        delete copy[orderId];
+        return copy;
+      });
+    } else {
+      let prog = currentProgress >= 100 ? 0 : currentProgress;
+      const intervalId = setInterval(async () => {
+        prog = Math.min(100, prog + 5);
+        await handleUpdateGPS(orderId, prog);
+        if (prog >= 100) {
+          clearInterval(intervalId);
+          setSimulators(prev => {
+            const copy = { ...prev };
+            delete copy[orderId];
+            return copy;
+          });
+        }
+      }, 1200);
+
+      setSimulators(prev => ({
+        ...prev,
+        [orderId]: intervalId
+      }));
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      Object.values(simulators).forEach(id => clearInterval(id));
+    };
+  }, [simulators]);
 
   const fetchDeliveryData = async (isBackground = false) => {
     try {
@@ -598,6 +651,49 @@ const DeliveryDashboard = () => {
                 </div>
                 
                 {renderRiderStepper(o)}
+
+                {o.status === 'Out for Delivery' && (
+                  <div style={{ marginTop: '20px', padding: '16px', background: '#fcfaff', border: '1px solid #dcd3ff', borderRadius: '8px' }}>
+                    <h5 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#9966ff', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', margin: '0 0 8px 0' }}>
+                      <Bike size={16} /> Live GPS Telemetry Simulator
+                    </h5>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '12px', margin: '0 0 12px 0' }}>
+                      Route Progress: <strong>{(o.gpsProgress || 0).toFixed(0)}%</strong>
+                      {simulators[o.orderId] && <span style={{ color: '#9966ff', fontWeight: 700, marginLeft: '8px' }}>• Live Pushing...</span>}
+                    </p>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="100" 
+                        step="1"
+                        value={o.gpsProgress || 0}
+                        onChange={(e) => handleUpdateGPS(o.orderId, parseFloat(e.target.value))}
+                        style={{ flex: 1, accentColor: '#9966ff', cursor: 'pointer' }}
+                        disabled={!!simulators[o.orderId]}
+                      />
+                    </div>
+
+                    <button 
+                      onClick={() => toggleAutoSimulate(o.orderId, o.gpsProgress || 0)}
+                      style={{
+                        width: '100%',
+                        padding: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        background: simulators[o.orderId] ? '#ff9f40' : '#9966ff',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s'
+                      }}
+                    >
+                      {simulators[o.orderId] ? 'STOP AUTO-SIMULATION' : 'START AUTO-SIMULATION'}
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
