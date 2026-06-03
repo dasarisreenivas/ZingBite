@@ -150,7 +150,7 @@ const OrderTracking = () => {
   }, [orderDetail?.status]);
 
   // Leaflet Interactive Maps Integration
-  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
   const mapRef = React.useRef(null);
   const mapInstanceRef = React.useRef(null);
   const riderMarkerRef = React.useRef(null);
@@ -200,6 +200,11 @@ const OrderTracking = () => {
 
   // Load Leaflet dynamically
   useEffect(() => {
+    if (window.L) {
+      setLeafletLoaded(true);
+      return;
+    }
+
     let link = document.querySelector('link[href*="leaflet.css"]');
     if (!link) {
       link = document.createElement('link');
@@ -213,10 +218,23 @@ const OrderTracking = () => {
       script = document.createElement('script');
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
       script.async = true;
-      script.onload = () => setLeafletLoaded(true);
+      script.onload = () => {
+        const interval = setInterval(() => {
+          if (window.L) {
+            setLeafletLoaded(true);
+            clearInterval(interval);
+          }
+        }, 50);
+      };
       document.body.appendChild(script);
     } else {
-      setLeafletLoaded(true);
+      const interval = setInterval(() => {
+        if (window.L) {
+          setLeafletLoaded(true);
+          clearInterval(interval);
+        }
+      }, 50);
+      return () => clearInterval(interval);
     }
   }, []);
 
