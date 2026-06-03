@@ -240,24 +240,24 @@ const OrderTracking = () => {
     }).addTo(map);
 
     const restaurantIcon = L.divIcon({
-      html: `<div style="background: #10b981; width: 14px; height: 14px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>`,
+      html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">🍳</div>`,
       className: 'custom-map-marker-restaurant',
-      iconSize: [14, 14],
-      iconAnchor: [7, 7]
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
     });
 
     const customerIcon = L.divIcon({
-      html: `<div style="background: #ef4444; width: 14px; height: 14px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>`,
+      html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">🏠</div>`,
       className: 'custom-map-marker-customer',
-      iconSize: [14, 14],
-      iconAnchor: [7, 7]
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
     });
 
     const riderIcon = L.divIcon({
-      html: `<div style="background: #8b5cf6; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4);"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg></div>`,
+      html: `<div style="font-size: 28px; text-align: center; line-height: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">🛵</div>`,
       className: 'custom-map-marker-rider',
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
     });
 
     restaurantMarkerRef.current = L.marker([12.9716, 77.5946], { icon: restaurantIcon }).addTo(map).bindPopup('<b>ZingBite Kitchen (Restaurant)</b>');
