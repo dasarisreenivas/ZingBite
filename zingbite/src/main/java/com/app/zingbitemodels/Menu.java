@@ -9,7 +9,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
 @Entity
@@ -19,14 +18,7 @@ public class Menu implements Serializable {
 	private static final long serialVersionUID = 1L;
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY,generator="MenuId_seq_gen")
-	@SequenceGenerator(
-			name = "MenuId_seq_gen",
-			sequenceName = "MenuId_seq",
-			allocationSize =  1
-			
-			)
-	
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "MENUID", nullable = false)
 	private int menuId;
 

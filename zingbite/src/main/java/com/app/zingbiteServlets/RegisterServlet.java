@@ -1,65 +1,93 @@
 package com.app.zingbiteServlets;
 
 import java.io.IOException;
+import java.io.BufferedReader;
 
 import com.app.zingbitedao.UserDAO;
 import com.app.zingbitedaoimpl.UserDAOImplementation;
 import com.app.zingbitemodels.User;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 
-@WebServlet("/register")
+@WebServlet("/api/register")
 public class RegisterServlet extends HttpServlet {
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-    	HttpSession session = req.getSession();
-        // Get form parameters directly from request
-        String userName = (String) session.getAttribute("username");
-        String email = (String)session.getAttribute("email");
-        String mobile = (String)session.getAttribute("mobile");
-        String password = (String)session.getAttribute("password");
-        String confirmPassword= (String)session.getAttribute("confirmpassword");
-        String address = (String)session.getAttribute("address");
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
+        
+        Gson gson = new Gson();
+        JsonObject jsonResponse = new JsonObject();
+        
+        try {
+            BufferedReader reader = req.getReader();
+            JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
+            
+            String userName = requestBody.has("username") ? requestBody.get("username").getAsString() : null;
+            String email = requestBody.has("email") ? requestBody.get("email").getAsString() : null;
+            String mobile = requestBody.has("mobile") ? requestBody.get("mobile").getAsString() : null;
+            String password = requestBody.has("password") ? requestBody.get("password").getAsString() : null;
+            String confirmPassword = requestBody.has("confirmPassword") ? requestBody.get("confirmPassword").getAsString() : null;
+            String address = requestBody.has("address") ? requestBody.get("address").getAsString() : null;
 
-        long mobileNumber = 0;
-        if (mobile != null && !mobile.isEmpty()) {
+            if (email == null || password == null || userName == null || mobile == null || address == null) {
+                jsonResponse.addProperty("error", "All fields are required");
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                resp.getWriter().write(jsonResponse.toString());
+                return;
+            }
+
+            long mobileNumber = 0;
             try {
                 mobileNumber = Long.parseLong(mobile);
             } catch (NumberFormatException e) {
-                req.setAttribute("errorMessage", "Invalid mobile number!");
-                req.getRequestDispatcher("register.jsp").forward(req, resp);
+                jsonResponse.addProperty("error", "Invalid mobile number");
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                resp.getWriter().write(jsonResponse.toString());
                 return;
             }
-        } else {
-            req.setAttribute("errorMessage", "Mobile number is required!");
-            req.getRequestDispatcher("register.jsp").forward(req, resp);
-            return;
+
+            if (!password.equals(confirmPassword)) {
+                jsonResponse.addProperty("error", "Passwords do not match");
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                resp.getWriter().write(jsonResponse.toString());
+                return;
+            }
+            
+            UserDAO userDAO = new UserDAOImplementation();
+            User existingUser = userDAO.getUserById(email);
+            if(existingUser != null) {
+                jsonResponse.addProperty("error", "Email already registered");
+                resp.setStatus(HttpServletResponse.SC_CONFLICT);
+                resp.getWriter().write(jsonResponse.toString());
+                return;
+            }
+
+            String role = requestBody.has("role") ? requestBody.get("role").getAsString() : "customer";
+            User user = new User(userName, email, password, mobileNumber, address);
+            user.setRole(role);
+            int added = userDAO.addUser(user);
+
+            if (added > 0) {
+                jsonResponse.addProperty("success", true);
+            } else {
+                jsonResponse.addProperty("error", "Registration failed");
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+        } catch (Exception e) {
+            jsonResponse.addProperty("error", "An error occurred during registration");
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
 
-        // Check password match
-        if (!password.equals(confirmPassword)) {
-            req.setAttribute("errorMessage", "Passwords do not match!");
-            req.getRequestDispatcher("register.jsp").forward(req, resp);
-            return;
-        }
-
-        // Add user to database
-        User user = new User(userName, email, password, mobileNumber, address);
-        UserDAO userDAO = new UserDAOImplementation();
-        int added = userDAO.addUser(user); // assuming addUser returns boolean
-
-        if (added==1) {
-        	System.out.println(added);
-            resp.sendRedirect("login.jsp");
-        } else {
-            req.setAttribute("errorMessage", "Registration failed! Try again.");
-            req.getRequestDispatcher("register.jsp").forward(req, resp);
-        }
+        resp.getWriter().write(jsonResponse.toString());
     }
 }

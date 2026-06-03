@@ -1,0 +1,295 @@
+package com.app.zingbiteServlets;
+
+import java.io.IOException;
+import java.io.BufferedReader;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.hibernate.query.Query;
+
+import com.app.zingbitemodels.User;
+import com.app.zingbitemodels.Restaurant;
+import com.app.zingbitemodels.RestaurantRequest;
+import com.app.zingbitemodels.Orders;
+import com.app.zingbitemodels.Job;
+import com.app.zingbitemodels.Application;
+import com.app.zingbitemodels.EmailNotification;
+import com.app.zingbiteutils.DBUtils;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+@WebServlet("/api/super-admin")
+public class SuperAdminServlet extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+
+    private boolean isSuperAdmin(HttpServletRequest req) {
+        HttpSession session = req.getSession(false);
+        if (session == null) return false;
+        User user = (User) session.getAttribute("loggedInUser");
+        if (user == null) return false;
+        return "super_admin".equals(user.getRole());
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+        
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
+
+        if (!isSuperAdmin(req)) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Forbidden: Only Super Admins can access this resource.\"}");
+            return;
+        }
+
+        Gson gson = new Gson();
+
+        try (Session hibernateSession = DBUtils.openSession()) {
+            // Global counts
+            long userCount = hibernateSession.createQuery("select count(u) from User u", Long.class).uniqueResult();
+            long restaurantCount = hibernateSession.createQuery("select count(r) from Restaurant r", Long.class).uniqueResult();
+            long orderCount = hibernateSession.createQuery("select count(o) from Orders o", Long.class).uniqueResult();
+            Double totalRevenue = hibernateSession.createQuery("select sum(o.totalAmount) from Orders o", Double.class).uniqueResult();
+            if (totalRevenue == null) totalRevenue = 0.0;
+
+            // Fetch users
+            List<User> usersList = hibernateSession.createQuery("from User order by userID asc", User.class).list();
+
+            // Fetch applications
+            List<Application> appList = hibernateSession.createQuery("from Application order by id desc", Application.class).list();
+            JsonArray applicationsJson = new JsonArray();
+
+            for (Application app : appList) {
+                JsonObject aJson = new JsonObject();
+                aJson.addProperty("id", app.getId());
+                aJson.addProperty("candidateName", app.getCandidateName());
+                aJson.addProperty("email", app.getEmail());
+                aJson.addProperty("phone", app.getPhone());
+                aJson.addProperty("resumeUrl", app.getResumeUrl());
+                aJson.addProperty("status", app.getStatus());
+                aJson.addProperty("appliedDate", app.getAppliedDate());
+                
+                Job job = hibernateSession.get(Job.class, app.getJobId());
+                aJson.addProperty("jobTitle", job != null ? job.getTitle() : "Position");
+                applicationsJson.add(aJson);
+            }
+
+            // Fetch restaurant registration requests
+            List<RestaurantRequest> requestsList = hibernateSession.createQuery("from RestaurantRequest order by id desc", RestaurantRequest.class).list();
+
+            JsonObject stats = new JsonObject();
+            stats.addProperty("userCount", userCount);
+            stats.addProperty("restaurantCount", restaurantCount);
+            stats.addProperty("orderCount", orderCount);
+            stats.addProperty("totalRevenue", totalRevenue);
+            stats.add("users", gson.toJsonTree(usersList));
+            stats.add("applications", applicationsJson);
+            stats.add("restaurantRequests", gson.toJsonTree(requestsList));
+
+            resp.getWriter().write(stats.toString());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            resp.getWriter().write("{\"error\":\"Failed to fetch admin stats\"}");
+        }
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
+
+        if (!isSuperAdmin(req)) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Forbidden: Only Super Admins can execute these operations.\"}");
+            return;
+        }
+
+        try {
+            BufferedReader reader = req.getReader();
+            JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
+            String action = requestBody.has("action") ? requestBody.get("action").getAsString() : "";
+
+            Transaction tx = null;
+
+            if ("reviewRestaurant".equals(action)) {
+                int requestId = requestBody.get("requestId").getAsInt();
+                String status = requestBody.get("status").getAsString(); // Approved, Rejected
+
+                try (Session hibernateSession = DBUtils.openSession()) {
+                    tx = hibernateSession.beginTransaction();
+                    
+                    RestaurantRequest rr = hibernateSession.get(RestaurantRequest.class, requestId);
+                    if (rr != null) {
+                        rr.setStatus(status);
+                        hibernateSession.merge(rr);
+                        
+                        if ("Approved".equals(status)) {
+                            // Onboard restaurant
+                            Restaurant r = new Restaurant(
+                                rr.getRestaurantName(),
+                                rr.getDeliveryTime(),
+                                rr.getCuisineType(),
+                                rr.getAddress(),
+                                4.5f,
+                                true,
+                                rr.getAdminId(),
+                                rr.getImagePath()
+                            );
+                            hibernateSession.persist(r);
+
+                            // Force Admin User role to restaurant_admin
+                            User adminUser = hibernateSession.get(User.class, rr.getAdminId());
+                            if (adminUser != null) {
+                                adminUser.setRole("restaurant_admin");
+                                hibernateSession.merge(adminUser);
+                            }
+                        }
+                        
+                        tx.commit();
+                        resp.getWriter().write("{\"success\":true}");
+                    } else {
+                        resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                        resp.getWriter().write("{\"error\":\"Restaurant Request not found\"}");
+                    }
+                } catch (Exception e) {
+                    if (tx != null) tx.rollback();
+                    throw e;
+                }
+
+            } else if ("addRestaurant".equals(action)) {
+                String name = requestBody.get("name").getAsString();
+                String cuisine = requestBody.get("cuisine").getAsString();
+                String address = requestBody.get("address").getAsString();
+                String deliveryTime = requestBody.has("deliveryTime") ? requestBody.get("deliveryTime").getAsString() : "30 mins";
+                String imagePath = requestBody.has("imagePath") ? requestBody.get("imagePath").getAsString() : "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop";
+
+                Restaurant restaurant = new Restaurant(name, deliveryTime, cuisine, address, 4.5f, true, 1, imagePath);
+
+                try (Session hibernateSession = DBUtils.openSession()) {
+                    tx = hibernateSession.beginTransaction();
+                    hibernateSession.persist(restaurant);
+                    tx.commit();
+                    resp.getWriter().write("{\"success\":true}");
+                } catch (Exception e) {
+                    if (tx != null) tx.rollback();
+                    throw e;
+                }
+
+            } else if ("addJob".equals(action)) {
+                String title = requestBody.get("title").getAsString();
+                String department = requestBody.get("department").getAsString();
+                String location = requestBody.get("location").getAsString();
+                String description = requestBody.get("description").getAsString();
+
+                Job job = new Job(title, department, location, description, new SimpleDateFormat("MMMM dd, yyyy").format(new Date()));
+
+                try (Session hibernateSession = DBUtils.openSession()) {
+                    tx = hibernateSession.beginTransaction();
+                    hibernateSession.persist(job);
+                    tx.commit();
+                    resp.getWriter().write("{\"success\":true}");
+                } catch (Exception e) {
+                    if (tx != null) tx.rollback();
+                    throw e;
+                }
+
+            } else if ("updateApplicationStatus".equals(action)) {
+                int appId = requestBody.get("appId").getAsInt();
+                String status = requestBody.get("status").getAsString();
+
+                try (Session hibernateSession = DBUtils.openSession()) {
+                    tx = hibernateSession.beginTransaction();
+                    Application app = hibernateSession.get(Application.class, appId);
+                    if (app != null) {
+                        app.setStatus(status);
+                        hibernateSession.merge(app);
+
+                        // Query job title
+                        Job job = hibernateSession.get(Job.class, app.getJobId());
+                        String jobTitle = job != null ? job.getTitle() : "Position";
+
+                        // Create simulated email notification
+                        String subject = "Job Application Update: " + jobTitle;
+                        String body = "Dear " + app.getCandidateName() + ",\n\n"
+                                    + "We wanted to let you know that we have updated the status of your application for the "
+                                    + jobTitle + " position. Your application is now in state: \"" + status + "\".\n\n"
+                                    + "Should there be next steps, our recruitment team will get in touch with you shortly.\n\n"
+                                    + "Best regards,\n"
+                                    + "ZingBite Careers & Operations Team";
+
+                        EmailNotification note = new EmailNotification(
+                            app.getUserId(),
+                            subject,
+                            body,
+                            new SimpleDateFormat("MMMM dd, yyyy HH:mm").format(new Date())
+                        );
+                        hibernateSession.persist(note);
+
+                        tx.commit();
+                        resp.getWriter().write("{\"success\":true}");
+                    } else {
+                        resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                        resp.getWriter().write("{\"error\":\"Application not found\"}");
+                    }
+                } catch (Exception e) {
+                    if (tx != null) tx.rollback();
+                    throw e;
+                }
+
+            } else if ("changeUserRole".equals(action)) {
+                int targetUserId = requestBody.get("userId").getAsInt();
+                String newRole = requestBody.get("role").getAsString();
+
+                try (Session hibernateSession = DBUtils.openSession()) {
+                    tx = hibernateSession.beginTransaction();
+                    User targetUser = hibernateSession.get(User.class, targetUserId);
+                    if (targetUser != null) {
+                        targetUser.setRole(newRole);
+                        hibernateSession.merge(targetUser);
+                        tx.commit();
+
+                        HttpSession session = req.getSession(false);
+                        User current = (User) session.getAttribute("loggedInUser");
+                        if (current != null && current.getUserID() == targetUserId) {
+                            current.setRole(newRole);
+                            session.setAttribute("loggedInUser", current);
+                        }
+
+                        resp.getWriter().write("{\"success\":true}");
+                    } else {
+                        resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                        resp.getWriter().write("{\"error\":\"User not found\"}");
+                    }
+                } catch (Exception e) {
+                    if (tx != null) tx.rollback();
+                    throw e;
+                }
+            } else {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                resp.getWriter().write("{\"error\":\"Invalid action\"}");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            resp.getWriter().write("{\"error\":\"Operation failed\"}");
+        }
+    }
+}

@@ -1,6 +1,7 @@
 package com.app.zingbiteServlets;
 
 import java.io.IOException;
+import java.io.BufferedReader;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -11,15 +12,21 @@ import com.app.zingbitedaoimpl.RestaurantDAOImplementation;
 import com.app.zingbitemodels.Cart;
 import com.app.zingbitemodels.CartItem;
 import com.app.zingbitemodels.Menu;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
-@WebServlet("/cart")
+@WebServlet("/api/cart")
 public class CartServlet extends HttpServlet {
 
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
-	@Override
+    @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
+        
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
 
         HttpSession session = req.getSession();
         Cart cart = (Cart) session.getAttribute("cart");
@@ -28,18 +35,26 @@ public class CartServlet extends HttpServlet {
             session.setAttribute("cart", cart);
         }
 
-        String action = req.getParameter("action");
-
         try {
+            BufferedReader reader = req.getReader();
+            JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
+            
+            String action = requestBody.has("action") ? requestBody.get("action").getAsString() : null;
+
+            if (action == null) {
+                sendError(resp, "Action is required");
+                return;
+            }
+
             switch (action) {
                 case "add":
-                    addItemToCart(req, cart, resp, session);
+                    addItemToCart(requestBody, cart, resp, session);
                     return;
                 case "updateQuantity":
-                    updateQuantity(req, cart);
+                    updateQuantity(requestBody, cart);
                     break;
                 case "remove":
-                    removeItem(req, cart);
+                    removeItem(requestBody, cart);
                     break;
                 case "clear":
                     cart.clear();
@@ -50,35 +65,40 @@ public class CartServlet extends HttpServlet {
                     cart.clear();
                     session.removeAttribute("restaurantId");
                     session.removeAttribute("restaurantName");
-                    addItemToCart(req, cart, resp, session);
+                    addItemToCart(requestBody, cart, resp, session);
                     return;
             }
 
             session.setAttribute("cart", cart);
-
-            if ("XMLHttpRequest".equals(req.getHeader("X-Requested-With"))) {
-                sendCartTotals(resp, cart);
-            } else {
-                resp.sendRedirect("cart.jsp");
-            }
+            sendCartTotals(resp, cart);
 
         } catch (Exception e) {
             e.printStackTrace();
-            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Cart operation failed");
+            sendError(resp, "Cart operation failed");
         }
     }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        req.getRequestDispatcher("cart.jsp").forward(req, resp);
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
+        
+        HttpSession session = req.getSession();
+        Cart cart = (Cart) session.getAttribute("cart");
+        if (cart == null) {
+            cart = new Cart();
+            session.setAttribute("cart", cart);
+        }
+        
+        sendCartTotals(resp, cart);
     }
 
     // ---------------------- Helper Methods ----------------------
 
-    private void addItemToCart(HttpServletRequest req, Cart cart, HttpServletResponse resp, HttpSession session) throws IOException {
-        int itemId = Integer.parseInt(req.getParameter("itemId"));
-        int quantity = Integer.parseInt(req.getParameter("quantity"));
+    private void addItemToCart(JsonObject requestBody, Cart cart, HttpServletResponse resp, HttpSession session) throws IOException {
+        int itemId = requestBody.get("itemId").getAsInt();
+        int quantity = requestBody.get("quantity").getAsInt();
 
         MenuDAO menuDAO = new MenuDAOImplementation();
         Menu menuItem = menuDAO.getMenuById(itemId);
@@ -88,20 +108,17 @@ public class CartServlet extends HttpServlet {
             Integer currentRestaurantId = (Integer) session.getAttribute("restaurantId");
 
             if (currentRestaurantId != null && currentRestaurantId != newRestaurantId) {
-                // Conflict: notify the client
                 String json = String.format(
                         "{\"restaurantConflict\":true,\"newItemId\":%d,\"newQuantity\":%d}",
                         itemId, quantity
                 );
-                resp.setContentType("application/json");
                 resp.getWriter().write(json);
                 return;
             }
 
-            // No conflict, add item
             CartItem item = new CartItem(
                     menuItem.getMenuId(),
-                    menuItem.getRestaurant().getRestaurantId(),
+                    newRestaurantId,
                     menuItem.getMenuName(),
                     menuItem.getPrice(),
                     quantity,
@@ -109,27 +126,37 @@ public class CartServlet extends HttpServlet {
             );
             cart.addItemToCart(item);
 
-            session.setAttribute("restaurantId", newRestaurantId/*menuItem.getRestaurant().getRestaurantId()*/);
+            session.setAttribute("restaurantId", newRestaurantId);
             session.setAttribute("restaurantName",
-                    new RestaurantDAOImplementation().getRestaurantById(menuItem.getRestaurant().getRestaurantId()).getRestaurantName());
+                    new RestaurantDAOImplementation().getRestaurantById(newRestaurantId).getRestaurantName());
 
             sendCartTotals(resp, cart);
         }
     }
 
-    private void updateQuantity(HttpServletRequest req, Cart cart) {
-        int itemId = Integer.parseInt(req.getParameter("itemId"));
-        int quantity = Integer.parseInt(req.getParameter("quantity"));
+    private void updateQuantity(JsonObject requestBody, Cart cart) {
+        int itemId = requestBody.get("itemId").getAsInt();
+        int quantity = requestBody.get("quantity").getAsInt();
         cart.updateCartItem(itemId, quantity);
     }
 
-    private void removeItem(HttpServletRequest req, Cart cart) {
-        int itemId = Integer.parseInt(req.getParameter("itemId"));
+    private void removeItem(JsonObject requestBody, Cart cart) {
+        int itemId = requestBody.get("itemId").getAsInt();
         cart.removeItemFromCart(itemId);
+    }
+    
+    private void sendError(HttpServletResponse resp, String message) throws IOException {
+        resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        JsonObject err = new JsonObject();
+        err.addProperty("error", message);
+        resp.getWriter().write(err.toString());
     }
 
     // ---------------------- Send JSON Totals ----------------------
     private void sendCartTotals(HttpServletResponse resp, Cart cart) throws IOException {
+        Gson gson = new Gson();
+        JsonObject responseJson = new JsonObject();
+        
         double subtotal = 0;
         double shipping = 50.0;
         double tax = 50.0;
@@ -138,23 +165,16 @@ public class CartServlet extends HttpServlet {
             subtotal += ci.getPrice() * ci.getQuantity();
         }
 
-        double total = (subtotal >= 1000) ? subtotal + tax : subtotal + shipping + tax;
+        double total = (subtotal >= 1000 || subtotal == 0) ? subtotal + tax : subtotal + shipping + tax;
+        if(subtotal == 0) total = 0;
 
-        // Build items array for live update
-        StringBuilder itemsJson = new StringBuilder("[");
-        for (CartItem ci : cart.getItems().values()) {
-            itemsJson.append(String.format("{\"itemId\":%d,\"price\":%.2f,\"quantity\":%d},",
-                    ci.getItemId(), ci.getPrice(), ci.getQuantity()));
-        }
-        if (itemsJson.length() > 1) itemsJson.deleteCharAt(itemsJson.length() - 1);
-        itemsJson.append("]");
+        responseJson.addProperty("itemCount", cart.getItems().size());
+        responseJson.addProperty("subtotal", subtotal);
+        responseJson.addProperty("shipping", (subtotal >= 1000 || subtotal == 0 ? 0 : shipping));
+        responseJson.addProperty("tax", tax);
+        responseJson.addProperty("total", total);
+        responseJson.add("items", gson.toJsonTree(cart.getItems().values()));
 
-        String json = String.format(
-                "{\"itemCount\":%d,\"subtotal\":%.2f,\"shipping\":%.2f,\"tax\":%.2f,\"total\":%.2f,\"items\":%s}",
-                cart.getItems().size(), subtotal, (subtotal >= 1000 ? 0 : shipping), tax, total, itemsJson.toString()
-        );
-
-        resp.setContentType("application/json");
-        resp.getWriter().write(json);
+        resp.getWriter().write(responseJson.toString());
     }
 }

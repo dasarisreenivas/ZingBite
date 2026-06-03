@@ -1,0 +1,1460 @@
+import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import axios from 'axios';
+import { 
+  CheckCircle2, Clock, MapPin, Bike, ShoppingBag, 
+  ChevronRight, Phone, MessageSquare, AlertCircle, ArrowLeft,
+  Settings, Loader, Search, Sparkles
+} from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
+
+const OrderTracking = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const orderIdParam = searchParams.get('orderId');
+
+  const { user, loading: authLoading } = useContext(AuthContext);
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [searchId, setSearchId] = useState('');
+  const [searchError, setSearchError] = useState('');
+
+  const [orderDetail, setOrderDetail] = useState(null);
+  const [animationProgress, setAnimationProgress] = useState(0);
+  const [showSimulator, setShowSimulator] = useState(false);
+  const [simulatingStatus, setSimulatingStatus] = useState(null);
+  const [isAutoSimulating, setIsAutoSimulating] = useState(false);
+  const [confetti, setConfetti] = useState([]);
+
+  const stages = ['Placed', 'Accepted', 'Preparing', 'Waiting to Dispatch', 'Out for Delivery', 'Delivered'];
+  const currentIdx = orderDetail ? stages.indexOf(orderDetail.status || 'Placed') : 0;
+  const linePercent = orderDetail ? (currentIdx / (stages.length - 1)) * 100 : 0;
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchOrders = async (isBackground = false) => {
+      try {
+        const res = await axios.get('/api/profile?action=orders');
+        setOrders(res.data);
+      } catch (err) {
+        console.error("Failed to load orders for tracking:", err);
+      } finally {
+        if (!isBackground) setOrdersLoading(false);
+      }
+    };
+    fetchOrders(false);
+    const timer = setInterval(() => fetchOrders(true), 3000);
+    return () => clearInterval(timer);
+  }, [user]);
+
+  useEffect(() => {
+    if (orders.length === 0) {
+      setOrderDetail(null);
+      return;
+    }
+    
+    let matching = null;
+    if (orderIdParam === 'ZB-latest') {
+      matching = orders[0];
+    } else if (orderIdParam) {
+      const cleanParamId = String(orderIdParam).replace(/^ZB-/, '').trim();
+      matching = orders.find(o => {
+        const cleanOrderId = String(o.id || '').replace(/^ZB-/, '').trim();
+        return cleanOrderId === cleanParamId;
+      });
+    }
+    
+    setOrderDetail(matching || null);
+  }, [orders, orderIdParam]);
+
+  // Smooth path animation when Out for Delivery
+  useEffect(() => {
+    if (!orderDetail) return;
+    
+    if (orderDetail.status === 'Out for Delivery') {
+      const duration = 25000; // 25 seconds for a complete path run
+      const startTime = Date.now();
+      
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const currentProgress = Math.min(99.5, (elapsed / duration) * 100);
+        setAnimationProgress(currentProgress);
+        
+        if (elapsed < duration) {
+          requestAnimationFrame(animate);
+        }
+      };
+      const animFrame = requestAnimationFrame(animate);
+      return () => cancelAnimationFrame(animFrame);
+    } else if (orderDetail.status === 'Delivered') {
+      setAnimationProgress(100);
+    } else {
+      setAnimationProgress(0);
+    }
+  }, [orderDetail?.status]);
+
+  const simulateStatusChange = async (newStatus) => {
+    if (!orderDetail) return;
+    setSimulatingStatus(newStatus);
+    const numericOrderId = parseInt(String(orderDetail.id).replace(/^ZB-/, ''), 10);
+    try {
+      await axios.post('/api/delivery', { 
+        orderId: numericOrderId, 
+        status: newStatus 
+      });
+      setOrderDetail(prev => ({ ...prev, status: newStatus }));
+    } catch (err) {
+      console.error("Failed to simulate status change:", err);
+    } finally {
+      setSimulatingStatus(null);
+    }
+  };
+
+  // Auto-play status simulation pipeline
+  useEffect(() => {
+    if (!isAutoSimulating || !orderDetail) return;
+    
+    const nextIdx = (stages.indexOf(orderDetail.status || 'Placed') + 1) % stages.length;
+    
+    const timeout = setTimeout(async () => {
+      await simulateStatusChange(stages[nextIdx]);
+      if (nextIdx === stages.length - 1) {
+        setIsAutoSimulating(false); // Stop simulation at Delivered
+      }
+    }, 3500);
+    
+    return () => clearTimeout(timeout);
+  }, [isAutoSimulating, orderDetail?.status]);
+
+  // Confetti celebration burst on Delivered status
+  useEffect(() => {
+    if (orderDetail?.status === 'Delivered') {
+      const particles = Array.from({ length: 80 }).map((_, i) => ({
+        id: i,
+        left: Math.random() * 100 + 'vw',
+        top: '-10px',
+        color: ['#f7374f', '#4bc0c0', '#ff9f40', '#9966ff', '#ffcd56'][Math.floor(Math.random() * 5)],
+        size: Math.random() * 8 + 4 + 'px',
+        delay: Math.random() * 0.5 + 's',
+        duration: Math.random() * 2 + 2 + 's',
+        angle: Math.random() * 360 + 'deg'
+      }));
+      setConfetti(particles);
+      const timer = setTimeout(() => setConfetti([]), 6000);
+      return () => clearTimeout(timer);
+    } else {
+      setConfetti([]);
+    }
+  }, [orderDetail?.status]);
+
+  // Coordinates mapping
+  const getRiderPosition = (p) => {
+    if (p <= 0) return { x: 80, y: 140 };
+    if (p >= 100) return { x: 300, y: 110 };
+    
+    const currentDist = (p / 100) * 350;
+
+    if (currentDist <= 80) {
+      return { x: 80 + currentDist, y: 140 };
+    } else if (currentDist <= 160) {
+      return { x: 160, y: 140 - (currentDist - 80) };
+    } else if (currentDist <= 300) {
+      return { x: 160 + (currentDist - 160), y: 60 };
+    } else {
+      return { x: 300, y: 60 + (currentDist - 300) };
+    }
+  };
+
+  const riderPos = getRiderPosition(animationProgress);
+  const totalPathLength = 350;
+  const trailOffset = totalPathLength - ((animationProgress / 100) * totalPathLength);
+
+  // Dynamic status details
+  let etaVal = 25;
+  let distanceLeftVal = "3.5 km";
+  let displayHeading = "Order Placed";
+  let displaySubtitle = "Your food is being processed.";
+  
+  if (orderDetail) {
+    const status = orderDetail.status;
+    if (status === 'Placed') {
+      etaVal = 25;
+      distanceLeftVal = "3.5 km";
+      displayHeading = "Order Placed";
+      displaySubtitle = "The restaurant is reviewing your order.";
+    } else if (status === 'Accepted') {
+      etaVal = 22;
+      distanceLeftVal = "3.5 km";
+      displayHeading = "Order Confirmed";
+      displaySubtitle = "A rider has accepted and is proceeding to restaurant.";
+    } else if (status === 'Preparing') {
+      etaVal = 18;
+      distanceLeftVal = "3.5 km";
+      displayHeading = "Preparing Food";
+      displaySubtitle = "Our kitchen partners are cooking your hot fresh meal.";
+    } else if (status === 'Waiting to Dispatch') {
+      etaVal = 15;
+      distanceLeftVal = "3.5 km";
+      displayHeading = "Food Prepared";
+      displaySubtitle = "Your food is ready and waiting for dispatch.";
+    } else if (status === 'Out for Delivery') {
+      const remaining = 1 - (animationProgress / 100);
+      etaVal = Math.max(1, Math.round(10 * remaining));
+      distanceLeftVal = (3.2 * remaining).toFixed(1) + " km";
+      displayHeading = `Arriving in ${etaVal} mins`;
+      displaySubtitle = `Rider is on the way! Distance left: ${distanceLeftVal}`;
+    } else if (status === 'Delivered') {
+      etaVal = 0;
+      distanceLeftVal = "0 km";
+      displayHeading = "Order Delivered!";
+      displaySubtitle = "Enjoy your delicious hot meal!";
+    }
+  }
+
+  const getStepClass = (stepName) => {
+    if (!orderDetail) return 'pending';
+    const stepIdx = stages.indexOf(stepName);
+    
+    if (currentIdx > stepIdx) return 'completed';
+    if (currentIdx === stepIdx) return 'active';
+    return 'pending';
+  };
+
+  if (authLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+        <Loader size={36} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
+      </div>
+    );
+  }
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (!searchId.trim()) return;
+    const cleanId = searchId.trim().replace(/^ZB-/, '');
+    const found = orders.find(o => String(o.id) === cleanId || String(o.orderId) === cleanId);
+    if (found) {
+      setSearchError('');
+      navigate(`/track-order?orderId=${found.id}`);
+    } else {
+      setSearchError(`No order found with ID "ZB-${searchId.trim()}".`);
+    }
+  };
+
+  const activeOrders = orders.filter(o => o.status !== 'Delivered');
+  const recentOrders = orders.filter(o => o.status === 'Delivered');
+
+  return (
+    <>
+      <style>{`
+        .tracking-layout {
+          max-width: 1000px;
+          margin: 24px auto 48px;
+          padding: 0 20px;
+          display: grid;
+          grid-template-columns: 1fr 400px;
+          gap: 32px;
+          align-items: start;
+        }
+        
+        .tracking-main-box {
+          background: #fff;
+          border: 1px solid var(--border-medium);
+          border-radius: var(--radius-md);
+          padding: 24px;
+          box-shadow: var(--shadow-sm);
+        }
+        
+        .tracking-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 24px;
+          padding: 16px 20px;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border-medium);
+          background: #fff;
+          transition: all 0.5s ease;
+        }
+        
+        .tracking-header.placed { background: rgba(54, 162, 235, 0.03); border-color: rgba(54, 162, 235, 0.15); }
+        .tracking-header.accepted { background: rgba(54, 162, 235, 0.03); border-color: rgba(54, 162, 235, 0.15); }
+        .tracking-header.preparing { background: rgba(255, 159, 64, 0.03); border-color: rgba(255, 159, 64, 0.15); }
+        .tracking-header.waiting-to-dispatch { background: rgba(255, 206, 86, 0.03); border-color: rgba(255, 206, 86, 0.15); }
+        .tracking-header.out-for-delivery { background: rgba(153, 102, 255, 0.03); border-color: rgba(153, 102, 255, 0.15); }
+        .tracking-header.delivered { background: rgba(75, 192, 192, 0.03); border-color: rgba(75, 192, 192, 0.15); }
+        
+        .eta-display h3 {
+          font-size: 1.6rem;
+          font-weight: 800;
+          color: var(--text-primary);
+          margin-bottom: 4px;
+          transition: color 0.3s;
+        }
+        
+        .tracking-header.placed .eta-display h3 { color: #36a2eb; }
+        .tracking-header.accepted .eta-display h3 { color: #36a2eb; }
+        .tracking-header.preparing .eta-display h3 { color: #ff9f40; }
+        .tracking-header.waiting-to-dispatch .eta-display h3 { color: #e09f00; }
+        .tracking-header.out-for-delivery .eta-display h3 { color: #9966ff; }
+        .tracking-header.delivered .eta-display h3 { color: #4bc0c0; }
+        
+        .eta-display p {
+          color: var(--text-secondary);
+          font-size: 0.88rem;
+          font-weight: 500;
+        }
+        
+        .order-info-pill {
+          background: var(--bg-surface);
+          border: 1px solid var(--border-medium);
+          padding: 8px 16px;
+          border-radius: 20px;
+          font-size: 0.85rem;
+          font-weight: 600;
+        }
+        
+        /* Map Simulator */
+        .map-wrapper {
+          background: #f4f6f8;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border-medium);
+          position: relative;
+          overflow: hidden;
+          margin-bottom: 24px;
+          height: 240px;
+          box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .map-overlay-text {
+          position: absolute;
+          top: 12px;
+          left: 12px;
+          background: rgba(255,255,255,0.9);
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--text-secondary);
+          border: 1px solid var(--border-medium);
+          z-index: 10;
+        }
+        
+        .tracking-map-svg {
+          width: 100%;
+          height: 100%;
+        }
+        
+        .map-point {
+          transition: all 0.3s;
+        }
+        
+        @keyframes mapGlowGreen {
+          0% { filter: drop-shadow(0 0 2px rgba(96,178,70,0.4)); }
+          50% { filter: drop-shadow(0 0 8px rgba(96,178,70,0.8)); }
+          100% { filter: drop-shadow(0 0 2px rgba(96,178,70,0.4)); }
+        }
+        @keyframes mapGlowRed {
+          0% { filter: drop-shadow(0 0 2px rgba(247,55,79,0.4)); }
+          50% { filter: drop-shadow(0 0 8px rgba(247,55,79,0.8)); }
+          100% { filter: drop-shadow(0 0 2px rgba(247,55,79,0.4)); }
+        }
+        .map-point.glow {
+          animation-duration: 2s;
+          animation-iteration-count: infinite;
+        }
+        .map-point.glow[transform*="80,"] {
+          animation-name: mapGlowGreen;
+        }
+        .map-point.glow[transform*="300,"] {
+          animation-name: mapGlowRed;
+        }
+        
+        .map-rider-marker {
+          transition: all 0.1s linear;
+          animation: riderPulse 2s infinite ease-in-out;
+        }
+        @keyframes riderPulse {
+          0%, 100% { filter: drop-shadow(0 0 1px rgba(23,26,41,0.2)); }
+          50% { filter: drop-shadow(0 0 4px rgba(23,26,41,0.6)); }
+        }
+        
+        .map-label {
+          font-size: 8px;
+          font-weight: bold;
+          font-family: sans-serif;
+          fill: var(--text-secondary);
+        }
+        
+        /* Timeline Spacing */
+        .status-timeline {
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          padding-left: 8px;
+        }
+
+        .timeline-step {
+          display: flex;
+          gap: 16px;
+          position: relative;
+          padding-bottom: 24px;
+        }
+
+        .timeline-step:last-child {
+          padding-bottom: 0;
+        }
+
+        .step-left-column {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          position: relative;
+          width: 20px;
+        }
+
+        .step-line-segment {
+          position: absolute;
+          width: 2px;
+          left: 50%;
+          transform: translateX(-50%);
+          top: 10px;
+          bottom: -14px;
+          background: var(--border-medium);
+          transition: background-color 0.5s ease;
+          z-index: 1;
+        }
+
+        .timeline-step.completed .step-line-segment {
+          background: var(--success);
+        }
+        
+        .step-icon-circle {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #fff;
+          border: 2px solid var(--border-medium);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+          z-index: 2;
+          position: relative;
+        }
+        
+        .timeline-step.completed .step-icon-circle {
+          background: var(--success);
+          border-color: var(--success);
+          transform: scale(1.05);
+        }
+        
+        @keyframes activePulse {
+          0% { transform: scale(1); box-shadow: 0 0 0 0px rgba(247, 55, 79, 0.35); }
+          50% { transform: scale(1.2); box-shadow: 0 0 0 8px rgba(247, 55, 79, 0.15); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0px rgba(247, 55, 79, 0.35); }
+        }
+
+        .timeline-step.active .step-icon-circle {
+          background: white;
+          border-color: var(--brand-red);
+          animation: activePulse 2s infinite ease-in-out;
+        }
+        
+        .step-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--border-medium);
+        }
+        
+        .timeline-step.completed .step-dot {
+          background: #fff;
+          width: 8px;
+          height: 8px;
+        }
+        
+        .timeline-step.active .step-dot {
+          background: var(--brand-red);
+          animation: pulse 1.2s infinite;
+        }
+        
+        .step-details h4 {
+          font-size: 0.95rem;
+          margin-bottom: 2px;
+          color: var(--text-muted);
+        }
+        
+        .timeline-step.active .step-details h4,
+        .timeline-step.completed .step-details h4 {
+          color: var(--text-primary);
+          font-weight: 700;
+        }
+        
+        .step-details p {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+          line-height: 1.4;
+        }
+        
+        /* Rider Panel */
+        .rider-panel-box {
+          background: #fff;
+          border: 1px solid var(--border-medium);
+          border-radius: var(--radius-md);
+          padding: 24px;
+          box-shadow: var(--shadow-sm);
+        }
+        
+        .rider-card-header {
+          font-size: 1.1rem;
+          font-weight: 700;
+          margin-bottom: 16px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .rider-profile {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid var(--border-light);
+          margin-bottom: 20px;
+        }
+        
+        .rider-avatar {
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          background: var(--brand-red);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          color: #fff;
+          border: 1px solid var(--border-medium);
+        }
+        
+        .rider-info h4 {
+          font-size: 1rem;
+          margin-bottom: 2px;
+        }
+        
+        .rider-info p {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+        }
+        
+        .rider-contact-row {
+          display: flex;
+          gap: 10px;
+        }
+        
+        .rider-contact-btn {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 10px;
+          border-radius: var(--radius-sm);
+          font-size: 0.85rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .rider-contact-btn.call {
+          background: var(--success);
+          color: #fff;
+          border: none;
+        }
+        
+        .rider-contact-btn.call:hover {
+          background: #50a037;
+        }
+        
+        .rider-contact-btn.chat {
+          background: transparent;
+          border: 1px solid var(--border-medium);
+          color: var(--text-secondary);
+        }
+        
+        .rider-contact-btn.chat:hover {
+          border-color: var(--brand-red);
+          color: var(--brand-red);
+        }
+
+        .rider-waiting-box {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 24px 16px;
+          text-align: center;
+          background: var(--bg-surface);
+          border-radius: var(--radius-sm);
+          border: 1px dashed var(--border-medium);
+        }
+        
+        .rider-waiting-spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid var(--border-medium);
+          border-top-color: var(--brand-red);
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-bottom: 12px;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        
+        .receipt-summary {
+          margin-top: 24px;
+          padding-top: 20px;
+          border-top: 1px solid var(--border-light);
+        }
+        
+        .receipt-row {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.85rem;
+          color: var(--text-secondary);
+          margin-bottom: 8px;
+        }
+        
+        .receipt-total {
+          font-weight: 700;
+          color: var(--text-primary);
+          font-size: 0.95rem;
+          margin-top: 12px;
+          padding-top: 8px;
+          border-top: 1px dashed var(--border-medium);
+        }
+        
+        .back-home-btn {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: transparent;
+          border: none;
+          color: var(--brand-red);
+          font-weight: 700;
+          cursor: pointer;
+          margin-bottom: 16px;
+          font-size: 0.9rem;
+        }
+        
+        .back-home-btn:hover {
+          color: var(--brand-red-hover);
+        }
+ 
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.5); opacity: 0.7; }
+        }
+ 
+        @media (max-width: 900px) {
+          .tracking-layout {
+            grid-template-columns: 1fr;
+            gap: 24px;
+          }
+        }
+
+        /* Simulator Panel */
+        .simulator-trigger-btn {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          background: var(--brand-red);
+          color: white;
+          border: none;
+          box-shadow: 0 4px 12px rgba(247,55,79,0.4);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 999;
+          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .simulator-trigger-btn:hover {
+          transform: scale(1.1) rotate(15deg);
+        }
+        .simulator-panel {
+          position: fixed;
+          bottom: 90px;
+          right: 24px;
+          width: 320px;
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(16px);
+          border: 1px solid rgba(255, 255, 255, 0.4);
+          border-radius: var(--radius-md);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+          padding: 20px;
+          z-index: 998;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          transform: translateY(20px);
+          opacity: 0;
+          pointer-events: none;
+        }
+        .simulator-panel.show {
+          transform: translateY(0);
+          opacity: 1;
+          pointer-events: auto;
+        }
+        .simulator-title {
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: var(--text-primary);
+          border-bottom: 1px solid var(--border-medium);
+          padding-bottom: 8px;
+          margin-bottom: 4px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .simulator-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+        .simulator-btn {
+          width: 100%;
+          padding: 8px 12px;
+          border-radius: var(--radius-sm);
+          font-weight: 700;
+          font-size: 0.8rem;
+          border: 1px solid var(--border-medium);
+          background: white;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .simulator-btn:hover {
+          border-color: var(--brand-red);
+          color: var(--brand-red);
+          background: rgba(247,55,79,0.02);
+        }
+        .simulator-btn.active {
+          background: var(--brand-red);
+          border-color: var(--brand-red);
+          color: white;
+          box-shadow: 0 2px 6px rgba(247,55,79,0.3);
+        }
+
+        .confetti-particle {
+          position: fixed;
+          z-index: 10000;
+          pointer-events: none;
+          animation: confettiFall linear forwards;
+          border-radius: 2px;
+        }
+        @keyframes confettiFall {
+          0% {
+            transform: translateY(0) rotate(0deg);
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(105vh) rotate(720deg);
+            opacity: 0;
+          }
+        }
+
+        /* General Tracking Portal Dashboard styles */
+        .tracking-portal-empty {
+          max-width: 500px;
+          margin: 80px auto;
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 32px;
+          background: #fff;
+          border: 1px solid var(--border-medium);
+          border-radius: var(--radius-lg);
+          box-shadow: var(--shadow-md);
+        }
+        
+        .tracking-portal-empty h2 {
+          font-size: 1.8rem;
+          margin-bottom: 8px;
+          font-weight: 800;
+        }
+        
+        .tracking-portal-empty p {
+          color: var(--text-secondary);
+          margin-bottom: 24px;
+          line-height: 1.5;
+        }
+
+        .portal-container {
+          max-width: 800px;
+          margin: 32px auto 60px;
+          padding: 0 20px;
+        }
+
+        .portal-header {
+          text-align: center;
+          margin-bottom: 32px;
+        }
+
+        .portal-header h2 {
+          font-size: 2.2rem;
+          font-weight: 800;
+          margin-bottom: 8px;
+          color: var(--text-primary);
+        }
+
+        .portal-header p {
+          color: var(--text-secondary);
+          font-size: 1rem;
+        }
+
+        .tracking-search-form {
+          margin-bottom: 40px;
+          position: relative;
+        }
+
+        .tracking-search-form .search-input-wrapper {
+          position: relative;
+          width: 100%;
+        }
+
+        .tracking-search-form input {
+          width: 100%;
+          padding: 16px 120px 16px 44px;
+          border: 1px solid var(--border-medium);
+          border-radius: var(--radius-md);
+          font-size: 1rem;
+          outline: none;
+          background: #fff;
+          box-shadow: var(--shadow-sm);
+          transition: all 0.3s;
+        }
+
+        .tracking-search-form input:focus {
+          border-color: var(--brand-red);
+          box-shadow: 0 4px 18px rgba(247,55,79,0.1);
+        }
+
+        .tracking-search-form .search-icon-inside {
+          position: absolute;
+          left: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--text-muted);
+        }
+
+        .search-submit-btn {
+          position: absolute;
+          right: 8px;
+          top: 8px;
+          bottom: 8px;
+          background: var(--brand-red);
+          color: white;
+          border: none;
+          padding: 0 24px;
+          border-radius: var(--radius-sm);
+          font-weight: 700;
+          font-size: 0.85rem;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .search-submit-btn:hover {
+          background: var(--brand-red-hover);
+        }
+
+        .search-error-text {
+          color: var(--danger);
+          font-size: 0.85rem;
+          margin-top: 10px;
+          font-weight: 600;
+          padding-left: 16px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .portal-section-title {
+          font-size: 1.3rem;
+          font-weight: 800;
+          margin-bottom: 20px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: var(--text-primary);
+          border-bottom: 1px solid var(--border-light);
+          padding-bottom: 10px;
+        }
+
+        .active-orders-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          margin-bottom: 40px;
+        }
+
+        .active-order-card {
+          background: #fff;
+          border: 1px solid var(--border-medium);
+          border-radius: var(--radius-md);
+          padding: 20px 24px;
+          box-shadow: var(--shadow-sm);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .active-order-card:hover {
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-md);
+        }
+
+        .active-order-info h3 {
+          font-size: 1.25rem;
+          margin-bottom: 4px;
+          color: var(--text-primary);
+        }
+
+        .active-order-meta {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          margin-bottom: 8px;
+        }
+
+        .active-order-status-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .active-order-status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--success);
+          animation: pulse 1.5s infinite;
+        }
+
+        .active-order-status-text {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: var(--success);
+        }
+
+        .track-button-link {
+          background: var(--brand-red);
+          color: white;
+          padding: 10px 24px;
+          border-radius: 30px;
+          font-weight: 700;
+          font-size: 0.85rem;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.2s;
+          box-shadow: 0 4px 12px rgba(247,55,79,0.25);
+        }
+
+        .track-button-link:hover {
+          background: var(--brand-red-hover);
+          transform: scale(1.03);
+          box-shadow: 0 6px 16px rgba(247,55,79,0.35);
+        }
+
+        .empty-active-orders {
+          text-align: center;
+          padding: 40px 20px;
+          border: 1px dashed var(--border-medium);
+          border-radius: var(--radius-md);
+          background: var(--bg-surface);
+          color: var(--text-secondary);
+        }
+
+        .recent-orders-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .recent-order-item {
+          background: #fff;
+          border: 1px solid var(--border-light);
+          border-radius: var(--radius-sm);
+          padding: 16px 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .recent-order-details h4 {
+          font-size: 0.95rem;
+          margin-bottom: 2px;
+        }
+
+        .recent-order-details p {
+          font-size: 0.78rem;
+          color: var(--text-muted);
+        }
+
+        .view-track-history-btn {
+          background: transparent;
+          border: 1px solid var(--border-medium);
+          color: var(--text-secondary);
+          padding: 6px 14px;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .view-track-history-btn:hover {
+          border-color: var(--brand-red);
+          color: var(--brand-red);
+        }
+      `}</style>
+      
+      {!user ? (
+        // Login Required View
+        <div className="tracking-portal-empty fade-in">
+          <MapPin size={64} color="var(--brand-red)" style={{ marginBottom: '16px' }} />
+          <h2>Track Your Order</h2>
+          <p>Please log in to track your active deliveries and view your order history.</p>
+          <button onClick={() => navigate('/login?redirect=/track-order')} className="btn-primary" style={{ width: 'auto', padding: '12px 32px', borderRadius: '30px' }}>
+            LOG IN TO TRACK
+          </button>
+        </div>
+      ) : !orderIdParam ? (
+        // General Dashboard View
+        <div className="portal-container fade-in">
+          <div className="portal-header">
+            <h2>Order Tracking Portal</h2>
+            <p>Track your active food deliveries and search order histories in real time.</p>
+          </div>
+
+          <form onSubmit={handleSearchSubmit} className="tracking-search-form">
+            <div className="search-input-wrapper">
+              <Search className="search-icon-inside" size={18} />
+              <input 
+                type="text" 
+                placeholder="Enter Order ID (e.g. ZB-2)" 
+                value={searchId}
+                onChange={(e) => setSearchId(e.target.value)}
+              />
+              <button type="submit" className="search-submit-btn">TRACK</button>
+            </div>
+            {searchError && (
+              <p className="search-error-text">
+                <AlertCircle size={14} style={{ display: 'inline', marginRight: '4px' }} /> {searchError}
+              </p>
+            )}
+          </form>
+
+          <div>
+            <h3 className="portal-section-title">
+              <Clock size={18} color="var(--brand-red)" /> Active Deliveries
+            </h3>
+            
+            {ordersLoading ? (
+              <div style={{ textAlign: 'center', padding: '30px 0' }}>
+                <Loader size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
+              </div>
+            ) : activeOrders.length === 0 ? (
+              <div className="empty-active-orders">
+                <p style={{ fontWeight: 600, marginBottom: '4px' }}>No Active Deliveries</p>
+                <p style={{ fontSize: '0.85rem' }}>You don't have any orders in progress right now.</p>
+              </div>
+            ) : (
+              <div className="active-orders-grid">
+                {activeOrders.map(o => (
+                  <div key={o.id} className="active-order-card">
+                    <div className="active-order-info">
+                      <h3>{o.restaurantName || 'ZingBite Kitchen'}</h3>
+                      <p className="active-order-meta">Order ID: ZB-{o.id} &bull; {o.items ? o.items.length : 0} items</p>
+                      <div className="active-order-status-wrapper">
+                        <div className="active-order-status-dot" />
+                        <span className="active-order-status-text">{o.status}</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => navigate(`/track-order?orderId=${o.id}`)}
+                      className="track-button-link"
+                    >
+                      <MapPin size={16} /> Track Live
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginTop: '40px' }}>
+            <h3 className="portal-section-title">
+              <CheckCircle2 size={18} color="var(--success)" /> Recently Delivered
+            </h3>
+
+            {ordersLoading ? (
+              <div style={{ textAlign: 'center', padding: '30px 0' }}>
+                <Loader size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--success)' }} />
+              </div>
+            ) : recentOrders.length === 0 ? (
+              <div className="empty-active-orders" style={{ background: 'transparent' }}>
+                <p style={{ fontSize: '0.85rem' }}>No recently delivered orders found.</p>
+              </div>
+            ) : (
+              <div className="recent-orders-list">
+                {recentOrders.slice(0, 5).map(o => (
+                  <div key={o.id} className="recent-order-item">
+                    <div className="recent-order-details">
+                      <h4>{o.restaurantName || 'ZingBite Kitchen'}</h4>
+                      <p>Order ID: ZB-{o.id} &bull; Delivered successfully on {o.date || 'today'}</p>
+                    </div>
+                    <button 
+                      onClick={() => navigate(`/track-order?orderId=${o.id}`)}
+                      className="view-track-history-btn"
+                    >
+                      View History
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : ordersLoading && !orderDetail ? (
+        // Loading Specific Order View
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '400px', gap: '12px' }}>
+          <Loader size={36} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Locating your order run...</p>
+        </div>
+      ) : !orderDetail ? (
+        // Order Not Found View
+        <div className="tracking-portal-empty fade-in">
+          <AlertCircle size={64} color="var(--brand-red)" style={{ marginBottom: '16px' }} />
+          <h2>Order Not Found</h2>
+          <p>We couldn't find any active or past order matching ID "ZB-{orderIdParam}".</p>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={() => navigate('/track-order')} className="btn-primary" style={{ width: 'auto', padding: '12px 24px', borderRadius: '30px' }}>
+              BACK TO PORTAL
+            </button>
+            <button onClick={() => navigate('/')} className="btn-primary" style={{ width: 'auto', padding: '12px 24px', borderRadius: '30px', background: 'transparent', border: '1px solid var(--border-medium)', color: 'var(--text-secondary)' }}>
+              GO HOME
+            </button>
+          </div>
+        </div>
+      ) : (
+        // Live Order Tracking View
+        <div className="tracking-layout fade-in">
+          <div>
+            <button onClick={() => navigate('/track-order')} className="back-home-btn">
+              <ArrowLeft size={16} /> Back to Tracker Portal
+            </button>
+    
+            <main className="tracking-main-box">
+              <div className={`tracking-header ${(orderDetail?.status || 'Placed').toLowerCase().replace(/\s+/g, '-')}`}>
+                <div className="eta-display">
+                  <h3>{displayHeading}</h3>
+                  <p>{displaySubtitle}</p>
+                </div>
+                <div className="order-info-pill">
+                  ID: {orderDetail ? orderDetail.id : orderIdParam}
+                </div>
+              </div>
+    
+              {/* Map Simulator */}
+              <div className="map-wrapper">
+                <div className="map-overlay-text">Live GPS Simulator</div>
+                <svg className="tracking-map-svg" viewBox="0 0 380 180">
+                  {/* City Blocks (Decoration) */}
+                  <rect x="20" y="20" width="100" height="30" fill="#eef1f4" rx="4" />
+                  <rect x="20" y="70" width="100" height="50" fill="#eef1f4" rx="4" />
+                  <rect x="180" y="20" width="80" height="110" fill="#eef1f4" rx="4" />
+                  <rect x="280" y="20" width="80" height="25" fill="#eef1f4" rx="4" />
+                  
+                  {/* Road Line network */}
+                  <path 
+                    d="M 80 140 L 160 140 L 160 60 L 300 60 L 300 110" 
+                    fill="none" 
+                    stroke="#e0e0e0" 
+                    strokeWidth="10" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                  />
+                  
+                  {/* Rider Path Trail (Grows as rider moves) */}
+                  <path 
+                    d="M 80 140 L 160 140 L 160 60 L 300 60 L 300 110" 
+                    fill="none" 
+                    stroke="var(--brand-red)" 
+                    strokeWidth="4" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    strokeDasharray={totalPathLength}
+                    strokeDashoffset={trailOffset}
+                  />
+                  
+                  {/* Restaurant Point */}
+                  <g className={`map-point ${(orderDetail?.status === 'Accepted' || orderDetail?.status === 'Preparing') ? 'glow' : ''}`} transform="translate(80, 140)">
+                    <circle r="12" fill="#60b246" />
+                    <circle r="6" fill="#fff" />
+                    <text x="-25" y="24" className="map-label">RESTAURANT</text>
+                  </g>
+                  
+                  {/* Customer Home Point */}
+                  <g className={`map-point ${orderDetail?.status === 'Out for Delivery' ? 'glow' : ''}`} transform="translate(300, 110)">
+                    <circle r="12" fill="var(--brand-red)" />
+                    <circle r="6" fill="#fff" />
+                    <text x="-12" y="24" className="map-label">HOME</text>
+                  </g>
+                  
+                  {/* Moving Rider Point */}
+                  <g className="map-rider-marker" transform={`translate(${riderPos.x}, ${riderPos.y})`}>
+                    <circle r="10" fill="#171a29" stroke="#fff" strokeWidth="2" />
+                    <foreignObject x="-6" y="-6" width="12" height="12">
+                      <div style={{ color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Bike size={10} />
+                      </div>
+                    </foreignObject>
+                  </g>
+                </svg>
+              </div>
+    
+              {/* Timeline progress steps */}
+              <div className="status-timeline">
+                <div className={`timeline-step ${getStepClass('Placed')}`}>
+                  <div className="step-left-column">
+                    <div className="step-icon-circle">
+                      <div className="step-dot" />
+                    </div>
+                    <div className="step-line-segment" />
+                  </div>
+                  <div className="step-details">
+                    <h4>Order Placed</h4>
+                    <p>Your order has been received and sent to the restaurant.</p>
+                  </div>
+                </div>
+  
+                <div className={`timeline-step ${getStepClass('Accepted')}`}>
+                  <div className="step-left-column">
+                    <div className="step-icon-circle">
+                      <div className="step-dot" />
+                    </div>
+                    <div className="step-line-segment" />
+                  </div>
+                  <div className="step-details">
+                    <h4>Rider Accepted</h4>
+                    <p>A delivery partner has accepted your delivery request.</p>
+                  </div>
+                </div>
+  
+                <div className={`timeline-step ${getStepClass('Preparing')}`}>
+                  <div className="step-left-column">
+                    <div className="step-icon-circle">
+                      <div className="step-dot" />
+                    </div>
+                    <div className="step-line-segment" />
+                  </div>
+                  <div className="step-details">
+                    <h4>Preparing Food</h4>
+                    <p>Our kitchen partners are preparing your meal using fresh ingredients.</p>
+                  </div>
+                </div>
+  
+                <div className={`timeline-step ${getStepClass('Waiting to Dispatch')}`}>
+                  <div className="step-left-column">
+                    <div className="step-icon-circle">
+                      <div className="step-dot" />
+                    </div>
+                    <div className="step-line-segment" />
+                  </div>
+                  <div className="step-details">
+                    <h4>Food Ready</h4>
+                    <p>Food is packed and ready! Awaiting kitchen dispatch to rider.</p>
+                  </div>
+                </div>
+  
+                <div className={`timeline-step ${getStepClass('Out for Delivery')}`}>
+                  <div className="step-left-column">
+                    <div className="step-icon-circle">
+                      <div className="step-dot" />
+                    </div>
+                    <div className="step-line-segment" />
+                  </div>
+                  <div className="step-details">
+                    <h4>Out for Delivery</h4>
+                    <p>Our delivery partner is riding swiftly on the route to your home.</p>
+                  </div>
+                </div>
+  
+                <div className={`timeline-step ${getStepClass('Delivered')}`}>
+                  <div className="step-left-column">
+                    <div className="step-icon-circle">
+                      <div className="step-dot" />
+                    </div>
+                  </div>
+                  <div className="step-details">
+                    <h4>Order Arrived</h4>
+                    <p>Rider has arrived at your address. Grab your meal and enjoy!</p>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+    
+          {/* Delivery Partner Details Side */}
+          <aside>
+            <div className="rider-panel-box">
+              <h3 className="rider-card-header"><Bike size={18} color="var(--brand-red)" /> Delivery Partner</h3>
+              
+              {orderDetail && orderDetail.riderName ? (
+                <>
+                  <div className="rider-profile">
+                    <div className="rider-avatar">
+                      {orderDetail.riderName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    </div>
+                    <div className="rider-info">
+                      <h4>{orderDetail.riderName}</h4>
+                      <p>Splendor (KA-03-EX-9921)</p>
+                    </div>
+                  </div>
+                  
+                  <div className="rider-contact-row">
+                    <button onClick={() => alert(`Calling rider ${orderDetail.riderName} at ${orderDetail.riderPhone}...`)} className="rider-contact-btn call">
+                      <Phone size={14} /> Call Rider
+                    </button>
+                    <button onClick={() => alert("Opening instant chat overlay...")} className="rider-contact-btn chat">
+                      <MessageSquare size={14} /> Chat
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="rider-waiting-box">
+                  <div className="rider-waiting-spinner"></div>
+                  <h4>Assigning Rider...</h4>
+                  <p>We are matching your order with a nearby delivery partner.</p>
+                </div>
+              )}
+    
+              <div className="receipt-summary">
+                <h4 style={{ fontSize: '0.9rem', marginBottom: '12px' }}>Order Receipt</h4>
+                <div className="receipt-row">
+                  <span>Payment Mode</span>
+                  <span>Razorpay (Online)</span>
+                </div>
+                <div className="receipt-row">
+                  <span>Restaurant Name</span>
+                  <span>{orderDetail ? orderDetail.restaurantName : 'ZingBite Hotspot'}</span>
+                </div>
+                {orderDetail && orderDetail.items && (
+                  <div style={{ marginTop: '12px', borderTop: '1px dashed var(--border-medium)', paddingTop: '12px', marginBottom: '12px' }}>
+                    <h5 style={{ fontSize: '0.8rem', marginBottom: '8px', color: 'var(--text-secondary)' }}>Items:</h5>
+                    {orderDetail.items.map((item, idx) => (
+                      <div key={idx} className="receipt-row" style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
+                        <span>{item.name} &times; {item.qty}</span>
+                        <span>&#8377;{(item.price * item.qty).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="receipt-total receipt-row" style={{ borderTop: orderDetail ? 'none' : '1px dashed var(--border-medium)', marginTop: orderDetail ? 0 : '12px' }}>
+                  <strong>Amount Paid</strong>
+                  <strong>&#8377;{orderDetail ? orderDetail.total.toFixed(2) : '0.00'}</strong>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* Floating Status Simulator Control Panel */}
+      {orderDetail && (
+        <>
+          <button 
+            className="simulator-trigger-btn"
+            onClick={() => setShowSimulator(prev => !prev)}
+            title="Toggle Order Status Simulator"
+          >
+            <Settings size={22} className={showSimulator ? 'spin' : ''} />
+          </button>
+          
+          <div className={`simulator-panel ${showSimulator ? 'show' : ''}`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-medium)', paddingBottom: '8px', marginBottom: '8px' }}>
+              <h4 className="simulator-title" style={{ border: 'none', margin: 0, padding: 0 }}>
+                <Settings size={16} /> Simulator
+              </h4>
+              <button 
+                onClick={() => setIsAutoSimulating(prev => !prev)}
+                className={`simulator-btn ${isAutoSimulating ? 'active' : ''}`}
+                style={{ width: 'auto', padding: '4px 8px', fontSize: '0.7rem', margin: 0 }}
+              >
+                {isAutoSimulating ? 'Stop Auto' : 'Auto Play'}
+              </button>
+            </div>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: '1.4' }}>
+              Simulate restaurant and rider actions on the active order (<strong>{orderDetail.id}</strong>) to test animations.
+            </p>
+            <div className="simulator-grid">
+              {stages.map((stage) => {
+                const isActive = orderDetail.status === stage;
+                const isPending = simulatingStatus === stage;
+                return (
+                  <button
+                    key={stage}
+                    disabled={simulatingStatus !== null}
+                    onClick={() => simulateStatusChange(stage)}
+                    className={`simulator-btn ${isActive ? 'active' : ''}`}
+                  >
+                    <span>{stage}</span>
+                    {isPending ? (
+                      <span className="rider-waiting-spinner" style={{ width: '12px', height: '12px', margin: 0 }}></span>
+                    ) : isActive ? (
+                      <CheckCircle2 size={12} />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Confetti Celebration Overlay */}
+      {confetti.map(p => (
+        <div 
+          key={p.id}
+          className="confetti-particle"
+          style={{
+            left: p.left,
+            top: p.top,
+            backgroundColor: p.color,
+            width: p.size,
+            height: p.size,
+            animationDelay: p.delay,
+            animationDuration: p.duration,
+            transform: `rotate(${p.angle})`
+          }}
+        />
+      ))}
+    </>
+  );
+};
+
+export default OrderTracking;

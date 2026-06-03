@@ -4,16 +4,19 @@ import java.io.Serializable;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 @Entity
-@Table(name="")
+@Table(name="orderitem")
 public class OrderItem implements Serializable{
 	
 	
 	private static final long serialVersionUID = 1L;
 	@Id
-	@Column(name = "")
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "orderItemId")
 	private int orderItemId;
 	@Column(name = "")
 	private int orderId;

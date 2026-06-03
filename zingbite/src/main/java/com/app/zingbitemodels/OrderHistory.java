@@ -5,6 +5,8 @@ import java.util.Date;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -15,7 +17,8 @@ public class OrderHistory implements Serializable{
 	
 	private static final long serialVersionUID = 1L;
 	@Id
-	@Column(name = "")
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "orderHistoryId")
 	private int orderHistoryId;
 	@Column(name = "")
 	private int orderId;

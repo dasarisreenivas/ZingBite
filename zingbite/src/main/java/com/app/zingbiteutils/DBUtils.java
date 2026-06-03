@@ -10,6 +10,10 @@ import com.app.zingbitemodels.OrderItem;
 import com.app.zingbitemodels.Orders;
 import com.app.zingbitemodels.Restaurant;
 import com.app.zingbitemodels.User;
+import com.app.zingbitemodels.Job;
+import com.app.zingbitemodels.Application;
+import com.app.zingbitemodels.RestaurantRequest;
+import com.app.zingbitemodels.EmailNotification;
 
 public class DBUtils {
 
@@ -23,7 +27,11 @@ public class DBUtils {
 									.addAnnotatedClass(Orders.class)
 									.addAnnotatedClass(OrderItem.class)
 									.addAnnotatedClass(Restaurant.class)
-									.addAnnotatedClass(User.class);
+									.addAnnotatedClass(User.class)
+									.addAnnotatedClass(Job.class)
+									.addAnnotatedClass(Application.class)
+									.addAnnotatedClass(RestaurantRequest.class)
+									.addAnnotatedClass(EmailNotification.class);
 			sf =config.buildSessionFactory();
 			System.out.println("session factory created successfully");
 

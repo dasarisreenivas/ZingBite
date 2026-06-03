@@ -4,7 +4,10 @@ import java.io.Serializable;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
 @Entity
@@ -13,9 +16,11 @@ import jakarta.persistence.Table;
 public class Orders implements Serializable{
 	private static final long serialVersionUID = 1L;
 	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name ="orderId")
 	private int orderId;
-	@Column(name ="restaurant")
+	@Lob
+	@Column(name ="restaurant", columnDefinition = "LONGBLOB")
 	private Restaurant restaurantId;
 	@Column(name ="userId")
 	private int userId;
@@ -27,6 +32,9 @@ public class Orders implements Serializable{
 	private String orderStatus;
 	@Column(name ="paymentMethod")
 	private String paymentMethod;
+	
+	@Column(name ="riderId")
+	private Integer riderId;
 	
 	public Orders() {
 		super();
@@ -109,6 +117,14 @@ public class Orders implements Serializable{
 
 	public void setPaymentMethod(String paymentMethod) {
 		this.paymentMethod = paymentMethod;
+	}
+
+	public Integer getRiderId() {
+		return riderId;
+	}
+
+	public void setRiderId(Integer riderId) {
+		this.riderId = riderId;
 	}
 
 	@Override

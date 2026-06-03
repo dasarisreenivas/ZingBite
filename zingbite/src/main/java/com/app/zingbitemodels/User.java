@@ -5,6 +5,8 @@ import java.util.Date;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -14,6 +16,7 @@ public class User implements Serializable{
 	
 	private static final long serialVersionUID = 1L;
 	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name="userid")
 	private int userID;
 	@Column(name="USERNAME")
@@ -30,10 +33,13 @@ public class User implements Serializable{
 	private Date createdOn;
 	@Column(name="LASTLOGIN")
 	private Date lastLogin;
+	@Column(name="role")
+	private String role;
 	
 	
 	public User() {
 		super();
+		this.role = "customer";
 	}
 	
 	public User(String userName, String email, String password, long phoneNumber,String address) {
@@ -43,6 +49,7 @@ public class User implements Serializable{
 		this.password = password;
 		this.phoneNumber = phoneNumber;
 		this.address = address;
+		this.role = "customer";
 	}
 
 	public User(int userID, String userName, String email, String password, long phoneNumber, String address) {
@@ -53,6 +60,7 @@ public class User implements Serializable{
 		this.password = password;
 		this.phoneNumber = phoneNumber;
 		this.address = address;
+		this.role = "customer";
 	}
 
 	public int getUserID() {
@@ -119,10 +127,18 @@ public class User implements Serializable{
 		this.lastLogin = lastLogin;
 	}
 
+	public String getRole() {
+		return role;
+	}
+
+	public void setRole(String role) {
+		this.role = role;
+	}
+
 	@Override
 	public String toString() {
 		return "User [userID=" + userID + ", userName=" + userName + ", email=" + email + ", password=" + password
-				+ ", phoneNumber=" + phoneNumber + ", createdOn=" + createdOn + ", lastLogin=" + lastLogin + "]";
+				+ ", phoneNumber=" + phoneNumber + ", createdOn=" + createdOn + ", lastLogin=" + lastLogin + ", role=" + role + "]";
 	}
 	
 	
