@@ -203,10 +203,26 @@ const OrderTracking = () => {
       const remaining = 1 - (animationProgress / 100);
       etaVal = Math.max(1, Math.round(10 * remaining));
       distanceLeftVal = (3.2 * remaining).toFixed(1) + " km";
-      const currentLat = (12.9716 + 0.0105 * (animationProgress / 100)).toFixed(5);
-      const currentLng = (77.5946 + 0.0139 * (animationProgress / 100)).toFixed(5);
+      
+      let currentLat = (12.9716 + 0.0105 * (animationProgress / 100)).toFixed(5);
+      let currentLng = (77.5946 + 0.0139 * (animationProgress / 100)).toFixed(5);
+      let isRealGPS = false;
+      
+      if (orderDetail.gpsCoordinates) {
+        const parts = orderDetail.gpsCoordinates.split(',');
+        if (parts.length === 2) {
+          const plat = parseFloat(parts[0]);
+          const plng = parseFloat(parts[1]);
+          if (!isNaN(plat) && !isNaN(plng)) {
+            currentLat = plat.toFixed(5);
+            currentLng = plng.toFixed(5);
+            isRealGPS = true;
+          }
+        }
+      }
+      
       displayHeading = `Arriving in ${etaVal} mins`;
-      displaySubtitle = `Rider is on the way! Distance left: ${distanceLeftVal} (GPS: ${currentLat}° N, ${currentLng}° E)`;
+      displaySubtitle = `Rider is on the way! Distance left: ${distanceLeftVal} (${isRealGPS ? 'Real GPS' : 'Projected'}: ${currentLat}° N, ${currentLng}° E)`;
     } else if (status === 'Delivered') {
       etaVal = 0;
       distanceLeftVal = "0 km";

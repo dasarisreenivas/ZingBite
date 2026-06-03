@@ -11,17 +11,43 @@ const DeliveryDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [simulators, setSimulators] = useState({});
+  const [watchers, setWatchers] = useState({});
 
-  const handleUpdateGPS = async (orderId, progress) => {
+  const restaurantLat = 12.9716;
+  const restaurantLng = 77.5946;
+  const customerLat = 12.9821;
+  const customerLng = 77.6085;
+  const latDiff = customerLat - restaurantLat;
+  const lngDiff = customerLng - restaurantLng;
+  const denom = latDiff * latDiff + lngDiff * lngDiff;
+
+  const calculateProgressFromCoords = (lat, lng) => {
+    if (denom === 0) return 0;
+    const dLat = lat - restaurantLat;
+    const dLng = lng - restaurantLng;
+    const fraction = (dLat * latDiff + dLng * lngDiff) / denom;
+    return Math.max(0, Math.min(100, fraction * 100));
+  };
+
+  const handleUpdateGPS = async (orderId, progress, latitude = null, longitude = null) => {
     try {
-      await axios.post('/api/delivery', {
+      const payload = {
         action: 'updateGPS',
         orderId,
         progress
-      });
+      };
+      if (latitude !== null && longitude !== null) {
+        payload.latitude = latitude;
+        payload.longitude = longitude;
+      }
+      await axios.post('/api/delivery', payload);
       setData(prev => ({
         ...prev,
-        active: (prev.active || []).map(a => a.orderId === orderId ? { ...a, gpsProgress: progress } : a)
+        active: (prev.active || []).map(a => a.orderId === orderId ? { 
+          ...a, 
+          gpsProgress: progress,
+          gpsCoordinates: (latitude !== null) ? `${latitude.toFixed(5)},${longitude.toFixed(5)}` : a.gpsCoordinates
+        } : a)
       }));
     } catch (err) {
       console.error("Failed to update GPS progress:", err);
@@ -58,11 +84,47 @@ const DeliveryDashboard = () => {
     }
   };
 
+  const toggleWatchLocation = (orderId) => {
+    if (watchers[orderId]) {
+      navigator.geolocation.clearWatch(watchers[orderId]);
+      setWatchers(prev => {
+        const copy = { ...prev };
+        delete copy[orderId];
+        return copy;
+      });
+    } else {
+      if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser");
+        return;
+      }
+      if (simulators[orderId]) {
+        toggleAutoSimulate(orderId);
+      }
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const progress = calculateProgressFromCoords(latitude, longitude);
+          handleUpdateGPS(orderId, progress, latitude, longitude);
+        },
+        (error) => {
+          console.error("Geolocation watch error:", error);
+          alert("Error retrieving geolocation: " + error.message);
+        },
+        { enableHighAccuracy: true, maximumAge: 1000 }
+      );
+      setWatchers(prev => ({
+        ...prev,
+        [orderId]: watchId
+      }));
+    }
+  };
+
   useEffect(() => {
     return () => {
       Object.values(simulators).forEach(id => clearInterval(id));
+      Object.values(watchers).forEach(id => navigator.geolocation.clearWatch(id));
     };
-  }, [simulators]);
+  }, [simulators, watchers]);
 
   const fetchDeliveryData = async (isBackground = false) => {
     try {
@@ -655,12 +717,19 @@ const DeliveryDashboard = () => {
                 {o.status === 'Out for Delivery' && (
                   <div style={{ marginTop: '20px', padding: '16px', background: '#fcfaff', border: '1px solid #dcd3ff', borderRadius: '8px' }}>
                     <h5 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#9966ff', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', margin: '0 0 8px 0' }}>
-                      <Bike size={16} /> Live GPS Telemetry Simulator
+                      <Bike size={16} /> Live GPS Telemetry & Geolocation
                     </h5>
                     <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '12px', margin: '0 0 12px 0' }}>
                       Route Progress: <strong>{(o.gpsProgress || 0).toFixed(0)}%</strong>
-                      {simulators[o.orderId] && <span style={{ color: '#9966ff', fontWeight: 700, marginLeft: '8px' }}>• Live Pushing...</span>}
+                      {simulators[o.orderId] && <span style={{ color: '#ff9f40', fontWeight: 700, marginLeft: '8px' }}>• Auto-Simulating...</span>}
+                      {watchers[o.orderId] && <span style={{ color: '#2ec4b6', fontWeight: 700, marginLeft: '8px' }}>• Live GPS Active...</span>}
                     </p>
+
+                    {o.gpsCoordinates && (
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '-6px 0 10px 0', fontFamily: 'monospace' }}>
+                        Coords: {o.gpsCoordinates}
+                      </p>
+                    )}
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                       <input 
@@ -671,27 +740,54 @@ const DeliveryDashboard = () => {
                         value={o.gpsProgress || 0}
                         onChange={(e) => handleUpdateGPS(o.orderId, parseFloat(e.target.value))}
                         style={{ flex: 1, accentColor: '#9966ff', cursor: 'pointer' }}
-                        disabled={!!simulators[o.orderId]}
+                        disabled={!!simulators[o.orderId] || !!watchers[o.orderId]}
                       />
                     </div>
 
-                    <button 
-                      onClick={() => toggleAutoSimulate(o.orderId, o.gpsProgress || 0)}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        background: simulators[o.orderId] ? '#ff9f40' : '#9966ff',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        transition: 'background 0.2s'
-                      }}
-                    >
-                      {simulators[o.orderId] ? 'STOP AUTO-SIMULATION' : 'START AUTO-SIMULATION'}
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <button 
+                        onClick={() => toggleAutoSimulate(o.orderId, o.gpsProgress || 0)}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          background: simulators[o.orderId] ? '#ff9f40' : '#9966ff',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                          opacity: watchers[o.orderId] ? 0.5 : 1
+                        }}
+                        disabled={!!watchers[o.orderId]}
+                      >
+                        {simulators[o.orderId] ? 'STOP AUTO-SIMULATION' : 'START AUTO-SIMULATION'}
+                      </button>
+
+                      <button 
+                        onClick={() => toggleWatchLocation(o.orderId)}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          background: watchers[o.orderId] ? '#ff4d4f' : '#2ec4b6',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <Navigation size={12} className={watchers[o.orderId] ? 'animate-pulse' : ''} />
+                        {watchers[o.orderId] ? 'STOP WATCHING REAL LOCATION' : 'USE REAL GEOLOCATION API'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

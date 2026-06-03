@@ -105,6 +105,10 @@ public class ProfileServlet extends HttpServlet {
                     }
                     oJson.addProperty("gpsProgress", gps);
 
+                    if (DeliveryServlet.activeGpsCoordinates.containsKey(oh.getOrderId())) {
+                        oJson.addProperty("gpsCoordinates", DeliveryServlet.activeGpsCoordinates.get(oh.getOrderId()));
+                    }
+
                     if (associatedOrder != null && associatedOrder.getRiderId() != null) {
                         oJson.addProperty("riderId", associatedOrder.getRiderId());
                         User rider = hibernateSession.get(User.class, associatedOrder.getRiderId());

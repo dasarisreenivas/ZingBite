@@ -35,6 +35,8 @@ public class DeliveryServlet extends HttpServlet {
 
     // Static map storing the current GPS route progress (0.0 to 100.0) for each active order
     public static final java.util.Map<Integer, Double> activeGpsProgress = new java.util.concurrent.ConcurrentHashMap<>();
+    // Static map storing the current real-world GPS coordinates (lat,lng string) for each active order
+    public static final java.util.Map<Integer, String> activeGpsCoordinates = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -108,6 +110,9 @@ public class DeliveryServlet extends HttpServlet {
                     } else {
                         double currentGps = activeGpsProgress.containsKey(o.getOrderId()) ? activeGpsProgress.get(o.getOrderId()) : 0.0;
                         oJson.addProperty("gpsProgress", currentGps);
+                        if (activeGpsCoordinates.containsKey(o.getOrderId())) {
+                            oJson.addProperty("gpsCoordinates", activeGpsCoordinates.get(o.getOrderId()));
+                        }
                         activeList.add(oJson);
                     }
                 }
@@ -213,6 +218,12 @@ public class DeliveryServlet extends HttpServlet {
                 double progress = requestBody.get("progress").getAsDouble();
                 activeGpsProgress.put(orderId, progress);
 
+                if (requestBody.has("latitude") && requestBody.has("longitude")) {
+                    double lat = requestBody.get("latitude").getAsDouble();
+                    double lng = requestBody.get("longitude").getAsDouble();
+                    activeGpsCoordinates.put(orderId, lat + "," + lng);
+                }
+
                 JsonObject jsonResponse = new JsonObject();
                 jsonResponse.addProperty("success", true);
                 resp.getWriter().write(jsonResponse.toString());
@@ -269,6 +280,7 @@ public class DeliveryServlet extends HttpServlet {
 
                 if ("Delivered".equalsIgnoreCase(status)) {
                     activeGpsProgress.put(orderId, 100.0);
+                    activeGpsCoordinates.remove(orderId);
                 }
 
                 // Update OrderHistory
