@@ -31,6 +31,17 @@ public class CorsFilter implements Filter {
             return;
         }
 
+        String uri = req.getRequestURI();
+        String contextPath = req.getContextPath();
+        String path = uri.substring(contextPath.length());
+
+        // Forward non-API, non-file-static requests to index.html for React Router to handle
+        if (!path.startsWith("/api/") && !path.contains(".") && !path.startsWith("/assets/") 
+                && !path.equals("/index.html") && !path.equals("/") && !path.isEmpty()) {
+            req.getRequestDispatcher("/index.html").forward(request, response);
+            return;
+        }
+
         chain.doFilter(request, response);
     }
 }

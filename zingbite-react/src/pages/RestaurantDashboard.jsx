@@ -61,7 +61,11 @@ const RestaurantDashboard = () => {
       return;
     }
     fetchRestaurantData(false);
-    const interval = setInterval(() => fetchRestaurantData(true), 4000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchRestaurantData(true);
+      }
+    }, 10000);
     return () => clearInterval(interval);
   }, [user, authLoading]);
 

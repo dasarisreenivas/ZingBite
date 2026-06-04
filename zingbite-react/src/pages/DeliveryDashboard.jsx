@@ -184,7 +184,11 @@ const DeliveryDashboard = () => {
       return;
     }
     fetchDeliveryData(false);
-    const interval = setInterval(() => fetchDeliveryData(true), 4000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchDeliveryData(true);
+      }
+    }, 10000);
     return () => clearInterval(interval);
   }, [user, authLoading]);
 

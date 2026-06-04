@@ -56,7 +56,11 @@ const SuperAdminDashboard = () => {
       return;
     }
     fetchAdminData(false);
-    const interval = setInterval(() => fetchAdminData(true), 5000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchAdminData(true);
+      }
+    }, 12000);
     return () => clearInterval(interval);
   }, [user, authLoading]);
 

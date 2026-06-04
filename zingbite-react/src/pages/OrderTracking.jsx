@@ -43,7 +43,11 @@ const OrderTracking = () => {
       }
     };
     fetchOrders(false);
-    const timer = setInterval(() => fetchOrders(true), 3000);
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchOrders(true);
+      }
+    }, 8000);
     return () => clearInterval(timer);
   }, [user]);
 
