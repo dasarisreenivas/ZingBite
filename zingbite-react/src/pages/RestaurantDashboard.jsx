@@ -168,7 +168,7 @@ const RestaurantDashboard = () => {
         case 'Out for Delivery':
           return 3;
         case 'Delivered':
-          return 4;
+          return 5;
         default:
           return 0;
       }
@@ -487,23 +487,34 @@ const RestaurantDashboard = () => {
       <style>{`
         .admin-container {
           max-width: 1200px;
-          margin: 32px auto;
-          padding: 0 20px;
+          margin: 40px auto;
+          padding: 0 24px;
         }
         .restaurant-header-banner {
-          background: linear-gradient(135deg, #1c1c1c 0%, #3a3a3a 100%);
+          position: relative;
+          background-color: #1e1e24;
           color: white;
           border-radius: var(--radius-lg);
-          padding: 32px;
+          padding: 40px 32px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
           gap: 24px;
           margin-bottom: 32px;
-          position: relative;
           overflow: hidden;
-          box-shadow: var(--shadow-md);
+          box-shadow: var(--shadow-lg);
+          z-index: 1;
+        }
+        .banner-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(to right, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 100%);
+          backdrop-filter: blur(6px);
+          z-index: -1;
         }
         .banner-info-wrap {
           display: flex;
@@ -512,52 +523,89 @@ const RestaurantDashboard = () => {
           flex-wrap: wrap;
         }
         .restaurant-img {
-          width: 96px;
-          height: 96px;
+          width: 100px;
+          height: 100px;
           border-radius: var(--radius-md);
           object-fit: cover;
-          border: 3px solid rgba(255,255,255,0.2);
+          border: 4px solid rgba(255,255,255,0.25);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+          transition: transform 0.2s ease;
+        }
+        .restaurant-img:hover {
+          transform: scale(1.05);
+        }
+        .banner-details {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .banner-title-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .banner-title {
+          font-size: 2.2rem;
+          font-weight: 800;
+          margin: 0;
+          letter-spacing: -0.5px;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .banner-badge {
+          background: var(--brand-red);
+          color: white;
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          box-shadow: 0 2px 8px rgba(247, 55, 79, 0.3);
+        }
+        .banner-subtext {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.95rem;
+          color: rgba(255,255,255,0.9);
+          text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .banner-subtext span {
+          line-height: 1;
         }
         .tab-bar {
           display: flex;
-          border-bottom: 2px solid var(--border-light);
-          margin-bottom: 24px;
-          gap: 24px;
-          overflow-x: auto;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-        }
-        .tab-bar::-webkit-scrollbar {
-          display: none;
+          background: var(--bg-surface);
+          border-radius: 30px;
+          padding: 6px;
+          margin-bottom: 28px;
+          gap: 4px;
+          max-width: fit-content;
+          border: 1px solid var(--border-medium);
+          box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
         }
         .tab-btn {
-          background: none;
+          background: transparent;
           border: none;
-          padding: 12px 4px;
+          padding: 10px 24px;
           font-weight: 700;
-          font-size: 1rem;
+          font-size: 0.95rem;
           color: var(--text-secondary);
           cursor: pointer;
-          position: relative;
-          transition: color 0.2s;
+          border-radius: 24px;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           white-space: nowrap;
         }
         .tab-btn.active {
+          background: white;
           color: var(--brand-red);
-        }
-        .tab-btn.active::after {
-          content: '';
-          position: absolute;
-          bottom: -2px;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: var(--brand-red);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
         }
         .search-bar-container {
           display: flex;
           gap: 12px;
-          margin-bottom: 24px;
+          margin-bottom: 28px;
           align-items: center;
           flex-wrap: wrap;
         }
@@ -573,6 +621,7 @@ const RestaurantDashboard = () => {
           border-radius: var(--radius-sm);
           font-size: 0.95rem;
           outline: none;
+          transition: border-color var(--transition-fast);
         }
         .search-input-wrapper input:focus {
           border-color: var(--brand-red);
@@ -595,10 +644,12 @@ const RestaurantDashboard = () => {
           display: flex;
           align-items: center;
           gap: 8px;
-          transition: background 0.2s;
+          transition: all 0.2s ease;
         }
         .btn-primary:hover {
           background: var(--brand-red-hover);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(247, 55, 79, 0.2);
         }
         .menu-grid {
           display: grid;
@@ -645,20 +696,33 @@ const RestaurantDashboard = () => {
         .order-list {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 20px;
         }
         .order-card {
           background: #fff;
           border: 1px solid var(--border-medium);
+          border-left: 6px solid var(--border-medium);
           border-radius: var(--radius-md);
-          padding: 20px;
+          padding: 24px;
           box-shadow: var(--shadow-sm);
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
           flex-wrap: wrap;
           gap: 20px;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
+        .order-card:hover {
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-md);
+        }
+        
+        .order-card.status-placed, .order-card.status-accepted { border-left-color: #36a2eb; }
+        .order-card.status-preparing { border-left-color: #ff9f40; }
+        .order-card.status-waiting-to-dispatch { border-left-color: #ffcd56; }
+        .order-card.status-out-for-delivery { border-left-color: #9966ff; }
+        .order-card.status-delivered { border-left-color: #4bc0c0; }
+
         .order-info-section {
           flex: 2;
           min-width: 280px;
@@ -672,6 +736,55 @@ const RestaurantDashboard = () => {
           justify-content: space-between;
           height: 100%;
           gap: 12px;
+        }
+        .customer-info-box {
+          background: var(--bg-surface);
+          border: 1px solid var(--border-light);
+          padding: 16px;
+          border-radius: var(--radius-sm);
+          margin-bottom: 16px;
+          transition: background-color var(--transition-fast);
+        }
+        .customer-info-box:hover {
+          background: var(--bg-surface-hover);
+        }
+        .customer-name {
+          font-weight: 700;
+          font-size: 0.95rem;
+          color: var(--text-primary);
+          margin-bottom: 8px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .customer-detail {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.85rem;
+          color: var(--text-secondary);
+          margin-top: 6px;
+        }
+        .call-customer-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          background: rgba(96, 178, 70, 0.1);
+          color: var(--success);
+          border: 1px solid rgba(96, 178, 70, 0.2);
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          cursor: pointer;
+          margin-left: 8px;
+          transition: all 0.2s ease;
+          text-decoration: none;
+        }
+        .call-customer-btn:hover {
+          background: var(--success);
+          color: white;
+          box-shadow: 0 2px 6px rgba(96, 178, 70, 0.25);
         }
         .modal-overlay {
           position: fixed;
@@ -716,19 +829,22 @@ const RestaurantDashboard = () => {
           display: flex;
           align-items: center;
           gap: 6px;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.15);
+          border: 1px solid rgba(255, 255, 255, 0.25);
           color: white;
           font-weight: 700;
           padding: 10px 20px;
-          border-radius: 20px;
+          border-radius: 24px;
           cursor: pointer;
+          backdrop-filter: blur(4px);
           transition: all 0.25s ease;
+          z-index: 10;
         }
         .portal-banner-logout-btn:hover {
-          background: rgba(255, 255, 255, 0.2) !important;
+          background: rgba(255, 255, 255, 0.25) !important;
           border-color: rgba(255, 255, 255, 0.4) !important;
-          transform: translateY(-1px);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         .form-group {
           margin-bottom: 16px;
@@ -751,11 +867,12 @@ const RestaurantDashboard = () => {
           border-color: var(--brand-red);
         }
         .badge {
-          padding: 4px 8px;
-          border-radius: 4px;
+          padding: 6px 12px;
+          border-radius: 12px;
           font-size: 0.75rem;
           font-weight: 700;
           text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
         .badge.placed { background: rgba(54,162,235,0.08); color: #36a2eb; }
         .badge.accepted { background: rgba(54,162,235,0.08); color: #36a2eb; }
@@ -766,80 +883,29 @@ const RestaurantDashboard = () => {
         .pill-filter {
           padding: 8px 16px;
           border: 1px solid var(--border-medium);
-          border-radius: 20px;
+          border-radius: 24px;
           background: white;
           cursor: pointer;
-          font-weight: 600;
+          font-weight: 700;
           font-size: 0.85rem;
-          transition: all 0.2s;
+          color: var(--text-secondary);
+          transition: all 0.25s ease;
+          white-space: nowrap;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        }
+        .pill-filter:hover {
+          border-color: var(--brand-red);
+          color: var(--brand-red);
+          background: rgba(247, 55, 79, 0.02);
         }
         .pill-filter.active {
           background: var(--brand-red);
           border-color: var(--brand-red);
           color: white;
+          box-shadow: 0 4px 12px rgba(247, 55, 79, 0.2);
         }
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
-        }
-        @media (max-width: 768px) {
-          .restaurant-header-banner {
-            flex-direction: column;
-            padding: 24px 16px;
-            text-align: center;
-            gap: 16px;
-          }
-          .banner-info-wrap {
-            flex-direction: column;
-            align-items: center;
-            gap: 16px;
-            width: 100%;
-          }
-          .banner-info-wrap div {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-          }
-          .search-bar-container {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 12px;
-          }
-          .search-input-wrapper {
-            width: 100%;
-            min-width: 100%;
-          }
-          .search-bar-container button {
-            width: 100%;
-            justify-content: center;
-          }
-          .order-card {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 16px;
-            padding: 16px;
-          }
-          .order-info-section {
-            min-width: 100%;
-          }
-          .order-actions-section {
-            align-items: flex-start;
-            min-width: 100%;
-            text-align: left;
-            margin-top: 8px;
-          }
-          .order-actions-section div {
-            text-align: left !important;
-          }
-          .order-actions-section button {
-            width: 100%;
-          }
-        }
-        @media (max-width: 600px) {
-          .modal-content {
-            padding: 20px;
-            margin: 12px;
-          }
         }
         
         .premium-stepper-container {
@@ -974,7 +1040,89 @@ const RestaurantDashboard = () => {
           50% { transform: translateY(-12px) scale(1.03); box-shadow: 0 6px 14px rgba(247, 55, 79, 0.4); }
           100% { transform: translateY(-12px) scale(1); }
         }
+        @media (max-width: 768px) {
+          .admin-container {
+            margin: 20px auto;
+            padding: 0 16px;
+          }
+          .restaurant-header-banner {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 32px 20px;
+            gap: 20px;
+          }
+          .banner-info-wrap {
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+          }
+          .banner-details {
+            align-items: center;
+          }
+          .banner-title-row {
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+          }
+          .banner-title {
+            font-size: 1.8rem;
+          }
+          .banner-subtext {
+            justify-content: center;
+            font-size: 0.88rem;
+          }
+          .tab-bar {
+            max-width: 100%;
+            width: 100%;
+          }
+          .tab-btn {
+            flex: 1;
+            text-align: center;
+            padding: 10px 12px;
+            font-size: 0.88rem;
+          }
+          .search-bar-container {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+          .search-input-wrapper {
+            width: 100%;
+            min-width: 100%;
+          }
+          .search-bar-container button {
+            width: 100%;
+            justify-content: center;
+          }
+          .order-card {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 16px;
+            padding: 16px;
+          }
+          .order-info-section {
+            min-width: 100%;
+          }
+          .order-actions-section {
+            align-items: flex-start;
+            min-width: 100%;
+            text-align: left;
+            margin-top: 8px;
+          }
+          .order-actions-section div {
+            text-align: left !important;
+          }
+          .order-actions-section button {
+            width: 100%;
+          }
+        }
         @media (max-width: 600px) {
+          .modal-content {
+            padding: 20px;
+            margin: 12px;
+          }
           .premium-stepper-container {
             padding: 12px 0 0;
           }
@@ -986,26 +1134,70 @@ const RestaurantDashboard = () => {
             font-size: 0.72rem;
           }
         }
+        @media (max-width: 480px) {
+          .stepper-label {
+            display: none;
+          }
+          .stepper-node {
+            min-width: 32px;
+          }
+          .stepper-circle {
+            width: 22px;
+            height: 22px;
+            font-size: 0.65rem;
+          }
+          .stepper-line {
+            transform: translateY(-9px);
+            height: 2px;
+          }
+          .stepper-btn-node {
+            transform: translateY(-9px);
+            padding: 4px 8px;
+            font-size: 0.68rem;
+          }
+          @keyframes actionPulse {
+            0% { transform: translateY(-9px) scale(1); }
+            50% { transform: translateY(-9px) scale(1.03); }
+            100% { transform: translateY(-9px) scale(1); }
+          }
+        }
       `}</style>
 
       <div className="admin-container fade-in">
         {/* Banner */}
         {restaurant && (
-          <div className="restaurant-header-banner">
+          <div 
+            className="restaurant-header-banner"
+            style={{ 
+              backgroundImage: `url(${restaurant.imagePath || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop'})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            }}
+          >
+            <div className="banner-overlay" />
             <div className="banner-info-wrap">
               <img 
                 src={restaurant.imagePath || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop'} 
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop';
+                }}
                 alt={restaurant.restaurantName} 
                 className="restaurant-img" 
               />
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <h1 style={{ fontSize: '2rem', fontWeight: 800, margin: 0 }}>{restaurant.restaurantName}</h1>
-                  <span className="badge out" style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>Portal Admin</span>
+              <div className="banner-details">
+                <div className="banner-title-row">
+                  <h1 className="banner-title">{restaurant.restaurantName}</h1>
+                  <span className="banner-badge">Portal Admin</span>
                 </div>
-                <p style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.8)', marginTop: '6px', margin: '6px 0 0 0' }}>
-                  <MapPin size={14} /> {restaurant.address} | Cuisine: {restaurant.cuisineType}
+                <p className="banner-subtext">
+                  <MapPin size={16} /> <span>{restaurant.address}</span>
                 </p>
+                {restaurant.cuisineType && (
+                  <p className="banner-subtext" style={{ marginTop: '4px' }}>
+                    <Utensils size={14} /> <span>Cuisine: {restaurant.cuisineType}</span>
+                  </p>
+                )}
               </div>
             </div>
             <button 
@@ -1061,6 +1253,10 @@ const RestaurantDashboard = () => {
                   <div key={item.menuId} className="menu-item-card">
                     <img 
                       src={item.imagePath || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop'} 
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop';
+                      }}
                       alt={item.menuName} 
                       className="menu-item-img" 
                     />
@@ -1124,9 +1320,9 @@ const RestaurantDashboard = () => {
             ) : (
               <div className="order-list">
                 {filteredOrders.map((o) => (
-                  <div key={o.orderId} className="order-card">
+                  <div key={o.orderId} className={`order-card status-${(o.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
                     <div className="order-info-section">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
                         <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>ID: {o.formattedId}</h3>
                         <span className={`badge ${(o.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
                           {o.status}
@@ -1134,16 +1330,21 @@ const RestaurantDashboard = () => {
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ordered {o.time}</span>
                       </div>
                       
-                      <div style={{ background: 'var(--bg-surface)', padding: '12px 16px', borderRadius: 'var(--radius-sm)', marginBottom: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '0.9rem', marginBottom: '4px' }}>
+                      <div className="customer-info-box">
+                        <div className="customer-name">
                           Customer: {o.userName}
                         </div>
-                        <p style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                          <Phone size={12} /> {o.userPhone}
-                        </p>
-                        <p style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                          <MapPin size={12} style={{ flexShrink: 0 }} /> Address: {o.userAddress}
-                        </p>
+                        <div className="customer-detail">
+                          <Phone size={12} /> 
+                          <span>{o.userPhone}</span>
+                          <a href={`tel:${o.userPhone}`} className="call-customer-btn">
+                            <Phone size={10} /> Call
+                          </a>
+                        </div>
+                        <div className="customer-detail" style={{ alignItems: 'flex-start' }}>
+                          <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> 
+                          <span>Address: {o.userAddress}</span>
+                        </div>
                       </div>
                     </div>
 
