@@ -4,7 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
   Store, Utensils, ClipboardList, Plus, Search, 
-  ToggleLeft, ToggleRight, CheckCircle2, ChevronRight, 
+  ToggleLeft, ToggleRight, CheckCircle2, ChevronRight, ChevronDown, 
   MapPin, Phone, IndianRupee, Loader, AlertCircle, FileText, CheckCircle, LogOut 
 } from 'lucide-react';
 
@@ -177,11 +177,11 @@ const RestaurantDashboard = () => {
     const currentStep = getStatusStep(o.status);
 
     const steps = [
-      { key: 0, label: 'Placed', statusName: 'Accepted' },
-      { key: 1, label: 'Preparing', statusName: 'Preparing', actionLabel: 'Start Cooking' },
-      { key: 2, label: 'Food Ready', statusName: 'Waiting to Dispatch', actionLabel: 'Mark Ready' },
-      { key: 3, label: 'Dispatched', statusName: 'Out for Delivery', actionLabel: 'Dispatch' },
-      { key: 4, label: 'Delivered', statusName: 'Delivered' }
+      { key: 0, label: 'Placed' },
+      { key: 1, label: 'Preparing' },
+      { key: 2, label: 'Food Ready' },
+      { key: 3, label: 'Dispatched' },
+      { key: 4, label: 'Delivered' }
     ];
 
     return (
@@ -191,15 +191,11 @@ const RestaurantDashboard = () => {
             const isCompleted = currentStep > idx;
             const isActive = currentStep === idx;
             const isPending = currentStep < idx;
-            const isActionable = (idx === 1 && currentStep === 0) || 
-                                 (idx === 2 && currentStep === 1) || 
-                                 (idx === 3 && currentStep === 2);
 
             let nodeClass = 'stepper-node';
             if (isCompleted) nodeClass += ' completed';
             if (isActive) nodeClass += ' active';
             if (isPending) nodeClass += ' pending';
-            if (isActionable) nodeClass += ' actionable';
 
             return (
               <React.Fragment key={step.key}>
@@ -207,27 +203,9 @@ const RestaurantDashboard = () => {
                   <div className={`stepper-line ${isCompleted || isActive ? 'active' : ''}`} />
                 )}
                 <div className={nodeClass}>
-                  {isActionable ? (
-                    <button
-                      disabled={actionLoading === o.orderId}
-                      onClick={() => handleUpdateOrderStatus(o.orderId, step.statusName)}
-                      className="stepper-btn-node"
-                      title={step.actionLabel}
-                    >
-                      {actionLoading === o.orderId ? (
-                        <Loader className="spin" size={14} />
-                      ) : (
-                        idx === 1 ? <Utensils size={14} /> : 
-                        idx === 2 ? <CheckCircle2 size={14} /> : 
-                        <ChevronRight size={14} />
-                      )}
-                      <span className="stepper-btn-label">{step.actionLabel}</span>
-                    </button>
-                  ) : (
-                    <div className="stepper-circle">
-                      {isCompleted ? <CheckCircle2 size={14} /> : idx + 1}
-                    </div>
-                  )}
+                  <div className="stepper-circle">
+                    {isCompleted ? <CheckCircle2 size={14} /> : idx + 1}
+                  </div>
                   <span className="stepper-label">{step.label}</span>
                 </div>
               </React.Fragment>
@@ -742,6 +720,53 @@ const RestaurantDashboard = () => {
         .stacked-segment.ready { background: #ffcd56; }
         .stacked-segment.shipping { background: #9966ff; }
         .stacked-segment.delivered { background: #4bc0c0; }
+
+        .status-changer-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          width: 100%;
+          margin-top: 12px;
+        }
+        .status-select-label {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          text-align: left !important;
+        }
+        .status-select-container {
+          position: relative;
+          display: flex;
+          align-items: center;
+          width: 100%;
+        }
+        .premium-status-select {
+          width: 100%;
+          padding: 10px 32px 10px 12px;
+          font-size: 0.88rem;
+          font-weight: 700;
+          color: var(--text-primary);
+          background: var(--bg-surface);
+          border: 1px solid var(--border-medium);
+          border-radius: var(--radius-sm);
+          outline: none;
+          cursor: pointer;
+          appearance: none;
+          transition: all 0.25s ease;
+        }
+        .premium-status-select:focus {
+          border-color: var(--brand-red);
+          box-shadow: 0 0 0 3px rgba(247, 55, 79, 0.1);
+          background: #fff;
+        }
+        .status-select-icon {
+          position: absolute;
+          right: 12px;
+          pointer-events: none;
+          color: var(--text-secondary);
+        }
 
         .stacked-legend {
           display: flex;
@@ -1595,22 +1620,47 @@ const RestaurantDashboard = () => {
                         </div>
 
                         <div className="order-actions-section">
-                          <div style={{ textAlign: 'right' }}>
+                          <div className="price-rider-wrap" style={{ textAlign: 'right', width: '100%' }}>
                             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Amount Earned</span>
-                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>
                               &#8377;{(o.total || 0).toFixed(2)}
                             </div>
+                            
+                            {o.riderName ? (
+                              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                Rider: <strong>{o.riderName}</strong>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: '0.78rem', color: '#ff9f40', fontWeight: 600 }}>
+                                Awaiting Rider Match...
+                              </div>
+                            )}
                           </div>
-                          
-                          {o.riderName ? (
-                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textAlign: 'right', marginTop: '8px' }}>
-                              Rider: <strong>{o.riderName}</strong>
+
+                          <div className="status-changer-wrapper">
+                            <span className="status-select-label">Change Status</span>
+                            <div className="status-select-container">
+                              <select
+                                value={o.status}
+                                disabled={actionLoading === o.orderId}
+                                onChange={(e) => handleUpdateOrderStatus(o.orderId, e.target.value)}
+                                className="premium-status-select"
+                              >
+                                <option value="Placed">Placed</option>
+                                <option value="Accepted">Accepted</option>
+                                <option value="Preparing">Preparing</option>
+                                <option value="Waiting to Dispatch">Ready to Dispatch</option>
+                                <option value="Out for Delivery">Out for Delivery</option>
+                                <option value="Delivered">Delivered</option>
+                                <option value="Cancelled">Cancelled</option>
+                              </select>
+                              {actionLoading === o.orderId ? (
+                                <Loader className="spin status-select-icon" size={14} />
+                              ) : (
+                                <ChevronDown className="status-select-icon" size={16} />
+                              )}
                             </div>
-                          ) : (
-                            <div style={{ fontSize: '0.78rem', color: '#ff9f40', textAlign: 'right', marginTop: '8px', fontWeight: 600 }}>
-                              Awaiting Rider Match...
-                            </div>
-                          )}
+                          </div>
                         </div>
 
                         {renderOrderStepper(o)}
