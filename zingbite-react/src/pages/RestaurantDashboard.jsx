@@ -1168,39 +1168,45 @@ const RestaurantDashboard = () => {
         .stepper-btn-node {
           display: flex;
           align-items: center;
-          gap: 6px;
-          background: linear-gradient(135deg, var(--brand-red) 0%, #ff5263 100%);
+          gap: 8px;
           color: white;
-          border: none;
-          padding: 8px 12px;
-          border-radius: 20px;
-          font-weight: 700;
-          font-size: 0.8rem;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          padding: 8px 16px;
+          border-radius: 30px;
+          font-weight: 800;
+          font-size: 0.82rem;
           cursor: pointer;
           transform: translateY(-12px);
-          box-shadow: 0 4px 10px rgba(247, 55, 79, 0.3);
-          transition: all 0.2s ease;
+          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
           animation: actionPulse 2s infinite;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
         }
         .stepper-node.actionable:nth-of-type(3) .stepper-btn-node {
-          background: linear-gradient(135deg, var(--brand-red) 0%, #ff5263 100%);
-          box-shadow: 0 4px 10px rgba(247, 55, 79, 0.3);
+          background: linear-gradient(135deg, #F7374F 0%, #ff5263 100%);
+          box-shadow: 0 4px 14px rgba(247, 55, 79, 0.4);
         }
         .stepper-node.actionable:nth-of-type(5) .stepper-btn-node {
-          background: linear-gradient(135deg, #ff9f40 0%, #ffbe7a 100%);
-          box-shadow: 0 4px 10px rgba(255, 159, 64, 0.3);
+          background: linear-gradient(135deg, #ff8c00 0%, #ffb300 100%);
+          box-shadow: 0 4px 14px rgba(255, 140, 0, 0.4);
         }
         .stepper-node.actionable:nth-of-type(7) .stepper-btn-node {
-          background: linear-gradient(135deg, #9966ff 0%, #b38aff 100%);
-          box-shadow: 0 4px 10px rgba(153, 102, 255, 0.3);
+          background: linear-gradient(135deg, #7b2cbf 0%, #9d4edd 100%);
+          box-shadow: 0 4px 14px rgba(123, 44, 191, 0.4);
         }
         .stepper-btn-node:hover {
-          transform: translateY(-14px) scale(1.05);
+          transform: translateY(-14px) scale(1.08);
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+          border-color: rgba(255, 255, 255, 0.5);
+        }
+        .stepper-btn-node:active {
+          transform: translateY(-11px) scale(0.98);
         }
         .stepper-btn-node:disabled {
           background: var(--border-medium);
           box-shadow: none;
           cursor: not-allowed;
+          border-color: transparent;
         }
         .stepper-btn-label {
           white-space: nowrap;
