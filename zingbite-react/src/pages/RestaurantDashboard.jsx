@@ -1168,45 +1168,27 @@ const RestaurantDashboard = () => {
         .stepper-btn-node {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
+          background: linear-gradient(135deg, #4bc0c0 0%, #68d8d8 100%);
           color: white;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          padding: 8px 16px;
-          border-radius: 30px;
-          font-weight: 800;
-          font-size: 0.82rem;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 20px;
+          font-weight: 700;
+          font-size: 0.8rem;
           cursor: pointer;
           transform: translateY(-12px);
-          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-          animation: actionPulse 2s infinite;
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
-        }
-        .stepper-node.actionable:nth-of-type(3) .stepper-btn-node {
-          background: linear-gradient(135deg, #F7374F 0%, #ff5263 100%);
-          box-shadow: 0 4px 14px rgba(247, 55, 79, 0.4);
-        }
-        .stepper-node.actionable:nth-of-type(5) .stepper-btn-node {
-          background: linear-gradient(135deg, #ff8c00 0%, #ffb300 100%);
-          box-shadow: 0 4px 14px rgba(255, 140, 0, 0.4);
-        }
-        .stepper-node.actionable:nth-of-type(7) .stepper-btn-node {
-          background: linear-gradient(135deg, #7b2cbf 0%, #9d4edd 100%);
-          box-shadow: 0 4px 14px rgba(123, 44, 191, 0.4);
+          box-shadow: 0 4px 10px rgba(75, 192, 192, 0.3);
+          transition: all 0.2s ease;
+          animation: actionPulseRider 2s infinite;
         }
         .stepper-btn-node:hover {
-          transform: translateY(-14px) scale(1.08);
-          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-          border-color: rgba(255, 255, 255, 0.5);
-        }
-        .stepper-btn-node:active {
-          transform: translateY(-11px) scale(0.98);
+          transform: translateY(-14px) scale(1.05);
         }
         .stepper-btn-node:disabled {
           background: var(--border-medium);
           box-shadow: none;
           cursor: not-allowed;
-          border-color: transparent;
         }
         .stepper-btn-label {
           white-space: nowrap;
@@ -1235,9 +1217,9 @@ const RestaurantDashboard = () => {
           70% { box-shadow: 0 0 0 6px rgba(247, 55, 79, 0); }
           100% { box-shadow: 0 0 0 0px rgba(247, 55, 79, 0); }
         }
-        @keyframes actionPulse {
+        @keyframes actionPulseRider {
           0% { transform: translateY(-12px) scale(1); }
-          50% { transform: translateY(-12px) scale(1.03); box-shadow: 0 6px 14px rgba(247, 55, 79, 0.4); }
+          50% { transform: translateY(-12px) scale(1.03); box-shadow: 0 6px 14px rgba(75, 192, 192, 0.4); }
           100% { transform: translateY(-12px) scale(1); }
         }
         @media (max-width: 768px) {
@@ -1355,9 +1337,9 @@ const RestaurantDashboard = () => {
             padding: 4px 8px;
             font-size: 0.68rem;
           }
-          @keyframes actionPulse {
+          @keyframes actionPulseRider {
             0% { transform: translateY(-9px) scale(1); }
-            50% { transform: translateY(-9px) scale(1.03); }
+            50% { transform: translateY(-9px) scale(1.03); box-shadow: 0 4px 10px rgba(75, 192, 192, 0.3); }
             100% { transform: translateY(-9px) scale(1); }
           }
         }
