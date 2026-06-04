@@ -16,6 +16,13 @@
       <property name="hibernate.hbm2ddl.auto">update</property>
       <property name="hibernate.show_sql">true</property>
 
+      <!-- Connection Pool Settings (Hibernate Built-in Pool) -->
+      <property name="hibernate.connection.pool_size">20</property>
+
+      <!-- JDBC Performance tuning -->
+      <property name="hibernate.jdbc.batch_size">20</property>
+      <property name="hibernate.jdbc.fetch_size">50</property>
+
 
    </session-factory>  
 </hibernate-configuration>
