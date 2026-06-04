@@ -410,7 +410,7 @@ const DeliveryDashboard = () => {
         .section-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 16px; margin-top: 32px; }
         .orders-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
           gap: 20px;
           margin-bottom: 32px;
         }

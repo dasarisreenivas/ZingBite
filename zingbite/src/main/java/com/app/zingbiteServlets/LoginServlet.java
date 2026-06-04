@@ -17,7 +17,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-@WebServlet("/api/login")
+@WebServlet(urlPatterns = {"/api/login", "/api/logout"})
 public class LoginServlet extends HttpServlet {
 
     @Override
@@ -29,6 +29,17 @@ public class LoginServlet extends HttpServlet {
         
         Gson gson = new Gson();
         JsonObject jsonResponse = new JsonObject();
+        
+        String uri = req.getRequestURI();
+        if (uri.endsWith("/logout")) {
+            HttpSession session = req.getSession(false);
+            if (session != null) {
+                session.invalidate();
+            }
+            jsonResponse.addProperty("success", true);
+            resp.getWriter().write(jsonResponse.toString());
+            return;
+        }
         
         try {
             // Read JSON from request body

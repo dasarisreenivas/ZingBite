@@ -5,11 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Users, Store, ShoppingBag, IndianRupee, Briefcase, 
   FileText, Plus, CheckCircle, XCircle, AlertTriangle, 
-  Loader, Shield, UserCheck, Check, X, FileCheck2 
+  Loader, Shield, UserCheck, Check, X, FileCheck2, LogOut
 } from 'lucide-react';
 
 const SuperAdminDashboard = () => {
-  const { user, loading: authLoading } = useContext(AuthContext);
+  const { user, logout, loading: authLoading } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('metrics');
@@ -170,10 +170,25 @@ const SuperAdminDashboard = () => {
 
   if (error) {
     return (
-      <div style={{ maxWidth: '600px', margin: '48px auto', textAlign: 'center', padding: '24px' }}>
-        <AlertTriangle size={48} style={{ color: 'var(--brand-red)', marginBottom: '16px' }} />
-        <h3>Access Restricted</h3>
-        <p style={{ color: 'var(--text-secondary)', marginTop: '8px' }}>{error}</p>
+      <div style={{ maxWidth: '600px', margin: '80px auto', textAlign: 'center', padding: '32px', background: '#fff', border: '1px solid var(--border-medium)', borderRadius: '12px', boxShadow: 'var(--shadow-md)' }} className="fade-in">
+        <AlertTriangle size={48} style={{ color: 'var(--brand-red)', marginBottom: '16px', margin: '0 auto 16px' }} />
+        <h3 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Access Restricted</h3>
+        <p style={{ color: 'var(--text-secondary)', marginTop: '8px', marginBottom: '24px' }}>{error}</p>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+          <button 
+            onClick={() => navigate('/login?redirect=/admin')} 
+            className="btn-primary" 
+            style={{ width: 'auto', padding: '10px 20px', fontSize: '0.9rem', borderRadius: '4px' }}
+          >
+            Switch Account
+          </button>
+          <button 
+            onClick={async () => { await logout(); navigate('/login?redirect=/admin'); }} 
+            className="portal-logout-btn"
+          >
+            Logout
+          </button>
+        </div>
       </div>
     );
   }
@@ -394,16 +409,42 @@ const SuperAdminDashboard = () => {
             padding: 16px;
           }
         }
+        .portal-logout-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: none;
+          border: 1px solid var(--border-medium);
+          color: var(--text-secondary);
+          font-weight: 700;
+          padding: 8px 16px;
+          border-radius: 20px;
+          cursor: pointer;
+          transition: all 0.25s ease;
+        }
+        .portal-logout-btn:hover {
+          border-color: var(--danger);
+          color: var(--danger);
+          background: rgba(226, 55, 68, 0.04);
+        }
       `}</style>
 
       <div className="admin-container fade-in">
         {/* Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-          <Shield size={32} style={{ color: 'var(--brand-red)' }} />
-          <div>
-            <h1 style={{ fontSize: '1.8rem', fontWeight: 800 }}>Super Admin Command Center</h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '2px' }}>Site statistics, role allocation, and listings management.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Shield size={32} style={{ color: 'var(--brand-red)' }} />
+            <div>
+              <h1 style={{ fontSize: '1.8rem', fontWeight: 800 }}>Super Admin Command Center</h1>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '2px' }}>Site statistics, role allocation, and listings management.</p>
+            </div>
           </div>
+          <button 
+            onClick={async () => { await logout(); navigate('/login?redirect=/admin'); }} 
+            className="portal-logout-btn"
+          >
+            <LogOut size={16} /> Logout
+          </button>
         </div>
 
         {/* Global Statistics Cards */}

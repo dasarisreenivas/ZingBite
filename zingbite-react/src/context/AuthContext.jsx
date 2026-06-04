@@ -44,8 +44,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    // We would ideally call an API logout, but since we didn't write one, 
-    // we'll just clear state for now. In a real app, hit /api/logout
+    try {
+      await axios.post('/api/logout');
+    } catch (err) {
+      console.error("Failed to call logout API:", err);
+    }
     setUser(null);
   };
 
