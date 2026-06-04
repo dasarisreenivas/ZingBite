@@ -12,6 +12,7 @@ const DeliveryDashboard = () => {
   const [actionLoading, setActionLoading] = useState(null);
   const [simulators, setSimulators] = useState({});
   const [watchers, setWatchers] = useState({});
+  const [modal, setModal] = useState(null); // { title: '', message: '', type: 'info' | 'success' | 'error' }
 
   const restaurantLat = 12.9716;
   const restaurantLng = 77.5946;
@@ -94,13 +95,21 @@ const DeliveryDashboard = () => {
       });
     } else {
       if (!navigator.geolocation) {
-        alert("Geolocation is not supported by your browser or is blocked in insecure contexts.");
+        setModal({
+          title: "Geolocation Blocked/Unsupported",
+          message: "Geolocation is not supported by your browser or is blocked in insecure contexts.",
+          type: "error"
+        });
         return;
       }
       
       // Geolocation API requires a secure context (HTTPS) or localhost
       if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        alert("🔒 Browser Security Block:\nReal-time device Geolocation API is restricted by modern browsers to Secure Contexts (HTTPS) or localhost.\n\nSince you are accessing via HTTP/IP, please use the 'Auto-Simulation' or manual range slider instead, or run the app on localhost/HTTPS.");
+        setModal({
+          title: "🔒 Browser Security Block",
+          message: "Real-time device Geolocation API is restricted by modern browsers to Secure Contexts (HTTPS) or localhost.\n\nSince you are accessing via HTTP/IP, please use the 'Auto-Simulation' or manual range slider instead, or run the app on localhost/HTTPS.",
+          type: "error"
+        });
         return;
       }
 
@@ -117,9 +126,17 @@ const DeliveryDashboard = () => {
         (error) => {
           console.error("Geolocation watch error:", error);
           if (error.code === error.PERMISSION_DENIED) {
-            alert("❌ Geolocation Permission Denied:\nPlease allow location access in your browser settings to track live rider coordinates, or use the 'Auto-Simulation' / manual range slider instead.");
+            setModal({
+              title: "❌ Geolocation Permission Denied",
+              message: "Please allow location access in your browser settings to track live rider coordinates, or use the 'Auto-Simulation' / manual range slider instead.",
+              type: "error"
+            });
           } else {
-            alert("Error retrieving geolocation: " + error.message);
+            setModal({
+              title: "Geolocation Error",
+              message: "Error retrieving geolocation: " + error.message,
+              type: "error"
+            });
           }
           // Stop watching
           setWatchers(prev => {
@@ -175,10 +192,18 @@ const DeliveryDashboard = () => {
     setActionLoading(orderId);
     try {
       await axios.post('/api/delivery', { action: 'acceptOrder', orderId });
-      alert('Delivery run claimed successfully! It is now in your active runs feed.');
+      setModal({
+        title: "Claim Run Success",
+        message: "Delivery run claimed successfully! It is now in your active runs feed.",
+        type: "success"
+      });
       await fetchDeliveryData();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to claim delivery run. Please try again.');
+      setModal({
+        title: "Claim Run Failed",
+        message: err.response?.data?.error || 'Failed to claim delivery run. Please try again.',
+        type: "error"
+      });
     } finally {
       setActionLoading(null);
     }
@@ -190,7 +215,11 @@ const DeliveryDashboard = () => {
       await axios.post('/api/delivery', { orderId, status: nextStatus });
       await fetchDeliveryData();
     } catch (err) {
-      alert('Failed to update status. Please try again.');
+      setModal({
+        title: "Status Update Failed",
+        message: 'Failed to update status. Please try again.',
+        type: "error"
+      });
     } finally {
       setActionLoading(null);
     }
@@ -602,6 +631,98 @@ const DeliveryDashboard = () => {
           50% { transform: translateY(-12px) scale(1.03); box-shadow: 0 6px 14px rgba(75, 192, 192, 0.4); }
           100% { transform: translateY(-12px) scale(1); }
         }
+        /* Custom styled modal popup overlay */
+        .custom-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(15, 12, 30, 0.45);
+          backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 10000;
+          animation: modalFadeIn 0.25s ease-out;
+        }
+        .custom-modal-card {
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(10px);
+          border-radius: 16px;
+          border: 1px solid rgba(153, 102, 255, 0.2);
+          box-shadow: 0 20px 40px rgba(153, 102, 255, 0.15), 0 0 0 1px rgba(153, 102, 255, 0.05);
+          width: 90%;
+          max-width: 460px;
+          padding: 28px;
+          animation: modalSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .custom-modal-card.success {
+          border-color: rgba(75, 192, 192, 0.3);
+          box-shadow: 0 20px 40px rgba(75, 192, 192, 0.15), 0 0 0 1px rgba(75, 192, 192, 0.05);
+        }
+        .custom-modal-card.error {
+          border-color: rgba(247, 55, 79, 0.25);
+          box-shadow: 0 20px 40px rgba(247, 55, 79, 0.12), 0 0 0 1px rgba(247, 55, 79, 0.05);
+        }
+        .custom-modal-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+        .custom-modal-icon {
+          font-size: 1.6rem;
+        }
+        .custom-modal-title {
+          font-size: 1.25rem;
+          font-weight: 800;
+          color: #1a1625;
+          margin: 0;
+        }
+        .custom-modal-body {
+          font-size: 0.88rem;
+          color: #555060;
+          line-height: 1.6;
+          margin-bottom: 24px;
+        }
+        .custom-modal-body p {
+          margin: 8px 0;
+        }
+        .custom-modal-actions {
+          display: flex;
+          justify-content: flex-end;
+        }
+        .custom-modal-btn {
+          background: linear-gradient(135deg, #9966ff 0%, #7b3fe4 100%);
+          color: white;
+          border: none;
+          padding: 10px 24px;
+          border-radius: 20px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 12px rgba(153, 102, 255, 0.3);
+        }
+        .custom-modal-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(153, 102, 255, 0.4);
+        }
+        .custom-modal-card.success .custom-modal-btn {
+          background: linear-gradient(135deg, #4bc0c0 0%, #38b0b0 100%);
+          box-shadow: 0 4px 12px rgba(75, 192, 192, 0.3);
+        }
+        .custom-modal-card.success .custom-modal-btn:hover {
+          box-shadow: 0 6px 16px rgba(75, 192, 192, 0.4);
+        }
+        @keyframes modalFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes modalSlideUp {
+          from { transform: translateY(24px) scale(0.96); opacity: 0; }
+          to { transform: translateY(0) scale(1); opacity: 1; }
+        }
         @media (max-width: 600px) {
           .premium-stepper-container {
             padding: 12px 0 0;
@@ -837,6 +958,30 @@ const DeliveryDashboard = () => {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Custom popup modal */}
+        {modal && (
+          <div className="custom-modal-overlay" onClick={() => setModal(null)}>
+            <div className={`custom-modal-card ${modal.type}`} onClick={(e) => e.stopPropagation()}>
+              <div className="custom-modal-header">
+                <span className="custom-modal-icon">
+                  {modal.type === 'success' ? '🏆' : modal.type === 'error' ? '⚠️' : 'ℹ️'}
+                </span>
+                <h3 className="custom-modal-title">{modal.title}</h3>
+              </div>
+              <div className="custom-modal-body">
+                {modal.message.split('\n').map((line, index) => (
+                  <p key={index}>{line}</p>
+                ))}
+              </div>
+              <div className="custom-modal-actions">
+                <button className="custom-modal-btn" onClick={() => setModal(null)}>
+                  Understood
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
