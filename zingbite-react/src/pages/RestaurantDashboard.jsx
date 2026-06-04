@@ -497,11 +497,19 @@ const RestaurantDashboard = () => {
           padding: 32px;
           display: flex;
           align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
           gap: 24px;
           margin-bottom: 32px;
           position: relative;
           overflow: hidden;
           box-shadow: var(--shadow-md);
+        }
+        .banner-info-wrap {
+          display: flex;
+          align-items: center;
+          gap: 24px;
+          flex-wrap: wrap;
         }
         .restaurant-img {
           width: 96px;
@@ -780,10 +788,30 @@ const RestaurantDashboard = () => {
             text-align: center;
             gap: 16px;
           }
-          .restaurant-header-banner div {
+          .banner-info-wrap {
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+          }
+          .banner-info-wrap div {
             display: flex;
             flex-direction: column;
             align-items: center;
+            text-align: center;
+          }
+          .search-bar-container {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+          .search-input-wrapper {
+            width: 100%;
+            min-width: 100%;
+          }
+          .search-bar-container button {
+            width: 100%;
+            justify-content: center;
           }
           .order-card {
             flex-direction: column;
@@ -963,8 +991,8 @@ const RestaurantDashboard = () => {
       <div className="admin-container fade-in">
         {/* Banner */}
         {restaurant && (
-          <div className="restaurant-header-banner" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+          <div className="restaurant-header-banner">
+            <div className="banner-info-wrap">
               <img 
                 src={restaurant.imagePath || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop'} 
                 alt={restaurant.restaurantName} 
