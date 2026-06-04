@@ -365,7 +365,7 @@ const OrderTracking = () => {
 
   if (authLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, minHeight: '400px' }}>
         <Loader size={36} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
       </div>
     );
@@ -1284,7 +1284,7 @@ const OrderTracking = () => {
         </div>
       ) : ordersLoading && !orderDetail ? (
         // Loading Specific Order View
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '400px', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', flex: 1, minHeight: '400px', gap: '12px' }}>
           <Loader size={36} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Locating your order run...</p>
         </div>

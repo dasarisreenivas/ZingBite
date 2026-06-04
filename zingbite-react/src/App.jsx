@@ -26,7 +26,7 @@ function App() {
         <Router basename="/zingbite">
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <Header />
-            <main style={{ flex: 1 }}>
+            <main style={{ flex: 1, minHeight: '75vh', display: 'flex', flexDirection: 'column' }}>
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/home" element={<Home />} />
