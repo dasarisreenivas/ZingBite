@@ -17,8 +17,20 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-@WebServlet(urlPatterns = {"/api/login", "/api/logout"})
+@WebServlet(urlPatterns = {"/api/login", "/api/logout"}, loadOnStartup = 1)
 public class LoginServlet extends HttpServlet {
+
+    @Override
+    public void init() throws ServletException {
+        super.init();
+        System.out.println("Pre-initializing Hibernate SessionFactory for ZingBite...");
+        try {
+            com.app.zingbiteutils.DBUtils.getSessionFactory();
+            System.out.println("Hibernate SessionFactory pre-initialized successfully!");
+        } catch (Exception e) {
+            System.err.println("Failed to pre-initialize SessionFactory: " + e.getMessage());
+        }
+    }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)

@@ -13,19 +13,17 @@ const Home = () => {
   const heroRef = useRef(null);
 
   useEffect(() => {
-    const fetchRestaurants = async (isBackground = false) => {
+    const fetchRestaurants = async () => {
       try {
         const response = await axios.get('/api/home');
         setRestaurants(response.data);
       } catch (err) {
         console.error(err);
       } finally {
-        if (!isBackground) setLoading(false);
+        setLoading(false);
       }
     };
-    fetchRestaurants(false);
-    const interval = setInterval(() => fetchRestaurants(true), 5000);
-    return () => clearInterval(interval);
+    fetchRestaurants();
   }, []);
 
   const filteredAndSortedRestaurants = restaurants
