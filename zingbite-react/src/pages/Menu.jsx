@@ -353,34 +353,152 @@ const Menu = () => {
 
         .menu-items-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
           gap: 28px;
         }
 
         .menu-dish-card {
-          background: #fff;
+          background: #ffffff;
           border: 1px solid var(--border-medium);
-          border-radius: var(--radius-lg);
-          overflow: hidden;
-          box-shadow: var(--shadow-sm);
+          border-radius: 24px;
+          padding: 20px;
           display: flex;
-          flex-direction: column;
-          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          justify-content: space-between;
+          gap: 24px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+          transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
           opacity: 0;
           transform: translateY(20px);
+          position: relative;
+          overflow: visible;
         }
 
         .menu-dish-card:hover {
           transform: translateY(-5px);
-          box-shadow: var(--shadow-md);
-          border-color: rgba(247, 55, 79, 0.25);
+          box-shadow: 0 12px 30px rgba(247, 55, 79, 0.08);
+          border-color: rgba(247, 55, 79, 0.2);
         }
 
-        .dish-image-wrapper {
-          position: relative;
-          height: 200px;
-          width: 100%;
+        .dish-card-info {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-width: 0;
+        }
+
+        .dish-card-header-tags {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+
+        .dish-type-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 3px 8px;
+          border-radius: 6px;
+          font-size: 0.7rem;
+          font-weight: 800;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+        }
+
+        .dish-type-badge.veg {
+          background: rgba(96, 178, 70, 0.08);
+          color: var(--success);
+          border: 1px solid rgba(96, 178, 70, 0.15);
+        }
+
+        .dish-type-badge.veg .dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--success);
+        }
+
+        .dish-type-badge.nonveg {
+          background: rgba(226, 55, 68, 0.08);
+          color: var(--danger);
+          border: 1px solid rgba(226, 55, 68, 0.15);
+        }
+
+        .dish-type-badge.nonveg .dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--danger);
+        }
+
+        .dish-featured-tag {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: #ff9f40;
+          background: rgba(255, 159, 64, 0.08);
+          padding: 3px 8px;
+          border-radius: 6px;
+          border: 1px solid rgba(255, 159, 64, 0.15);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .dish-card-title {
+          font-family: 'Outfit', sans-serif;
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin: 0 0 6px 0;
+          line-height: 1.3;
+        }
+
+        .dish-card-price-row {
+          display: flex;
+          align-items: baseline;
+          gap: 2px;
+          margin-bottom: 10px;
+          color: var(--brand-red);
+          font-weight: 800;
+        }
+
+        .dish-card-price-row .price-symbol {
+          font-size: 1rem;
+        }
+
+        .dish-card-price-row .price-value {
+          font-size: 1.3rem;
+          font-family: 'Outfit', sans-serif;
+        }
+
+        .dish-card-desc {
+          font-size: 0.85rem;
+          color: var(--text-secondary);
+          line-height: 1.5;
+          margin: 0;
           overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+        }
+
+        .dish-card-media {
+          position: relative;
+          width: 130px;
+          height: 130px;
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .dish-card-img-container {
+          width: 100%;
+          height: 100%;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+          border: 1px solid var(--border-light);
           background: var(--bg-surface);
         }
 
@@ -395,122 +513,59 @@ const Menu = () => {
           transform: scale(1.08);
         }
 
-        .dish-badge-veg {
+        .dish-card-action {
           position: absolute;
-          top: 12px;
-          left: 12px;
+          bottom: -12px;
+          left: 50%;
+          transform: translateX(-50%);
           z-index: 10;
-          background: rgba(255, 255, 255, 0.95);
-          padding: 4px 8px;
-          border-radius: 6px;
-          box-shadow: var(--shadow-sm);
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 0.75rem;
-          font-weight: 800;
+        }
+
+        .premium-add-btn {
+          background: #ffffff;
           color: var(--success);
-          border: 1px solid rgba(96, 178, 70, 0.2);
-        }
-
-        .dish-badge-nonveg {
-          position: absolute;
-          top: 12px;
-          left: 12px;
-          z-index: 10;
-          background: rgba(255, 255, 255, 0.95);
-          padding: 4px 8px;
-          border-radius: 6px;
-          box-shadow: var(--shadow-sm);
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 0.75rem;
-          font-weight: 800;
-          color: var(--danger);
-          border: 1px solid rgba(226, 55, 68, 0.2);
-        }
-
-        .veg-indicator-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: var(--success);
-        }
-
-        .nonveg-indicator-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: var(--danger);
-        }
-
-        .dish-card-price {
-          position: absolute;
-          bottom: 12px;
-          right: 12px;
-          z-index: 10;
-          background: rgba(0, 0, 0, 0.7);
-          color: white;
-          padding: 4px 10px;
-          border-radius: 6px;
-          font-weight: 800;
-          font-size: 0.95rem;
-          backdrop-filter: blur(4px);
-          display: flex;
-          align-items: center;
-        }
-
-        .dish-card-body {
-          padding: 20px;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-        }
-
-        .dish-card-title {
-          font-family: 'Outfit', sans-serif;
-          font-size: 1.2rem;
-          font-weight: 700;
-          color: var(--text-primary);
-          margin: 0 0 6px;
-        }
-
-        .dish-card-desc {
-          font-size: 0.85rem;
-          color: var(--text-secondary);
-          line-height: 1.5;
-          margin: 0 0 16px;
-          overflow: hidden;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-        }
-
-        .dish-card-footer {
-          border-top: 1px solid var(--border-light);
-          padding-top: 14px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .card-qty-stepper {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
           border: 1.5px solid var(--success);
-          border-radius: 20px;
-          overflow: hidden;
-          width: 96px;
-          height: 32px;
-          background: #fff;
-          box-shadow: 0 2px 6px rgba(96, 178, 70, 0.1);
+          font-weight: 800;
+          font-size: 0.85rem;
+          padding: 6px 20px;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.25s ease;
+          box-shadow: 0 4px 10px rgba(96, 178, 70, 0.15);
+          white-space: nowrap;
+          letter-spacing: 0.5px;
         }
 
-        .stepper-btn {
-          width: 30px;
+        .premium-add-btn:hover:not(:disabled) {
+          background: var(--success);
+          color: #ffffff;
+          box-shadow: 0 6px 15px rgba(96, 178, 70, 0.3);
+          transform: scale(1.03);
+        }
+
+        .premium-add-btn:disabled {
+          background: var(--bg-surface);
+          border-color: var(--border-medium);
+          color: var(--text-muted);
+          box-shadow: none;
+          cursor: not-allowed;
+        }
+
+        .premium-qty-stepper {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: #ffffff;
+          border: 1.5px solid var(--success);
+          border-radius: 12px;
+          width: 90px;
+          height: 32px;
+          box-shadow: 0 4px 12px rgba(96, 178, 70, 0.15);
+          overflow: hidden;
+        }
+
+        .premium-step-btn {
+          width: 28px;
           height: 100%;
           background: transparent;
           border: none;
@@ -522,39 +577,14 @@ const Menu = () => {
           transition: background 0.2s;
         }
 
-        .stepper-btn:hover {
+        .premium-step-btn:hover {
           background: rgba(96, 178, 70, 0.08);
         }
 
-        .stepper-val {
+        .premium-step-val {
           font-weight: 800;
           font-size: 0.9rem;
           color: var(--text-primary);
-        }
-
-        .card-add-btn {
-          border: 1.5px solid var(--success);
-          background: transparent;
-          color: var(--success);
-          font-weight: 800;
-          font-size: 0.8rem;
-          padding: 6px 18px;
-          border-radius: 20px;
-          cursor: pointer;
-          transition: all 0.25s ease;
-          letter-spacing: 0.5px;
-        }
-
-        .card-add-btn:hover:not(:disabled) {
-          background: var(--success);
-          color: white;
-          box-shadow: 0 4px 10px rgba(96, 178, 70, 0.2);
-        }
-
-        .card-add-btn:disabled {
-          border-color: var(--border-medium);
-          color: var(--text-muted);
-          cursor: not-allowed;
         }
 
         .cart-bar-popup {
@@ -608,8 +638,8 @@ const Menu = () => {
 
         @media (max-width: 992px) {
           .menu-items-grid {
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 20px;
+            grid-template-columns: 1fr;
+            gap: 24px;
           }
         }
 
@@ -651,9 +681,38 @@ const Menu = () => {
           }
         }
 
-        @media (max-width: 480px) {
+        @media (max-width: 576px) {
           .menu-items-grid {
             grid-template-columns: 1fr;
+          }
+          .menu-dish-card {
+            padding: 16px;
+            gap: 16px;
+            border-radius: 18px;
+          }
+          .dish-card-media {
+            width: 105px;
+            height: 105px;
+          }
+          .dish-card-title {
+            font-size: 1.1rem;
+          }
+          .dish-card-price-row .price-value {
+            font-size: 1.15rem;
+          }
+          .dish-card-desc {
+            font-size: 0.8rem;
+            -webkit-line-clamp: 2;
+          }
+          .premium-add-btn {
+            font-size: 0.75rem;
+            padding: 5px 16px;
+            border-radius: 10px;
+          }
+          .premium-qty-stepper {
+            width: 80px;
+            height: 28px;
+            border-radius: 10px;
           }
           .hero-glass-card h1 {
             font-size: 1.5rem;
@@ -789,58 +848,63 @@ const Menu = () => {
                 <div 
                   key={item.menuId} 
                   className="menu-dish-card animate-card"
-                  style={{ animationDelay: `${idx * 0.04}s` }}
+                  style={{ animationDelay: `${idx * 0.05}s` }}
                 >
-                  <div className="dish-image-wrapper">
-                    <img 
-                      src={item.imagePath || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop"} 
-                      alt={item.menuName} 
-                      className="dish-card-img" 
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop";
-                      }}
-                    />
-                    
-                    {/* Floating Badges */}
-                    <div className={isVeg ? "dish-badge-veg" : "dish-badge-nonveg"}>
-                      <div className={isVeg ? "veg-indicator-dot" : "nonveg-indicator-dot"} />
-                      <span>{isVeg ? 'VEG' : 'NON-VEG'}</span>
-                    </div>
-
-                    <div className="dish-card-price">
-                      <IndianRupee size={14} style={{ marginRight: '1px' }} />
-                      <span>{item.price}</span>
+                  <div className="dish-card-info">
+                    <div>
+                      <div className="dish-card-header-tags">
+                        <div className={isVeg ? "dish-type-badge veg" : "dish-type-badge nonveg"}>
+                          <span className="dot"></span>
+                          <span>{isVeg ? 'VEG' : 'NON-VEG'}</span>
+                        </div>
+                        {idx % 3 === 0 && (
+                          <span className="dish-featured-tag">
+                            ★ Bestseller
+                          </span>
+                        )}
+                      </div>
+                      
+                      <h3 className="dish-card-title">{item.menuName}</h3>
+                      
+                      <div className="dish-card-price-row">
+                        <span className="price-symbol">₹</span>
+                        <span className="price-value">{item.price}</span>
+                      </div>
+                      
+                      <p className="dish-card-desc">{item.description}</p>
                     </div>
                   </div>
                   
-                  <div className="dish-card-body">
-                    <div>
-                      <h3 className="dish-card-title">{item.menuName}</h3>
-                      <p className="dish-card-desc">{item.description}</p>
+                  <div className="dish-card-media">
+                    <div className="dish-card-img-container">
+                      <img 
+                        src={item.imagePath || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop"} 
+                        alt={item.menuName} 
+                        className="dish-card-img" 
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop";
+                        }}
+                      />
                     </div>
                     
-                    <div className="dish-card-footer">
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                        {item.isAvailable ? 'Available' : 'Sold Out'}
-                      </span>
-
+                    <div className="dish-card-action">
                       {qty === 0 ? (
                         <button 
-                          className="card-add-btn"
+                          className="premium-add-btn"
                           disabled={!item.isAvailable}
                           onClick={() => handleAddClick(item.menuId)}
                         >
-                          {item.isAvailable ? 'ADD' : 'OUT OF STOCK'}
+                          {item.isAvailable ? 'ADD' : 'SOLD OUT'}
                         </button>
                       ) : (
-                        <div className="card-qty-stepper">
-                          <button className="stepper-btn" onClick={() => updateQuantity(item.menuId, qty - 1)}>
-                            <Minus size={13} />
+                        <div className="premium-qty-stepper">
+                          <button className="premium-step-btn" onClick={() => updateQuantity(item.menuId, qty - 1)}>
+                            <Minus size={12} />
                           </button>
-                          <span className="stepper-val">{qty}</span>
-                          <button className="stepper-btn" onClick={() => updateQuantity(item.menuId, qty + 1)}>
-                            <Plus size={13} />
+                          <span className="premium-step-val">{qty}</span>
+                          <button className="premium-step-btn" onClick={() => updateQuantity(item.menuId, qty + 1)}>
+                            <Plus size={12} />
                           </button>
                         </div>
                       )}
