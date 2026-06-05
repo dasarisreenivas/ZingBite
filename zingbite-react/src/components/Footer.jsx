@@ -13,7 +13,8 @@ const Footer = () => {
           margin-top: auto;
         }
         .footer-inner {
-          max-width: 1200px;
+          max-width: 1400px;
+          width: 92%;
           margin: 0 auto;
           display: grid;
           grid-template-columns: 2fr 1fr 1fr 1fr;
@@ -55,7 +56,8 @@ const Footer = () => {
           padding-left: 4px;
         }
         .footer-bottom {
-          max-width: 1200px;
+          max-width: 1400px;
+          width: 92%;
           margin: 40px auto 0;
           padding-top: 24px;
           border-top: 1px solid rgba(255,255,255,0.08);

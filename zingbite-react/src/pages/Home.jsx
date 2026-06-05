@@ -149,8 +149,8 @@ const Home = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          max-width: 1200px;
-          width: calc(100% - 40px);
+          max-width: 1400px;
+          width: 92%;
           margin: 0 auto 16px;
           padding-bottom: 12px;
           border-bottom: 1px solid var(--border-light);
@@ -168,8 +168,8 @@ const Home = () => {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
           gap: 20px;
-          max-width: 1200px;
-          width: calc(100% - 40px);
+          max-width: 1400px;
+          width: 92%;
           margin: 0 auto 48px;
         }
         .rest-card {
@@ -282,8 +282,8 @@ const Home = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          max-width: 1200px;
-          width: calc(100% - 40px);
+          max-width: 1400px;
+          width: 92%;
           margin: 24px auto 12px;
           gap: 16px;
         }
@@ -337,8 +337,8 @@ const Home = () => {
           display: flex;
           justify-content: center;
           gap: 10px;
-          max-width: 1200px;
-          width: calc(100% - 40px);
+          max-width: 1400px;
+          width: 92%;
           margin: 0 auto 20px;
           overflow-x: auto;
           padding: 4px 0;

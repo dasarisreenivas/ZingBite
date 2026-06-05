@@ -6,7 +6,7 @@ import { useCart } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
 import { 
   CircleCheck, CircleX, Minus, Plus, ArrowRight, AlertCircle, 
-  Search, MapPin, Clock, Star, Info, ShoppingBag, IndianRupee
+  Search, MapPin, Clock, Star, Info, ShoppingBag, IndianRupee, Flame
 } from 'lucide-react';
 
 const Menu = () => {
@@ -112,9 +112,10 @@ const Menu = () => {
     <>
       <style>{`
         .menu-page-container {
-          max-width: 1200px;
+          max-width: 1400px;
+          width: 92%;
           margin: 0 auto 64px;
-          padding: 0 24px;
+          padding: 0;
         }
 
         .restaurant-hero {
@@ -726,6 +727,108 @@ const Menu = () => {
             padding: 4px 10px;
           }
         }
+
+        .zingbite-promise-section {
+          margin-top: 64px;
+          border-top: 1px solid var(--border-medium);
+          padding-top: 48px;
+          animation: cardFadeInUp 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) both;
+        }
+
+        .promise-header {
+          text-align: center;
+          margin-bottom: 36px;
+        }
+
+        .promise-subtitle {
+          font-size: 0.85rem;
+          font-weight: 800;
+          color: var(--brand-red);
+          letter-spacing: 2px;
+          text-transform: uppercase;
+        }
+
+        .promise-title {
+          font-family: 'Outfit', sans-serif;
+          font-size: 2.2rem;
+          font-weight: 800;
+          color: var(--text-primary);
+          margin: 6px 0 0;
+          letter-spacing: -0.5px;
+        }
+
+        .promise-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 24px;
+          margin-bottom: 20px;
+        }
+
+        .promise-card {
+          background: #ffffff;
+          border: 1px solid var(--border-medium);
+          border-radius: 20px;
+          padding: 32px 24px;
+          text-align: center;
+          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+        }
+
+        .promise-card:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 12px 30px rgba(247, 55, 79, 0.06);
+          border-color: rgba(247, 55, 79, 0.15);
+        }
+
+        .promise-icon-wrapper {
+          width: 56px;
+          height: 56px;
+          border-radius: 16px;
+          background: rgba(247, 55, 79, 0.08);
+          color: var(--brand-red);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 20px;
+          transition: transform 0.3s ease;
+        }
+
+        .promise-card:hover .promise-icon-wrapper {
+          transform: scale(1.1);
+        }
+
+        .promise-card h3 {
+          font-family: 'Outfit', sans-serif;
+          font-size: 1.2rem;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin: 0 0 10px;
+        }
+
+        .promise-card p {
+          font-size: 0.88rem;
+          color: var(--text-secondary);
+          line-height: 1.6;
+          margin: 0;
+        }
+
+        .animate-spin-slow {
+          animation: spinSlow 12s linear infinite;
+        }
+
+        @keyframes spinSlow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        .animate-bounce-slow {
+          animation: bounceSlow 3s ease-in-out infinite;
+        }
+
+        @keyframes bounceSlow {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
       `}</style>
 
       <div className="menu-page-container fade-in">
@@ -919,6 +1022,37 @@ const Menu = () => {
               <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Try broadening your search term or category filters.</p>
             </div>
           )}
+        </div>
+
+        {/* Trust Badges Section: About ZingBite Promise */}
+        <div className="zingbite-promise-section">
+          <div className="promise-header">
+            <span className="promise-subtitle">WHY ORDER FROM US?</span>
+            <h2 className="promise-title">The ZingBite Promise</h2>
+          </div>
+          <div className="promise-grid">
+            <div className="promise-card">
+              <div className="promise-icon-wrapper">
+                <Flame className="promise-icon" size={24} />
+              </div>
+              <h3>Gourmet Selection</h3>
+              <p>We partner only with top-rated local kitchens to bring you handpicked culinary creations.</p>
+            </div>
+            <div className="promise-card">
+              <div className="promise-icon-wrapper">
+                <Clock className="promise-icon animate-spin-slow" size={24} />
+              </div>
+              <h3>Superfast Delivery</h3>
+              <p>Smart route optimization and live telemetry tracking ensure your food arrives hot and fresh.</p>
+            </div>
+            <div className="promise-card">
+              <div className="promise-icon-wrapper">
+                <MapPin className="promise-icon animate-bounce-slow" size={24} />
+              </div>
+              <h3>Live Telemetry Tracking</h3>
+              <p>Follow your rider live on an interactive Leaflet map from our kitchen to your doorstep.</p>
+            </div>
+          </div>
         </div>
       </div>
 

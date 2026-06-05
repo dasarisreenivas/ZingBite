@@ -157,7 +157,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           display: flex;
           justify-content: space-between;
           align-items: center;
-          max-width: 1200px;
+          max-width: 1400px;
+          width: 92%;
           margin: 0 auto;
           height: 72px;
           transition: height 0.3s ease;
@@ -393,7 +394,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           margin-top: auto;
         }
         .footer-inner {
-          max-width: 1200px;
+          max-width: 1400px;
+          width: 92%;
           margin: 0 auto;
           display: grid;
           grid-template-columns: 2fr 1fr 1fr 1fr;
@@ -435,7 +437,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           padding-left: 4px;
         }
         .footer-bottom {
-          max-width: 1200px;
+          max-width: 1400px;
+          width: 92%;
           margin: 40px auto 0;
           padding-top: 24px;
           border-top: 1px solid rgba(255,255,255,0.08);
@@ -589,8 +592,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           display: flex;
           justify-content: space-between;
           align-items: center;
-          max-width: 1200px;
-          width: calc(100% - 40px);
+          max-width: 1400px;
+          width: 92%;
           margin: 0 auto 16px;
           padding-bottom: 12px;
           border-bottom: 1px solid var(--border-light);
@@ -608,8 +611,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
           gap: 20px;
-          max-width: 1200px;
-          width: calc(100% - 40px);
+          max-width: 1400px;
+          width: 92%;
           margin: 0 auto 48px;
         }
         .rest-card {
@@ -722,8 +725,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           display: flex;
           justify-content: space-between;
           align-items: center;
-          max-width: 1200px;
-          width: calc(100% - 40px);
+          max-width: 1400px;
+          width: 92%;
           margin: 24px auto 12px;
           gap: 16px;
         }
@@ -777,8 +780,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           display: flex;
           justify-content: center;
           gap: 10px;
-          max-width: 1200px;
-          width: calc(100% - 40px);
+          max-width: 1400px;
+          width: 92%;
           margin: 0 auto 20px;
           overflow-x: auto;
           padding: 4px 0;
@@ -830,9 +833,10 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
         }
       `}),(0,B.jsxs)(`div`,{children:[(0,B.jsx)(`section`,{className:`home-hero`,ref:f,children:(0,B.jsxs)(`div`,{className:`hero-content`,children:[(0,B.jsxs)(`div`,{className:`hero-tag`,children:[(0,B.jsx)(Lo,{size:16}),` #1 Food Delivery App`]}),(0,B.jsxs)(`h2`,{className:`hero-title`,children:[`Hungry? You're in`,(0,B.jsx)(`br`,{}),`the right place.`]}),(0,B.jsx)(`p`,{className:`hero-subtitle`,children:`Order from the best restaurants near you. Delicious food, delivered fast to your doorstep.`}),(0,B.jsxs)(`div`,{className:`hero-chips`,children:[(0,B.jsxs)(`div`,{className:`hero-chip`,children:[(0,B.jsx)(ys,{size:16}),` Fast Delivery`]}),(0,B.jsxs)(`div`,{className:`hero-chip`,children:[(0,B.jsx)(gs,{size:16}),` 500+ Restaurants`]}),(0,B.jsxs)(`div`,{className:`hero-chip`,children:[(0,B.jsx)(ho,{size:16}),` Best Prices`]}),(0,B.jsxs)(`div`,{className:`hero-chip`,children:[(0,B.jsx)(us,{size:16}),` Top Rated`]})]})]})}),(0,B.jsxs)(`div`,{className:`control-bar`,children:[(0,B.jsxs)(`div`,{className:`search-box`,children:[(0,B.jsx)(ns,{size:18,color:`var(--text-secondary)`}),(0,B.jsx)(`input`,{type:`text`,placeholder:`Search for restaurants or cuisines...`,value:o,onChange:e=>s(e.target.value)})]}),(0,B.jsxs)(`div`,{className:`sort-box`,children:[(0,B.jsx)(`label`,{children:`Sort By:`}),(0,B.jsxs)(`select`,{value:u,onChange:e=>d(e.target.value),children:[(0,B.jsx)(`option`,{value:`default`,children:`Relevance`}),(0,B.jsx)(`option`,{value:`rating`,children:`Rating: High to Low`}),(0,B.jsx)(`option`,{value:`time`,children:`Delivery Time: Fastest`})]})]})]}),(0,B.jsx)(`div`,{className:`cuisine-filters`,children:[`All`,`Biryani`,`Burger`,`Pizza`,`Chinese`,`Indian`,`Desserts`].map(e=>(0,B.jsx)(`button`,{className:`cuisine-chip ${c===e?`active`:``}`,onClick:()=>l(e),children:e},e))}),(0,B.jsxs)(`div`,{className:`section-title-row`,children:[(0,B.jsx)(`h2`,{children:`Restaurants near you`}),!n&&(0,B.jsxs)(`span`,{className:`section-count`,children:[p.length,` restaurants`]})]}),(0,B.jsx)(`section`,{className:`restaurant-grid stagger-children`,children:n?Array.from({length:6}).map((e,t)=>(0,B.jsx)(`div`,{style:{height:`300px`,borderRadius:`var(--radius-lg)`},className:`skeleton`},t)):p.length>0?p.map(e=>(0,B.jsxs)(P,{to:`/menu?restaurantId=${e.restaurantId}&restaurantName=${encodeURIComponent(e.restaurantName)}`,className:`rest-card`,onMouseEnter:()=>a(e.restaurantId),onMouseLeave:()=>a(null),children:[(0,B.jsxs)(`div`,{className:`rest-card-img-wrap`,children:[(0,B.jsx)(`img`,{src:`https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop`,alt:e.restaurantName,className:`rest-card-img`}),(0,B.jsx)(`div`,{className:`rest-card-img-overlay`}),(0,B.jsx)(`div`,{className:`rest-card-offer`,children:`Free Delivery`}),(0,B.jsxs)(`div`,{className:`rest-card-rating`,children:[(0,B.jsx)(`span`,{className:`star`,children:(0,B.jsx)(us,{size:14,fill:`#FFB800`,color:`#FFB800`})}),` `,e.rating.toFixed(1)]})]}),(0,B.jsxs)(`div`,{className:`rest-card-details`,children:[(0,B.jsx)(`h3`,{className:`rest-card-name`,children:e.restaurantName}),(0,B.jsxs)(`div`,{className:`rest-card-meta`,children:[(0,B.jsx)(`span`,{children:e.cusineType}),(0,B.jsx)(`span`,{className:`dot`}),(0,B.jsxs)(`span`,{children:[e.deliveryTime,` min`]})]})]})]},e.restaurantId)):(0,B.jsx)(`p`,{style:{gridColumn:`1/-1`,textAlign:`center`,padding:`60px`,color:`var(--text-secondary)`},children:`No restaurants found matching your criteria`})})]})]})},Es=l(h(),1),Ds=()=>{let e=lt(),[t]=Ln(),n=t.get(`restaurantId`),r=t.get(`restaurantName`)||`Restaurant Menu`,[i,a]=(0,S.useState)([]),[o,s]=(0,S.useState)(!0),[c,l]=(0,S.useState)(``),[u,d]=(0,S.useState)(`All`),[f,p]=(0,S.useState)(`Default`),[m,h]=(0,S.useState)(0),{user:g}=S.useContext(eo),{cart:_,addToCart:v,updateQuantity:y,conflictPopup:b,clearAndAdd:x,setConflictPopup:C}=io();(0,S.useEffect)(()=>{let e=async(e=!1)=>{try{a((await z.get(`/api/menu?restaurantId=${n}&restaurantName=${encodeURIComponent(r)}`)).data.menuList||[])}catch(e){console.error(e)}finally{e||s(!1)}};if(n){e(!1);let t=setInterval(()=>e(!0),4e3);return()=>clearInterval(t)}},[n,r]);let w=e=>{if(!_||!_.items)return 0;let t=(Array.isArray(_.items)?_.items:Object.values(_.items)).find(t=>t.itemId===e);return t?t.quantity:0},ee=t=>{if(!g){e(`/login?redirect=/menu?restaurantId=${n}&restaurantName=${encodeURIComponent(r)}`);return}v(t,1)},T=e=>{let t=[`chicken`,`mutton`,`egg`,`fish`,`pork`,`beef`,`shrimp`,`prawn`,`meat`,`kebab`,`tikka`,`biryani`],n=(e.menuName||``).toLowerCase(),r=(e.description||``).toLowerCase();return!t.some(e=>n.includes(e)||r.includes(e))},E=i.length>0&&i[0].restaurant?i[0].restaurant:null,D=E?E.restaurantName:r,te=E?E.cuisineType:`Cuisine details`,O=E?E.address:`Address details`,k=E?E.deliveryTime:`30 mins`,ne=[E?.imagePath||`https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop`,`https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop`,`https://images.unsplash.com/photo-1498837167922-ddd27525d352?q=80&w=2070&auto=format&fit=crop`,`https://images.unsplash.com/photo-1543007630-9710e4a00a20?q=80&w=2035&auto=format&fit=crop`];(0,S.useEffect)(()=>{if(ne.length===0)return;let e=setInterval(()=>{h(e=>(e+1)%ne.length)},5e3);return()=>clearInterval(e)},[ne.length]);let re=[...i.filter(e=>(e.menuName||``).toLowerCase().includes(c.toLowerCase())||(e.description||``).toLowerCase().includes(c.toLowerCase())?u===`Veg`?T(e):u===`NonVeg`?!T(e):!0:!1)].sort((e,t)=>f===`PriceLowHigh`?e.price-t.price:f===`PriceHighLow`?t.price-e.price:0);return(0,B.jsxs)(B.Fragment,{children:[(0,B.jsx)(`style`,{children:`
         .menu-page-container {
-          max-width: 1200px;
+          max-width: 1400px;
+          width: 92%;
           margin: 0 auto 64px;
-          padding: 0 24px;
+          padding: 0;
         }
 
         .restaurant-hero {
@@ -1444,7 +1448,109 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             padding: 4px 10px;
           }
         }
-      `}),(0,B.jsxs)(`div`,{className:`menu-page-container fade-in`,children:[(0,B.jsxs)(`div`,{className:`restaurant-hero`,children:[(0,B.jsx)(`div`,{className:`slideshow-container`,children:ne.map((e,t)=>(0,B.jsx)(`div`,{className:`hero-slide ${t===m?`active`:``}`,children:(0,B.jsx)(`img`,{src:e,alt:D,className:`hero-bg`})},t))}),(0,B.jsx)(`div`,{className:`hero-overlay`,children:(0,B.jsxs)(`div`,{className:`hero-glass-card`,children:[(0,B.jsx)(`h1`,{children:D}),(0,B.jsxs)(`div`,{className:`hero-info-row`,children:[(0,B.jsxs)(`span`,{className:`hero-info-item`,children:[(0,B.jsx)(us,{size:14,fill:`#ffb703`,color:`#ffb703`}),(0,B.jsx)(`strong`,{children:`4.2`}),` (100+ ratings)`]}),(0,B.jsx)(`span`,{children:`•`}),(0,B.jsxs)(`span`,{className:`hero-info-item`,children:[(0,B.jsx)(Mo,{size:14}),` `,k]}),(0,B.jsx)(`span`,{children:`•`}),(0,B.jsxs)(`span`,{className:`hero-info-item`,children:[(0,B.jsx)(Jo,{size:14}),` `,O]})]}),(0,B.jsxs)(`p`,{className:`cuisine-tag`,children:[`Cuisines: `,(0,B.jsx)(`strong`,{children:te})]}),(0,B.jsx)(`div`,{className:`promo-tag`,children:`🏷️ ZINGBITE50: 50% OFF up to ₹100 on your first order!`})]})}),(0,B.jsx)(`div`,{className:`slideshow-dots`,children:ne.map((e,t)=>(0,B.jsx)(`button`,{className:`slideshow-dot ${t===m?`active`:``}`,onClick:()=>h(t),"aria-label":`Go to slide ${t+1}`},t))})]}),(0,B.jsxs)(`div`,{className:`menu-controls-bar`,children:[(0,B.jsxs)(`div`,{className:`search-menu-wrapper`,children:[(0,B.jsx)(ns,{size:18,className:`search-icon-pos`}),(0,B.jsx)(`input`,{type:`text`,placeholder:`Search for delicious dishes in the menu...`,value:c,onChange:e=>l(e.target.value)})]}),(0,B.jsxs)(`div`,{className:`filter-sort-wrapper`,children:[(0,B.jsxs)(`div`,{className:`filter-pills`,children:[(0,B.jsx)(`button`,{className:`filter-pill ${u===`All`?`active`:``}`,onClick:()=>d(`All`),children:`All`}),(0,B.jsxs)(`button`,{className:`filter-pill ${u===`Veg`?`active`:``}`,onClick:()=>d(`Veg`),children:[(0,B.jsx)(`div`,{className:`veg-indicator-dot`}),` Veg`]}),(0,B.jsxs)(`button`,{className:`filter-pill ${u===`NonVeg`?`active`:``}`,onClick:()=>d(`NonVeg`),children:[(0,B.jsx)(`div`,{className:`nonveg-indicator-dot`}),` Non-Veg`]})]}),(0,B.jsxs)(`select`,{className:`sort-select`,value:f,onChange:e=>p(e.target.value),children:[(0,B.jsx)(`option`,{value:`Default`,children:`Sort: Default`}),(0,B.jsx)(`option`,{value:`PriceLowHigh`,children:`Price: Low to High`}),(0,B.jsx)(`option`,{value:`PriceHighLow`,children:`Price: High to Low`})]})]})]}),(0,B.jsx)(`div`,{className:`menu-items-grid`,children:o?Array.from({length:6}).map((e,t)=>(0,B.jsx)(`div`,{style:{height:`360px`,borderRadius:`var(--radius-lg)`},className:`skeleton animate-card`},t)):re.length>0?re.map((e,t)=>{let n=w(e.menuId),r=T(e);return(0,B.jsxs)(`div`,{className:`menu-dish-card animate-card`,style:{animationDelay:`${t*.05}s`},children:[(0,B.jsx)(`div`,{className:`dish-card-info`,children:(0,B.jsxs)(`div`,{children:[(0,B.jsxs)(`div`,{className:`dish-card-header-tags`,children:[(0,B.jsxs)(`div`,{className:r?`dish-type-badge veg`:`dish-type-badge nonveg`,children:[(0,B.jsx)(`span`,{className:`dot`}),(0,B.jsx)(`span`,{children:r?`VEG`:`NON-VEG`})]}),t%3==0&&(0,B.jsx)(`span`,{className:`dish-featured-tag`,children:`★ Bestseller`})]}),(0,B.jsx)(`h3`,{className:`dish-card-title`,children:e.menuName}),(0,B.jsxs)(`div`,{className:`dish-card-price-row`,children:[(0,B.jsx)(`span`,{className:`price-symbol`,children:`₹`}),(0,B.jsx)(`span`,{className:`price-value`,children:e.price})]}),(0,B.jsx)(`p`,{className:`dish-card-desc`,children:e.description})]})}),(0,B.jsxs)(`div`,{className:`dish-card-media`,children:[(0,B.jsx)(`div`,{className:`dish-card-img-container`,children:(0,B.jsx)(`img`,{src:e.imagePath||`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop`,alt:e.menuName,className:`dish-card-img`,onError:e=>{e.target.onerror=null,e.target.src=`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop`}})}),(0,B.jsx)(`div`,{className:`dish-card-action`,children:n===0?(0,B.jsx)(`button`,{className:`premium-add-btn`,disabled:!e.isAvailable,onClick:()=>ee(e.menuId),children:e.isAvailable?`ADD`:`SOLD OUT`}):(0,B.jsxs)(`div`,{className:`premium-qty-stepper`,children:[(0,B.jsx)(`button`,{className:`premium-step-btn`,onClick:()=>y(e.menuId,n-1),children:(0,B.jsx)(Zo,{size:12})}),(0,B.jsx)(`span`,{className:`premium-step-val`,children:n}),(0,B.jsx)(`button`,{className:`premium-step-btn`,onClick:()=>y(e.menuId,n+1),children:(0,B.jsx)(es,{size:12})})]})})]})]},e.menuId)}):(0,B.jsxs)(`div`,{className:`no-data-dish`,children:[(0,B.jsx)(`p`,{style:{margin:0,fontSize:`1rem`,fontWeight:600},children:`No dishes found matching your search or filters.`}),(0,B.jsx)(`p`,{style:{margin:`8px 0 0 0`,fontSize:`0.85rem`,color:`var(--text-secondary)`},children:`Try broadening your search term or category filters.`})]})})]}),_&&_.itemCount>0&&Es.createPortal((0,B.jsxs)(`div`,{className:`cart-bar-popup slide-up`,children:[(0,B.jsxs)(`span`,{style:{fontWeight:700,display:`flex`,alignItems:`center`,gap:`8px`},children:[(0,B.jsx)(os,{size:18}),` `,_.itemCount,` item`,_.itemCount>1?`s`:``,` added`]}),(0,B.jsxs)(P,{to:`/cart`,className:`cart-bar-link`,children:[`VIEW CART `,(0,B.jsx)(mo,{size:18})]})]}),document.body),b&&Es.createPortal((0,B.jsx)(`div`,{style:Os.modalOverlay,onClick:()=>C(null),children:(0,B.jsxs)(`div`,{style:Os.modalContent,onClick:e=>e.stopPropagation(),children:[(0,B.jsx)(`div`,{style:Os.modalIcon,children:(0,B.jsx)(Eo,{size:32,color:`var(--brand-red)`})}),(0,B.jsx)(`h3`,{style:Os.modalTitle,children:`Items already in cart`}),(0,B.jsx)(`p`,{style:Os.modalDesc,children:`Your cart contains items from another restaurant. Would you like to reset your cart for adding items from this restaurant?`}),(0,B.jsxs)(`div`,{style:Os.modalActions,children:[(0,B.jsx)(`button`,{style:Os.modalBtnOutline,onClick:()=>C(null),children:`NO`}),(0,B.jsx)(`button`,{style:Os.modalBtnPrimary,onClick:()=>x(b.itemId,b.quantity),children:`YES, START AFRESH`})]})]})}),document.body)]})},Os={modalOverlay:{position:`fixed`,inset:0,backgroundColor:`rgba(0,0,0,0.45)`,backdropFilter:`blur(6px)`,WebkitBackdropFilter:`blur(6px)`,display:`flex`,alignItems:`center`,justifyContent:`center`,zIndex:2e3,animation:`fadeIn 0.25s ease-out both`},modalContent:{backgroundColor:`#fff`,padding:`36px`,borderRadius:`24px`,maxWidth:`420px`,width:`90%`,boxShadow:`0 25px 60px rgba(0,0,0,0.2)`,textAlign:`center`},modalIcon:{width:`64px`,height:`64px`,borderRadius:`50%`,background:`rgba(247, 55, 79, 0.08)`,display:`flex`,alignItems:`center`,justifyContent:`center`,margin:`0 auto 20px`},modalTitle:{fontSize:`1.3rem`,fontFamily:`'Outfit', sans-serif`,fontWeight:700,margin:`0 0 10px`,color:`var(--text-primary)`},modalDesc:{color:`var(--text-secondary)`,fontSize:`0.95rem`,lineHeight:1.6,margin:`0 0 4px`},modalActions:{display:`flex`,gap:`12px`,marginTop:`24px`},modalBtnOutline:{flex:1,padding:`13px 16px`,background:`transparent`,border:`2px solid var(--border-medium)`,color:`var(--text-primary)`,fontWeight:600,fontFamily:`inherit`,fontSize:`0.9rem`,borderRadius:`8px`,cursor:`pointer`,transition:`all 0.25s ease`},modalBtnPrimary:{flex:2,padding:`13px 16px`,background:`var(--brand-red)`,color:`#fff`,border:`none`,fontWeight:700,fontFamily:`inherit`,fontSize:`0.9rem`,borderRadius:`8px`,cursor:`pointer`,boxShadow:`0 4px 14px rgba(247, 55, 79, 0.25)`,transition:`all 0.25s ease`}},ks=()=>{let{cart:e,updateQuantity:t,removeFromCart:n,clearCart:r,coupon:i,applyCoupon:a,removeCoupon:o}=io(),{user:s}=S.useContext(eo),c=lt(),[l,u]=(0,S.useState)(``),[d,f]=(0,S.useState)(``),p=()=>{if(f(``),!l)return;let e=a(l);e.success?u(``):f(e.message)},m=e=>{f(``),a(e)},h=e?.items?Array.isArray(e.items)?e.items:Object.values(e.items):[];return!e||h.length===0?(0,B.jsxs)(B.Fragment,{children:[(0,B.jsx)(`style`,{children:`
+
+        .zingbite-promise-section {
+          margin-top: 64px;
+          border-top: 1px solid var(--border-medium);
+          padding-top: 48px;
+          animation: cardFadeInUp 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) both;
+        }
+
+        .promise-header {
+          text-align: center;
+          margin-bottom: 36px;
+        }
+
+        .promise-subtitle {
+          font-size: 0.85rem;
+          font-weight: 800;
+          color: var(--brand-red);
+          letter-spacing: 2px;
+          text-transform: uppercase;
+        }
+
+        .promise-title {
+          font-family: 'Outfit', sans-serif;
+          font-size: 2.2rem;
+          font-weight: 800;
+          color: var(--text-primary);
+          margin: 6px 0 0;
+          letter-spacing: -0.5px;
+        }
+
+        .promise-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 24px;
+          margin-bottom: 20px;
+        }
+
+        .promise-card {
+          background: #ffffff;
+          border: 1px solid var(--border-medium);
+          border-radius: 20px;
+          padding: 32px 24px;
+          text-align: center;
+          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+        }
+
+        .promise-card:hover {
+          transform: translateY(-6px);
+          box-shadow: 0 12px 30px rgba(247, 55, 79, 0.06);
+          border-color: rgba(247, 55, 79, 0.15);
+        }
+
+        .promise-icon-wrapper {
+          width: 56px;
+          height: 56px;
+          border-radius: 16px;
+          background: rgba(247, 55, 79, 0.08);
+          color: var(--brand-red);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 20px;
+          transition: transform 0.3s ease;
+        }
+
+        .promise-card:hover .promise-icon-wrapper {
+          transform: scale(1.1);
+        }
+
+        .promise-card h3 {
+          font-family: 'Outfit', sans-serif;
+          font-size: 1.2rem;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin: 0 0 10px;
+        }
+
+        .promise-card p {
+          font-size: 0.88rem;
+          color: var(--text-secondary);
+          line-height: 1.6;
+          margin: 0;
+        }
+
+        .animate-spin-slow {
+          animation: spinSlow 12s linear infinite;
+        }
+
+        @keyframes spinSlow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        .animate-bounce-slow {
+          animation: bounceSlow 3s ease-in-out infinite;
+        }
+
+        @keyframes bounceSlow {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+      `}),(0,B.jsxs)(`div`,{className:`menu-page-container fade-in`,children:[(0,B.jsxs)(`div`,{className:`restaurant-hero`,children:[(0,B.jsx)(`div`,{className:`slideshow-container`,children:ne.map((e,t)=>(0,B.jsx)(`div`,{className:`hero-slide ${t===m?`active`:``}`,children:(0,B.jsx)(`img`,{src:e,alt:D,className:`hero-bg`})},t))}),(0,B.jsx)(`div`,{className:`hero-overlay`,children:(0,B.jsxs)(`div`,{className:`hero-glass-card`,children:[(0,B.jsx)(`h1`,{children:D}),(0,B.jsxs)(`div`,{className:`hero-info-row`,children:[(0,B.jsxs)(`span`,{className:`hero-info-item`,children:[(0,B.jsx)(us,{size:14,fill:`#ffb703`,color:`#ffb703`}),(0,B.jsx)(`strong`,{children:`4.2`}),` (100+ ratings)`]}),(0,B.jsx)(`span`,{children:`•`}),(0,B.jsxs)(`span`,{className:`hero-info-item`,children:[(0,B.jsx)(Mo,{size:14}),` `,k]}),(0,B.jsx)(`span`,{children:`•`}),(0,B.jsxs)(`span`,{className:`hero-info-item`,children:[(0,B.jsx)(Jo,{size:14}),` `,O]})]}),(0,B.jsxs)(`p`,{className:`cuisine-tag`,children:[`Cuisines: `,(0,B.jsx)(`strong`,{children:te})]}),(0,B.jsx)(`div`,{className:`promo-tag`,children:`🏷️ ZINGBITE50: 50% OFF up to ₹100 on your first order!`})]})}),(0,B.jsx)(`div`,{className:`slideshow-dots`,children:ne.map((e,t)=>(0,B.jsx)(`button`,{className:`slideshow-dot ${t===m?`active`:``}`,onClick:()=>h(t),"aria-label":`Go to slide ${t+1}`},t))})]}),(0,B.jsxs)(`div`,{className:`menu-controls-bar`,children:[(0,B.jsxs)(`div`,{className:`search-menu-wrapper`,children:[(0,B.jsx)(ns,{size:18,className:`search-icon-pos`}),(0,B.jsx)(`input`,{type:`text`,placeholder:`Search for delicious dishes in the menu...`,value:c,onChange:e=>l(e.target.value)})]}),(0,B.jsxs)(`div`,{className:`filter-sort-wrapper`,children:[(0,B.jsxs)(`div`,{className:`filter-pills`,children:[(0,B.jsx)(`button`,{className:`filter-pill ${u===`All`?`active`:``}`,onClick:()=>d(`All`),children:`All`}),(0,B.jsxs)(`button`,{className:`filter-pill ${u===`Veg`?`active`:``}`,onClick:()=>d(`Veg`),children:[(0,B.jsx)(`div`,{className:`veg-indicator-dot`}),` Veg`]}),(0,B.jsxs)(`button`,{className:`filter-pill ${u===`NonVeg`?`active`:``}`,onClick:()=>d(`NonVeg`),children:[(0,B.jsx)(`div`,{className:`nonveg-indicator-dot`}),` Non-Veg`]})]}),(0,B.jsxs)(`select`,{className:`sort-select`,value:f,onChange:e=>p(e.target.value),children:[(0,B.jsx)(`option`,{value:`Default`,children:`Sort: Default`}),(0,B.jsx)(`option`,{value:`PriceLowHigh`,children:`Price: Low to High`}),(0,B.jsx)(`option`,{value:`PriceHighLow`,children:`Price: High to Low`})]})]})]}),(0,B.jsx)(`div`,{className:`menu-items-grid`,children:o?Array.from({length:6}).map((e,t)=>(0,B.jsx)(`div`,{style:{height:`360px`,borderRadius:`var(--radius-lg)`},className:`skeleton animate-card`},t)):re.length>0?re.map((e,t)=>{let n=w(e.menuId),r=T(e);return(0,B.jsxs)(`div`,{className:`menu-dish-card animate-card`,style:{animationDelay:`${t*.05}s`},children:[(0,B.jsx)(`div`,{className:`dish-card-info`,children:(0,B.jsxs)(`div`,{children:[(0,B.jsxs)(`div`,{className:`dish-card-header-tags`,children:[(0,B.jsxs)(`div`,{className:r?`dish-type-badge veg`:`dish-type-badge nonveg`,children:[(0,B.jsx)(`span`,{className:`dot`}),(0,B.jsx)(`span`,{children:r?`VEG`:`NON-VEG`})]}),t%3==0&&(0,B.jsx)(`span`,{className:`dish-featured-tag`,children:`★ Bestseller`})]}),(0,B.jsx)(`h3`,{className:`dish-card-title`,children:e.menuName}),(0,B.jsxs)(`div`,{className:`dish-card-price-row`,children:[(0,B.jsx)(`span`,{className:`price-symbol`,children:`₹`}),(0,B.jsx)(`span`,{className:`price-value`,children:e.price})]}),(0,B.jsx)(`p`,{className:`dish-card-desc`,children:e.description})]})}),(0,B.jsxs)(`div`,{className:`dish-card-media`,children:[(0,B.jsx)(`div`,{className:`dish-card-img-container`,children:(0,B.jsx)(`img`,{src:e.imagePath||`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop`,alt:e.menuName,className:`dish-card-img`,onError:e=>{e.target.onerror=null,e.target.src=`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop`}})}),(0,B.jsx)(`div`,{className:`dish-card-action`,children:n===0?(0,B.jsx)(`button`,{className:`premium-add-btn`,disabled:!e.isAvailable,onClick:()=>ee(e.menuId),children:e.isAvailable?`ADD`:`SOLD OUT`}):(0,B.jsxs)(`div`,{className:`premium-qty-stepper`,children:[(0,B.jsx)(`button`,{className:`premium-step-btn`,onClick:()=>y(e.menuId,n-1),children:(0,B.jsx)(Zo,{size:12})}),(0,B.jsx)(`span`,{className:`premium-step-val`,children:n}),(0,B.jsx)(`button`,{className:`premium-step-btn`,onClick:()=>y(e.menuId,n+1),children:(0,B.jsx)(es,{size:12})})]})})]})]},e.menuId)}):(0,B.jsxs)(`div`,{className:`no-data-dish`,children:[(0,B.jsx)(`p`,{style:{margin:0,fontSize:`1rem`,fontWeight:600},children:`No dishes found matching your search or filters.`}),(0,B.jsx)(`p`,{style:{margin:`8px 0 0 0`,fontSize:`0.85rem`,color:`var(--text-secondary)`},children:`Try broadening your search term or category filters.`})]})}),(0,B.jsxs)(`div`,{className:`zingbite-promise-section`,children:[(0,B.jsxs)(`div`,{className:`promise-header`,children:[(0,B.jsx)(`span`,{className:`promise-subtitle`,children:`WHY ORDER FROM US?`}),(0,B.jsx)(`h2`,{className:`promise-title`,children:`The ZingBite Promise`})]}),(0,B.jsxs)(`div`,{className:`promise-grid`,children:[(0,B.jsxs)(`div`,{className:`promise-card`,children:[(0,B.jsx)(`div`,{className:`promise-icon-wrapper`,children:(0,B.jsx)(Lo,{className:`promise-icon`,size:24})}),(0,B.jsx)(`h3`,{children:`Gourmet Selection`}),(0,B.jsx)(`p`,{children:`We partner only with top-rated local kitchens to bring you handpicked culinary creations.`})]}),(0,B.jsxs)(`div`,{className:`promise-card`,children:[(0,B.jsx)(`div`,{className:`promise-icon-wrapper`,children:(0,B.jsx)(Mo,{className:`promise-icon animate-spin-slow`,size:24})}),(0,B.jsx)(`h3`,{children:`Superfast Delivery`}),(0,B.jsx)(`p`,{children:`Smart route optimization and live telemetry tracking ensure your food arrives hot and fresh.`})]}),(0,B.jsxs)(`div`,{className:`promise-card`,children:[(0,B.jsx)(`div`,{className:`promise-icon-wrapper`,children:(0,B.jsx)(Jo,{className:`promise-icon animate-bounce-slow`,size:24})}),(0,B.jsx)(`h3`,{children:`Live Telemetry Tracking`}),(0,B.jsx)(`p`,{children:`Follow your rider live on an interactive Leaflet map from our kitchen to your doorstep.`})]})]})]})]}),_&&_.itemCount>0&&Es.createPortal((0,B.jsxs)(`div`,{className:`cart-bar-popup slide-up`,children:[(0,B.jsxs)(`span`,{style:{fontWeight:700,display:`flex`,alignItems:`center`,gap:`8px`},children:[(0,B.jsx)(os,{size:18}),` `,_.itemCount,` item`,_.itemCount>1?`s`:``,` added`]}),(0,B.jsxs)(P,{to:`/cart`,className:`cart-bar-link`,children:[`VIEW CART `,(0,B.jsx)(mo,{size:18})]})]}),document.body),b&&Es.createPortal((0,B.jsx)(`div`,{style:Os.modalOverlay,onClick:()=>C(null),children:(0,B.jsxs)(`div`,{style:Os.modalContent,onClick:e=>e.stopPropagation(),children:[(0,B.jsx)(`div`,{style:Os.modalIcon,children:(0,B.jsx)(Eo,{size:32,color:`var(--brand-red)`})}),(0,B.jsx)(`h3`,{style:Os.modalTitle,children:`Items already in cart`}),(0,B.jsx)(`p`,{style:Os.modalDesc,children:`Your cart contains items from another restaurant. Would you like to reset your cart for adding items from this restaurant?`}),(0,B.jsxs)(`div`,{style:Os.modalActions,children:[(0,B.jsx)(`button`,{style:Os.modalBtnOutline,onClick:()=>C(null),children:`NO`}),(0,B.jsx)(`button`,{style:Os.modalBtnPrimary,onClick:()=>x(b.itemId,b.quantity),children:`YES, START AFRESH`})]})]})}),document.body)]})},Os={modalOverlay:{position:`fixed`,inset:0,backgroundColor:`rgba(0,0,0,0.45)`,backdropFilter:`blur(6px)`,WebkitBackdropFilter:`blur(6px)`,display:`flex`,alignItems:`center`,justifyContent:`center`,zIndex:2e3,animation:`fadeIn 0.25s ease-out both`},modalContent:{backgroundColor:`#fff`,padding:`36px`,borderRadius:`24px`,maxWidth:`420px`,width:`90%`,boxShadow:`0 25px 60px rgba(0,0,0,0.2)`,textAlign:`center`},modalIcon:{width:`64px`,height:`64px`,borderRadius:`50%`,background:`rgba(247, 55, 79, 0.08)`,display:`flex`,alignItems:`center`,justifyContent:`center`,margin:`0 auto 20px`},modalTitle:{fontSize:`1.3rem`,fontFamily:`'Outfit', sans-serif`,fontWeight:700,margin:`0 0 10px`,color:`var(--text-primary)`},modalDesc:{color:`var(--text-secondary)`,fontSize:`0.95rem`,lineHeight:1.6,margin:`0 0 4px`},modalActions:{display:`flex`,gap:`12px`,marginTop:`24px`},modalBtnOutline:{flex:1,padding:`13px 16px`,background:`transparent`,border:`2px solid var(--border-medium)`,color:`var(--text-primary)`,fontWeight:600,fontFamily:`inherit`,fontSize:`0.9rem`,borderRadius:`8px`,cursor:`pointer`,transition:`all 0.25s ease`},modalBtnPrimary:{flex:2,padding:`13px 16px`,background:`var(--brand-red)`,color:`#fff`,border:`none`,fontWeight:700,fontFamily:`inherit`,fontSize:`0.9rem`,borderRadius:`8px`,cursor:`pointer`,boxShadow:`0 4px 14px rgba(247, 55, 79, 0.25)`,transition:`all 0.25s ease`}},ks=()=>{let{cart:e,updateQuantity:t,removeFromCart:n,clearCart:r,coupon:i,applyCoupon:a,removeCoupon:o}=io(),{user:s}=S.useContext(eo),c=lt(),[l,u]=(0,S.useState)(``),[d,f]=(0,S.useState)(``),p=()=>{if(f(``),!l)return;let e=a(l);e.success?u(``):f(e.message)},m=e=>{f(``),a(e)},h=e?.items?Array.isArray(e.items)?e.items:Object.values(e.items):[];return!e||h.length===0?(0,B.jsxs)(B.Fragment,{children:[(0,B.jsx)(`style`,{children:`
           .empty-cart {
             display: flex;
             flex-direction: column;

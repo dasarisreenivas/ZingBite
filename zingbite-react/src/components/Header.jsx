@@ -77,7 +77,8 @@ const Header = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          max-width: 1200px;
+          max-width: 1400px;
+          width: 92%;
           margin: 0 auto;
           height: 72px;
           transition: height 0.3s ease;
