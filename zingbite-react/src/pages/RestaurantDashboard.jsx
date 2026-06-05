@@ -855,39 +855,82 @@ const RestaurantDashboard = () => {
         .menu-item-card {
           background: #fff;
           border: 1px solid var(--border-medium);
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-lg);
           overflow: hidden;
           box-shadow: var(--shadow-sm);
           display: flex;
           flex-direction: column;
-          transition: transform 0.2s, box-shadow 0.2s;
+          transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          opacity: 0;
+          transform: translateY(20px);
         }
         .menu-item-card:hover {
-          transform: translateY(-4px);
+          transform: translateY(-5px);
           box-shadow: var(--shadow-md);
+          border-color: rgba(247, 55, 79, 0.25);
         }
-        .menu-item-img {
+        .menu-item-img-wrapper {
+          position: relative;
           height: 160px;
           width: 100%;
+          overflow: hidden;
+          background: var(--bg-surface);
+        }
+        .menu-item-img {
+          width: 100%;
+          height: 100%;
           object-fit: cover;
+          transition: transform 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .menu-item-card:hover .menu-item-img {
+          transform: scale(1.08);
         }
         .menu-item-body {
-          padding: 16px;
+          padding: 18px;
           flex: 1;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
         }
-        .toggle-btn {
-          background: none;
-          border: none;
+        .admin-toggle-switch {
+          position: relative;
+          width: 48px;
+          height: 24px;
+          background-color: var(--border-medium);
+          border-radius: 12px;
+          transition: background-color 0.3s ease;
           cursor: pointer;
-          padding: 0;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-weight: 600;
-          font-size: 0.85rem;
+          display: inline-block;
+        }
+        .admin-toggle-switch.available {
+          background-color: var(--success);
+        }
+        .admin-toggle-knob {
+          position: absolute;
+          top: 3px;
+          left: 3px;
+          width: 18px;
+          height: 18px;
+          background-color: white;
+          border-radius: 50%;
+          transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .admin-toggle-switch.available .admin-toggle-knob {
+          transform: translateX(24px);
+        }
+        .animate-card {
+          animation: cardFadeInUp 0.55s cubic-bezier(0.25, 0.8, 0.25, 1) both;
+        }
+        @keyframes cardFadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(24px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
         .order-list {
           display: flex;
@@ -1482,17 +1525,23 @@ const RestaurantDashboard = () => {
               </div>
             ) : (
               <div className="menu-grid">
-                {filteredMenu.map((item) => (
-                  <div key={item.menuId} className="menu-item-card">
-                    <img 
-                      src={item.imagePath || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop'} 
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop';
-                      }}
-                      alt={item.menuName} 
-                      className="menu-item-img" 
-                    />
+                {filteredMenu.map((item, idx) => (
+                  <div 
+                    key={item.menuId} 
+                    className="menu-item-card animate-card"
+                    style={{ animationDelay: `${idx * 0.04}s` }}
+                  >
+                    <div className="menu-item-img-wrapper">
+                      <img 
+                        src={item.imagePath || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop'} 
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop';
+                        }}
+                        alt={item.menuName} 
+                        className="menu-item-img" 
+                      />
+                    </div>
                     <div className="menu-item-body">
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
@@ -1507,22 +1556,21 @@ const RestaurantDashboard = () => {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-light)', paddingTop: '12px' }}>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Status:</span>
-                        <button 
-                          className="toggle-btn" 
-                          onClick={() => handleToggleAvailability(item.menuId, item.isAvailable)}
-                        >
-                          {item.isAvailable ? (
-                            <>
-                              <ToggleRight size={28} style={{ color: 'var(--success)' }} />
-                              <span style={{ color: 'var(--success)' }}>Available</span>
-                            </>
-                          ) : (
-                            <>
-                              <ToggleLeft size={28} style={{ color: 'var(--text-muted)' }} />
-                              <span style={{ color: 'var(--text-muted)' }}>Unavailable</span>
-                            </>
-                          )}
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: item.isAvailable ? 'var(--success)' : 'var(--text-muted)' }}>
+                            {item.isAvailable ? 'Available' : 'Unavailable'}
+                          </span>
+                          <button 
+                            className="toggle-container-btn"
+                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                            onClick={() => handleToggleAvailability(item.menuId, item.isAvailable)}
+                            aria-label="Toggle availability"
+                          >
+                            <div className={`admin-toggle-switch ${item.isAvailable ? 'available' : ''}`}>
+                              <div className="admin-toggle-knob" />
+                            </div>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
