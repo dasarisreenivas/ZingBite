@@ -1442,243 +1442,240 @@ const RestaurantDashboard = () => {
           </div>
         )}
 
-        {/* Segmented Layout Split */}
-        <div className="dashboard-content-layout">
-          <div className="main-content-area">
-            {/* Tab Bar */}
-            <div className="tab-bar">
-              <button 
-                className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`} 
-                onClick={() => setActiveTab('orders')}
-              >
-                Orders Manager
-              </button>
-              <button 
-                className={`tab-btn ${activeTab === 'menu' ? 'active' : ''}`} 
-                onClick={() => setActiveTab('menu')}
-              >
-                Menu Manager
+        {/* Tab Bar */}
+        <div className="tab-bar">
+          <button 
+            className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('orders')}
+          >
+            Orders Manager
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === 'menu' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('menu')}
+          >
+            Menu Manager
+          </button>
+        </div>
+
+        {/* Content Tabs */}
+        {activeTab === 'menu' && (
+          <div className="fade-in">
+            <div className="search-bar-container">
+              <div className="search-input-wrapper">
+                <Search size={18} className="search-icon-inside" />
+                <input 
+                  type="text" 
+                  placeholder="Search dishes by name or description..." 
+                  value={menuSearch}
+                  onChange={(e) => setMenuSearch(e.target.value)}
+                />
+              </div>
+              <button className="btn-primary" onClick={() => setShowAddModal(true)}>
+                <Plus size={18} /> Add Menu Item
               </button>
             </div>
 
-            {/* Content Tabs */}
-            {activeTab === 'menu' && (
-              <div>
-                <div className="search-bar-container">
-                  <div className="search-input-wrapper">
-                    <Search size={18} className="search-icon-inside" />
-                    <input 
-                      type="text" 
-                      placeholder="Search dishes by name or description..." 
-                      value={menuSearch}
-                      onChange={(e) => setMenuSearch(e.target.value)}
-                    />
-                  </div>
-                  <button className="btn-primary" onClick={() => setShowAddModal(true)}>
-                    <Plus size={18} /> Add Menu Item
-                  </button>
-                </div>
-
-                {filteredMenu.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '48px', border: '1px dashed var(--border-medium)', borderRadius: '12px' }}>
-                    <p style={{ color: 'var(--text-secondary)' }}>No menu items found. Add some delicious dishes to get started!</p>
-                  </div>
-                ) : (
-                  <div className="menu-grid">
-                    {filteredMenu.map((item) => (
-                      <div key={item.menuId} className="menu-item-card">
-                        <img 
-                          src={item.imagePath || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop'} 
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop';
-                          }}
-                          alt={item.menuName} 
-                          className="menu-item-img" 
-                        />
-                        <div className="menu-item-body">
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                              <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{item.menuName}</h4>
-                              <span style={{ fontWeight: 800, color: 'var(--brand-red)', display: 'flex', alignItems: 'center' }}>
-                                <IndianRupee size={14} />{item.price}
-                              </span>
-                            </div>
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.4' }}>
-                              {item.description}
-                            </p>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-light)', paddingTop: '12px' }}>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Status:</span>
-                            <button 
-                              className="toggle-btn" 
-                              onClick={() => handleToggleAvailability(item.menuId, item.isAvailable)}
-                            >
-                              {item.isAvailable ? (
-                                <>
-                                  <ToggleRight size={28} style={{ color: 'var(--success)' }} />
-                                  <span style={{ color: 'var(--success)' }}>Available</span>
-                                </>
-                              ) : (
-                                <>
-                                  <ToggleLeft size={28} style={{ color: 'var(--text-muted)' }} />
-                                  <span style={{ color: 'var(--text-muted)' }}>Unavailable</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            {filteredMenu.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '48px', border: '1px dashed var(--border-medium)', borderRadius: '12px' }}>
+                <p style={{ color: 'var(--text-secondary)' }}>No menu items found. Add some delicious dishes to get started!</p>
               </div>
-            )}
-
-            {activeTab === 'orders' && (
-              <div>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none', msOverflowStyle: 'none' }} className="hide-scrollbar">
-                  {['All', 'Placed', 'Accepted', 'Preparing', 'Out for Delivery', 'Delivered'].map(status => (
-                    <button 
-                      key={status}
-                      className={`pill-filter ${orderFilter === status ? 'active' : ''}`}
-                      onClick={() => setOrderFilter(status)}
-                    >
-                      {status}
-                    </button>
-                  ))}
-                </div>
-
-                {filteredOrders.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '48px', border: '1px dashed var(--border-medium)', borderRadius: '12px' }}>
-                    <p style={{ color: 'var(--text-secondary)' }}>No orders in this category.</p>
-                  </div>
-                ) : (
-                  <div className="order-list">
-                    {filteredOrders.map((o) => (
-                      <div key={o.orderId} className={`order-card status-${(o.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
-                        <div className="order-info-section">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                            <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>ID: {o.formattedId}</h3>
-                            <span className={`badge ${(o.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
-                              {o.status}
-                            </span>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ordered {o.time}</span>
-                          </div>
-                          
-                          <div className="customer-info-box">
-                            <div className="customer-name">
-                              Customer: {o.userName}
-                            </div>
-                            <div className="customer-detail">
-                              <Phone size={12} /> 
-                              <span>{o.userPhone}</span>
-                              <a href={`tel:${o.userPhone}`} className="call-customer-btn">
-                                <Phone size={10} /> Call
-                              </a>
-                            </div>
-                            <div className="customer-detail" style={{ alignItems: 'flex-start' }}>
-                              <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> 
-                              <span>Address: {o.userAddress}</span>
-                            </div>
-                          </div>
+            ) : (
+              <div className="menu-grid">
+                {filteredMenu.map((item) => (
+                  <div key={item.menuId} className="menu-item-card">
+                    <img 
+                      src={item.imagePath || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop'} 
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop';
+                      }}
+                      alt={item.menuName} 
+                      className="menu-item-img" 
+                    />
+                    <div className="menu-item-body">
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                          <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{item.menuName}</h4>
+                          <span style={{ fontWeight: 800, color: 'var(--brand-red)', display: 'flex', alignItems: 'center' }}>
+                            <IndianRupee size={14} />{item.price}
+                          </span>
                         </div>
-
-                        <div className="order-actions-section">
-                          <div style={{ textAlign: 'right' }}>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Amount Earned</span>
-                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                              &#8377;{(o.total || 0).toFixed(2)}
-                            </div>
-                          </div>
-                          
-                          {o.riderName ? (
-                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textAlign: 'right', marginTop: '8px' }}>
-                              Rider: <strong>{o.riderName}</strong>
-                            </div>
-                          ) : (
-                            <div style={{ fontSize: '0.78rem', color: '#ff9f40', textAlign: 'right', marginTop: '8px', fontWeight: 600 }}>
-                              Awaiting Rider Match...
-                            </div>
-                          )}
-                        </div>
-
-                        {renderOrderStepper(o)}
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.4' }}>
+                          {item.description}
+                        </p>
                       </div>
-                    ))}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-light)', paddingTop: '12px' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Status:</span>
+                        <button 
+                          className="toggle-btn" 
+                          onClick={() => handleToggleAvailability(item.menuId, item.isAvailable)}
+                        >
+                          {item.isAvailable ? (
+                            <>
+                              <ToggleRight size={28} style={{ color: 'var(--success)' }} />
+                              <span style={{ color: 'var(--success)' }}>Available</span>
+                            </>
+                          ) : (
+                            <>
+                              <ToggleLeft size={28} style={{ color: 'var(--text-muted)' }} />
+                              <span style={{ color: 'var(--text-muted)' }}>Unavailable</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
             )}
           </div>
+        )}
 
-          {/* Sidebar */}
-          {restaurant && (
-            <div className="dashboard-sidebar">
-              <div className="sidebar-card">
-                <h3 className="sidebar-card-title">Kitchen Profile</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="profile-item">
-                    <span className="profile-label">Average Delivery Time</span>
-                    <span className="profile-value">{restaurant.deliveryTime || '30 mins'}</span>
-                  </div>
-                  <div className="profile-item">
-                    <span className="profile-label">Food License (FSSAI)</span>
-                    <span className="profile-value code-font">{restaurant.licenseNo || '14-digit Number'}</span>
-                  </div>
-                  <div className="profile-item">
-                    <span className="profile-label">GSTIN ID</span>
-                    <span className="profile-value code-font">{restaurant.gstNo || '15-digit ID'}</span>
-                  </div>
-                  <div className="profile-item">
-                    <span className="profile-label">Owner Aadhaar</span>
-                    <span className="profile-value code-font">
-                      {restaurant.aadhaarNo ? `XXXX-XXXX-${restaurant.aadhaarNo.slice(-4)}` : 'XXXX-XXXX-XXXX'}
-                    </span>
-                  </div>
-                </div>
+        {activeTab === 'orders' && (
+          <div className="dashboard-content-layout fade-in">
+            <div className="main-content-area">
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none', msOverflowStyle: 'none' }} className="hide-scrollbar">
+                {['All', 'Placed', 'Accepted', 'Preparing', 'Out for Delivery', 'Delivered'].map(status => (
+                  <button 
+                    key={status}
+                    className={`pill-filter ${orderFilter === status ? 'active' : ''}`}
+                    onClick={() => setOrderFilter(status)}
+                  >
+                    {status}
+                  </button>
+                ))}
               </div>
 
-              <div className="sidebar-card">
-                <h3 className="sidebar-card-title">Order Status Summary</h3>
-                <div className="progress-bar-stacked">
-                  {orders.length > 0 ? (
-                    (() => {
-                      const placed = orders.filter(o => ['placed', 'accepted'].includes((o.status || '').toLowerCase())).length;
-                      const cooking = orders.filter(o => (o.status || '').toLowerCase() === 'preparing').length;
-                      const ready = orders.filter(o => (o.status || '').toLowerCase() === 'waiting to dispatch').length;
-                      const shipping = orders.filter(o => (o.status || '').toLowerCase() === 'out for delivery').length;
-                      const delivered = orders.filter(o => (o.status || '').toLowerCase() === 'delivered').length;
-
-                      const pct = (val) => ((val / orders.length) * 100).toFixed(1);
-
-                      return (
-                        <>
-                          <div className="stacked-bar-container">
-                            <div className="stacked-segment placed" style={{ width: `${pct(placed)}%` }} title={`Placed/Accepted: ${placed}`} />
-                            <div className="stacked-segment cooking" style={{ width: `${pct(cooking)}%` }} title={`Preparing: ${cooking}`} />
-                            <div className="stacked-segment ready" style={{ width: `${pct(ready)}%` }} title={`Ready: ${ready}`} />
-                            <div className="stacked-segment shipping" style={{ width: `${pct(shipping)}%` }} title={`Out for Delivery: ${shipping}`} />
-                            <div className="stacked-segment delivered" style={{ width: `${pct(delivered)}%` }} title={`Delivered: ${delivered}`} />
-                          </div>
-                          <div className="stacked-legend">
-                            <div className="legend-item"><span className="dot placed"></span> Placed ({placed})</div>
-                            <div className="legend-item"><span className="dot cooking"></span> Cooking ({cooking})</div>
-                            <div className="legend-item"><span className="dot ready"></span> Ready ({ready})</div>
-                            <div className="legend-item"><span className="dot shipping"></span> Out ({shipping})</div>
-                            <div className="legend-item"><span className="dot delivered"></span> Delivered ({delivered})</div>
-                          </div>
-                        </>
-                      );
-                    })()
-                  ) : (
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>No order data available yet.</p>
-                  )}
+              {filteredOrders.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px', border: '1px dashed var(--border-medium)', borderRadius: '12px' }}>
+                  <p style={{ color: 'var(--text-secondary)' }}>No orders in this category.</p>
                 </div>
-              </div>
+              ) : (
+                <div className="order-list">
+                  {filteredOrders.map((o) => (
+                    <div key={o.orderId} className={`order-card status-${(o.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
+                      <div className="order-info-section">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                          <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>ID: {o.formattedId}</h3>
+                          <span className={`badge ${(o.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
+                            {o.status}
+                          </span>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ordered {o.time}</span>
+                        </div>
+                        
+                        <div className="customer-info-box">
+                          <div className="customer-name">
+                            Customer: {o.userName}
+                          </div>
+                          <div className="customer-detail">
+                            <Phone size={12} /> 
+                            <span>{o.userPhone}</span>
+                            <a href={`tel:${o.userPhone}`} className="call-customer-btn">
+                              <Phone size={10} /> Call
+                            </a>
+                          </div>
+                          <div className="customer-detail" style={{ alignItems: 'flex-start' }}>
+                            <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> 
+                            <span>Address: {o.userAddress}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="order-actions-section">
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Amount Earned</span>
+                          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                            &#8377;{(o.total || 0).toFixed(2)}
+                          </div>
+                        </div>
+                        
+                        {o.riderName ? (
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textAlign: 'right', marginTop: '8px' }}>
+                            Rider: <strong>{o.riderName}</strong>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.78rem', color: '#ff9f40', textAlign: 'right', marginTop: '8px', fontWeight: 600 }}>
+                            Awaiting Rider Match...
+                          </div>
+                        )}
+                      </div>
+
+                      {renderOrderStepper(o)}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+
+            {/* Sidebar */}
+            {restaurant && (
+              <div className="dashboard-sidebar">
+                <div className="sidebar-card">
+                  <h3 className="sidebar-card-title">Kitchen Profile</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div className="profile-item">
+                      <span className="profile-label">Average Delivery Time</span>
+                      <span className="profile-value">{restaurant.deliveryTime || '30 mins'}</span>
+                    </div>
+                    <div className="profile-item">
+                      <span className="profile-label">Food License (FSSAI)</span>
+                      <span className="profile-value code-font">{restaurant.licenseNo || '14-digit Number'}</span>
+                    </div>
+                    <div className="profile-item">
+                      <span className="profile-label">GSTIN ID</span>
+                      <span className="profile-value code-font">{restaurant.gstNo || '15-digit ID'}</span>
+                    </div>
+                    <div className="profile-item">
+                      <span className="profile-label">Owner Aadhaar</span>
+                      <span className="profile-value code-font">
+                        {restaurant.aadhaarNo ? `XXXX-XXXX-${restaurant.aadhaarNo.slice(-4)}` : 'XXXX-XXXX-XXXX'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="sidebar-card">
+                  <h3 className="sidebar-card-title">Order Status Summary</h3>
+                  <div className="progress-bar-stacked">
+                    {orders.length > 0 ? (
+                      (() => {
+                        const placed = orders.filter(o => ['placed', 'accepted'].includes((o.status || '').toLowerCase())).length;
+                        const cooking = orders.filter(o => (o.status || '').toLowerCase() === 'preparing').length;
+                        const ready = orders.filter(o => (o.status || '').toLowerCase() === 'waiting to dispatch').length;
+                        const shipping = orders.filter(o => (o.status || '').toLowerCase() === 'out for delivery').length;
+                        const delivered = orders.filter(o => (o.status || '').toLowerCase() === 'delivered').length;
+
+                        const pct = (val) => ((val / orders.length) * 100).toFixed(1);
+
+                        return (
+                          <>
+                            <div className="stacked-bar-container">
+                              <div className="stacked-segment placed" style={{ width: `${pct(placed)}%` }} title={`Placed/Accepted: ${placed}`} />
+                              <div className="stacked-segment cooking" style={{ width: `${pct(cooking)}%` }} title={`Preparing: ${cooking}`} />
+                              <div className="stacked-segment ready" style={{ width: `${pct(ready)}%` }} title={`Ready: ${ready}`} />
+                              <div className="stacked-segment shipping" style={{ width: `${pct(shipping)}%` }} title={`Out for Delivery: ${shipping}`} />
+                              <div className="stacked-segment delivered" style={{ width: `${pct(delivered)}%` }} title={`Delivered: ${delivered}`} />
+                            </div>
+                            <div className="stacked-legend">
+                              <div className="legend-item"><span className="dot placed"></span> Placed ({placed})</div>
+                              <div className="legend-item"><span className="dot cooking"></span> Cooking ({cooking})</div>
+                              <div className="legend-item"><span className="dot ready"></span> Ready ({ready})</div>
+                              <div className="legend-item"><span className="dot shipping"></span> Out ({shipping})</div>
+                              <div className="legend-item"><span className="dot delivered"></span> Delivered ({delivered})</div>
+                            </div>
+                          </>
+                        );
+                      })()
+                    ) : (
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>No order data available yet.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Add MenuItem Modal */}
