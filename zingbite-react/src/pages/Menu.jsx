@@ -6,7 +6,7 @@ import { useCart } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
 import { 
   CircleCheck, CircleX, Minus, Plus, ArrowRight, AlertCircle, 
-  Search, MapPin, Clock, Star, Info, ShoppingBag
+  Search, MapPin, Clock, Star, Info, ShoppingBag, IndianRupee
 } from 'lucide-react';
 
 const Menu = () => {
