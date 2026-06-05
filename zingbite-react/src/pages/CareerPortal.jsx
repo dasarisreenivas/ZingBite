@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useModal } from '../context/ModalContext';
 import { 
   Briefcase, MapPin, Send, FileText, CheckCircle, 
   Clock, IndianRupee, Loader, Calendar, Mail, Phone, User, AlertCircle, Inbox, Lock, KeyRound 
@@ -10,6 +11,7 @@ import {
 const CareerPortal = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const { showAlert } = useModal();
 
   const [activeTab, setActiveTab] = useState('jobs');
   const [jobs, setJobs] = useState([]);
@@ -105,7 +107,7 @@ const CareerPortal = () => {
       return;
     }
     if (!applyForm.name || !applyForm.email || !applyForm.phone) {
-      alert('Please fill out all required fields.');
+      showAlert('Please fill out all required fields.', 'warning');
       return;
     }
     
@@ -134,14 +136,14 @@ const CareerPortal = () => {
         phone: applyForm.phone,
         resumeUrl: applyForm.resumeUrl || 'https://zingbite.com/resumes/demo.pdf'
       });
-      alert('Verification successful! Application submitted successfully.');
+      showAlert('Verification successful! Application submitted successfully.', 'success');
       setShowOtpModal(false);
       setApplyingJob(null);
       setApplyForm(prev => ({ ...prev, resumeUrl: '' }));
       await fetchApplications();
       await fetchNotifications(); // Update email logs
     } catch (err) {
-      alert('Failed to submit application. Please try again.');
+      showAlert('Failed to submit application. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }

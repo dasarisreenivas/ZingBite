@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useModal } from '../context/ModalContext';
 import { 
   Store, Utensils, ClipboardList, Plus, Search, 
   ToggleLeft, ToggleRight, CheckCircle2, ChevronRight, 
@@ -11,6 +12,7 @@ import {
 const RestaurantDashboard = () => {
   const { user, logout, loading: authLoading } = useContext(AuthContext);
   const navigate = useNavigate();
+  const { showAlert } = useModal();
 
   const [activeTab, setActiveTab] = useState('orders');
   const [data, setData] = useState({ restaurant: null, menu: [], orders: [], request: null });
@@ -72,7 +74,7 @@ const RestaurantDashboard = () => {
   const handleOnboardSubmit = async (e) => {
     e.preventDefault();
     if (!onboardForm.name || !onboardForm.cuisine || !onboardForm.address || !onboardForm.licenseNo || !onboardForm.aadhaarNo || !onboardForm.gstNo) {
-      alert('Please fill out all required fields.');
+      showAlert('Please fill out all required fields.', 'warning');
       return;
     }
     setSubmittingOnboard(true);
@@ -88,10 +90,10 @@ const RestaurantDashboard = () => {
         aadhaarNo: onboardForm.aadhaarNo,
         gstNo: onboardForm.gstNo
       });
-      alert('Onboarding request submitted successfully! Super admin will verify your documents.');
+      showAlert('Onboarding request submitted successfully! Super admin will verify your documents.', 'success');
       await fetchRestaurantData();
     } catch (err) {
-      alert('Failed to submit onboarding request.');
+      showAlert('Failed to submit onboarding request.', 'error');
     } finally {
       setSubmittingOnboard(false);
     }
@@ -109,14 +111,14 @@ const RestaurantDashboard = () => {
         menu: (prev.menu || []).map(item => item.menuId === menuId ? { ...item, isAvailable: !currentAvailable } : item)
       }));
     } catch (err) {
-      alert('Failed to update availability.');
+      showAlert('Failed to update availability.', 'error');
     }
   };
 
   const handleAddDish = async (e) => {
     e.preventDefault();
     if (!newDish.name || !newDish.price || !newDish.description) {
-      alert('Please fill out all required fields.');
+      showAlert('Please fill out all required fields.', 'warning');
       return;
     }
     setSubmitting(true);
@@ -133,7 +135,7 @@ const RestaurantDashboard = () => {
       setNewDish({ name: '', price: '', description: '', imagePath: '' });
       await fetchRestaurantData();
     } catch (err) {
-      alert('Failed to add menu item.');
+      showAlert('Failed to add menu item.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -149,7 +151,7 @@ const RestaurantDashboard = () => {
       });
       await fetchRestaurantData();
     } catch (err) {
-      alert('Failed to update order status.');
+      showAlert('Failed to update order status.', 'error');
     } finally {
       setActionLoading(null);
     }

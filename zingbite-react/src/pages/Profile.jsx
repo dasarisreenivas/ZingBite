@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useModal } from '../context/ModalContext';
 import { 
   User, MapPin, ClipboardList, Trash2, Plus, LogOut, 
   CheckCircle, ShoppingBag, Edit, Calendar, IndianRupee, Loader, ArrowRight
@@ -12,6 +13,7 @@ const Profile = () => {
   const { user, logout, updateUser, loading: authLoading } = useContext(AuthContext);
   const { addToCart } = useCart();
   const navigate = useNavigate();
+  const { showAlert } = useModal();
   
   const [activeTab, setActiveTab] = useState('orders');
   const [isEditing, setIsEditing] = useState(false);
@@ -91,7 +93,7 @@ const Profile = () => {
         setIsEditing(false);
       }
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to update profile');
+      showAlert(err.response?.data?.error || 'Failed to update profile', 'error');
     } finally {
       setLoading(false);
     }
@@ -123,7 +125,7 @@ const Profile = () => {
       navigate('/cart');
     } catch (err) {
       console.error(err);
-      alert('Error during reordering. Please try again.');
+      showAlert('Error during reordering. Please try again.', 'error');
     } finally {
       setReordering(false);
     }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useModal } from '../context/ModalContext';
 import { 
   Users, Store, ShoppingBag, IndianRupee, Briefcase, 
   FileText, Plus, CheckCircle, XCircle, AlertTriangle, 
@@ -11,6 +12,7 @@ import {
 const SuperAdminDashboard = () => {
   const { user, logout, loading: authLoading } = useContext(AuthContext);
   const navigate = useNavigate();
+  const { showAlert } = useModal();
 
   const [activeTab, setActiveTab] = useState('metrics');
   const [data, setData] = useState({
@@ -74,7 +76,7 @@ const SuperAdminDashboard = () => {
       });
       await fetchAdminData();
     } catch (err) {
-      alert('Failed to update user role.');
+      showAlert('Failed to update user role.', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -90,7 +92,7 @@ const SuperAdminDashboard = () => {
       });
       await fetchAdminData();
     } catch (err) {
-      alert('Failed to update application status.');
+      showAlert('Failed to update application status.', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -104,10 +106,10 @@ const SuperAdminDashboard = () => {
         requestId,
         status: decision
       });
-      alert(`Restaurant Request successfully ${decision}!`);
+      showAlert(`Restaurant Request successfully ${decision}!`, 'success');
       await fetchAdminData();
     } catch (err) {
-      alert('Failed to review restaurant request.');
+      showAlert('Failed to review restaurant request.', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -116,7 +118,7 @@ const SuperAdminDashboard = () => {
   const handleAddRestaurant = async (e) => {
     e.preventDefault();
     if (!restaurantForm.name || !restaurantForm.cuisine || !restaurantForm.address) {
-      alert('Please fill out all required fields.');
+      showAlert('Please fill out all required fields.', 'warning');
       return;
     }
     setSubmittingRest(true);
@@ -129,11 +131,11 @@ const SuperAdminDashboard = () => {
         deliveryTime: restaurantForm.deliveryTime || undefined,
         imagePath: restaurantForm.imagePath || undefined
       });
-      alert('Restaurant added successfully!');
+      showAlert('Restaurant added successfully!', 'success');
       setRestaurantForm({ name: '', cuisine: '', address: '', deliveryTime: '', imagePath: '' });
       await fetchAdminData();
     } catch (err) {
-      alert('Failed to create restaurant.');
+      showAlert('Failed to create restaurant.', 'error');
     } finally {
       setSubmittingRest(false);
     }
@@ -142,7 +144,7 @@ const SuperAdminDashboard = () => {
   const handleAddJob = async (e) => {
     e.preventDefault();
     if (!jobForm.title || !jobForm.department || !jobForm.location || !jobForm.description) {
-      alert('Please fill out all required fields.');
+      showAlert('Please fill out all required fields.', 'warning');
       return;
     }
     setSubmittingJob(true);
@@ -154,11 +156,11 @@ const SuperAdminDashboard = () => {
         location: jobForm.location,
         description: jobForm.description
       });
-      alert('Job listing published successfully!');
+      showAlert('Job listing published successfully!', 'success');
       setJobForm({ title: '', department: '', location: '', description: '' });
       await fetchAdminData();
     } catch (err) {
-      alert('Failed to create job posting.');
+      showAlert('Failed to create job posting.', 'error');
     } finally {
       setSubmittingJob(false);
     }

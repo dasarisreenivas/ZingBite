@@ -7,9 +7,11 @@ import {
   Settings, Loader, Search, Sparkles
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
+import { useModal } from '../context/ModalContext';
 
 const OrderTracking = () => {
   const navigate = useNavigate();
+  const { showAlert } = useModal();
   const [searchParams] = useSearchParams();
   const orderIdParam = searchParams.get('orderId');
 
@@ -1454,10 +1456,10 @@ const OrderTracking = () => {
                   </div>
                   
                   <div className="rider-contact-row">
-                    <button onClick={() => alert(`Calling rider ${orderDetail.riderName} at ${orderDetail.riderPhone}...`)} className="rider-contact-btn call">
+                    <button onClick={() => showAlert(`Calling rider ${orderDetail.riderName} at ${orderDetail.riderPhone}...`, 'info')} className="rider-contact-btn call">
                       <Phone size={14} /> Call Rider
                     </button>
-                    <button onClick={() => alert("Opening instant chat overlay...")} className="rider-contact-btn chat">
+                    <button onClick={() => showAlert("Opening instant chat overlay...", 'info')} className="rider-contact-btn chat">
                       <MessageSquare size={14} /> Chat
                     </button>
                   </div>

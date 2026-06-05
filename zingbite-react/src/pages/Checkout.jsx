@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useModal } from '../context/ModalContext';
 import axios from 'axios';
 import { MapPin, CreditCard, Smartphone, Banknote } from 'lucide-react';
 
@@ -9,6 +10,7 @@ const Checkout = () => {
   const { cart, clearCart } = useCart();
   const { user } = React.useContext(AuthContext);
   const navigate = useNavigate();
+  const { showAlert } = useModal();
   const [addressChoice, setAddressChoice] = useState('profile');
 
   if (!cart || cart.itemCount === 0) {
@@ -33,7 +35,7 @@ const Checkout = () => {
   const handlePay = async () => {
     const isLoaded = await loadRazorpay();
     if (!isLoaded) {
-      alert("Failed to load Razorpay payment gateway.");
+      showAlert("Failed to load Razorpay payment gateway.", "error");
       return;
     }
 

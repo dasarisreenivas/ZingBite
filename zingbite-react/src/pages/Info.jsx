@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useModal } from '../context/ModalContext';
 import { 
   Info, Briefcase, Users, BookOpen, HelpCircle, Mail, 
   Building2, Bike, FileText, Shield, Cookie, RefreshCw,
@@ -9,6 +10,7 @@ import {
 const InfoPage = () => {
   const { sectionId } = useParams();
   const navigate = useNavigate();
+  const { showAlert } = useModal();
   const activeSection = sectionId || 'about-us';
 
   // State for forms & interactions
@@ -206,7 +208,7 @@ const InfoPage = () => {
                   <span className="blog-meta">{post.date} &bull; {post.read}</span>
                   <h4>{post.title}</h4>
                   <p>{post.desc}</p>
-                  <a href="#read" onClick={(e) => { e.preventDefault(); alert("Blog reading functionality coming soon!"); }} className="blog-link">Read Article <ExternalLink size={14} /></a>
+                  <a href="#read" onClick={(e) => { e.preventDefault(); showAlert("Blog reading functionality coming soon!", "info"); }} className="blog-link">Read Article <ExternalLink size={14} /></a>
                 </article>
               ))}
             </div>
