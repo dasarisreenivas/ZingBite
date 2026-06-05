@@ -102,7 +102,7 @@ const DeliveryDashboard = () => {
       
       // Geolocation API requires a secure context (HTTPS) or localhost
       if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        showAlert("Real-time device Geolocation API is restricted by modern browsers to Secure Contexts (HTTPS) or localhost.\n\nSince you are accessing via HTTP/IP, please use the 'Auto-Simulation' or manual range slider instead, or run the app on localhost/HTTPS.", "error", "🔒 Browser Security Block");
+        showAlert("Real-time device Geolocation API is restricted by modern browsers to Secure Contexts (HTTPS) or localhost.\n\nSince you are accessing via HTTP/IP, please use the 'Auto-Simulation' or manual range slider instead, or run the app on localhost/HTTPS.", "error", "Browser Security Block");
         return;
       }
 
@@ -119,7 +119,7 @@ const DeliveryDashboard = () => {
         (error) => {
           console.error("Geolocation watch error:", error);
           if (error.code === error.PERMISSION_DENIED) {
-            showAlert("Please allow location access in your browser settings to track live rider coordinates, or use the 'Auto-Simulation' / manual range slider instead.", "error", "❌ Geolocation Permission Denied");
+            showAlert("Please allow location access in your browser settings to track live rider coordinates, or use the 'Auto-Simulation' / manual range slider instead.", "error", "Geolocation Permission Denied");
           } else {
             showAlert("Error retrieving geolocation: " + error.message, "error", "Geolocation Error");
           }
