@@ -27,6 +27,11 @@ const OrderTracking = () => {
   const [simulatingStatus, setSimulatingStatus] = useState(null);
   const [isAutoSimulating, setIsAutoSimulating] = useState(false);
   const [confetti, setConfetti] = useState([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const stages = ['Placed', 'Accepted', 'Preparing', 'Waiting to Dispatch', 'Out for Delivery', 'Delivered'];
   const currentIdx = orderDetail ? stages.indexOf(orderDetail.status || 'Placed') : 0;
@@ -303,13 +308,20 @@ const OrderTracking = () => {
       [12.9821, 77.6085]
     ], { padding: [40, 40] });
 
+    // Invalidate size inside a small timeout to guarantee leaflet calculates height/width correctly
+    setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 200);
+
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
-  }, [leafletLoaded]);
+  }, [leafletLoaded, mounted]);
 
   // Update Rider Position
   useEffect(() => {
