@@ -1,18 +1,58 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { AlertTriangle, Loader, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Loader, ChevronDown, MapPin } from 'lucide-react';
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    username: '', email: '', mobile: '', password: '', confirmPassword: '', address: '', role: 'customer'
+    username: '', email: '', mobile: '', password: '', confirmPassword: '', address: '', role: 'customer',
+    latitude: null, longitude: null, city: ''
   });
   const [countryCode, setCountryCode] = useState('91');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const navigate = useNavigate();
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser or is blocked in insecure contexts.");
+      return;
+    }
+    setGeocoding(true);
+    setError('');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18`);
+          const data = await response.json();
+          if (data) {
+            const addr = data.display_name || '';
+            const cityName = data.address?.city || data.address?.town || data.address?.village || data.address?.suburb || '';
+            setFormData(prev => ({ 
+              ...prev, 
+              address: addr,
+              latitude: latitude,
+              longitude: longitude,
+              city: cityName
+            }));
+          }
+        } catch (err) {
+          console.error("Reverse geocoding error:", err);
+          setError("Failed to geocode address from coordinates.");
+        } finally {
+          setGeocoding(false);
+        }
+      },
+      (err) => {
+        setError("Error retrieving location: " + err.message);
+        setGeocoding(false);
+      }
+    );
+  };
 
   const countryPhoneLengths = {
     '91': { label: '+91 (IN)', length: 10 },
@@ -437,35 +477,6 @@ const Register = () => {
                 />
               </div>
 
-              <div className={`form-field ${focusedField === 'role' ? 'focused' : ''} ${formData.role ? 'filled' : ''}`}>
-                <label style={{ top: 0, fontSize: '0.78rem', color: focusedField === 'role' ? 'var(--brand-red)' : 'var(--text-muted)', fontWeight: 500 }}>Account Role</label>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                  onFocus={() => setFocusedField('role')}
-                  onBlur={() => setFocusedField(null)}
-                  style={{
-                    width: '100%',
-                    padding: '16px',
-                    border: '2px solid var(--border-medium)',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: '1rem',
-                    fontFamily: 'inherit',
-                    outline: 'none',
-                    background: '#fff',
-                    appearance: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value="customer">Customer (Order Food)</option>
-                  <option value="delivery_partner">Delivery Partner (Deliver Food)</option>
-                  <option value="restaurant_admin">Restaurant Admin (Manage Menu)</option>
-                  <option value="super_admin">Super Admin (Platform Manager)</option>
-                </select>
-                <ChevronDown size={14} className="select-chevron" style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: focusedField === 'role' ? 'var(--brand-red)' : 'var(--text-muted)' }} />
-              </div>
-
               <div className={`form-field textarea-field ${focusedField === 'address' ? 'focused' : ''} ${formData.address ? 'filled' : ''}`}>
                 <label>Delivery Address</label>
                 <textarea
@@ -477,6 +488,32 @@ const Register = () => {
                   required
                 />
               </div>
+
+              <button 
+                type="button" 
+                onClick={detectLocation}
+                disabled={geocoding}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'none',
+                  border: '1px solid var(--border-medium)',
+                  color: 'var(--text-secondary)',
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  marginBottom: '18px',
+                  marginTop: '-10px',
+                  alignSelf: 'flex-start',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <MapPin size={12} style={{ color: 'var(--brand-red)' }} />
+                {geocoding ? 'Detecting Location...' : 'Auto-Detect Address'}
+              </button>
               
               <div className="terms-checkbox-field">
                 <input

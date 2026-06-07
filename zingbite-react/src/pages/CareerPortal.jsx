@@ -5,8 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { useModal } from '../context/ModalContext';
 import { 
   Briefcase, MapPin, Send, FileText, CheckCircle, 
-  Clock, IndianRupee, Loader, Calendar, Mail, Phone, User, AlertCircle, Inbox, Lock, KeyRound 
+  Clock, IndianRupee, Loader, Calendar, Mail, Phone, User, AlertCircle, Inbox, Lock, KeyRound, MessageSquare 
 } from 'lucide-react';
+import ChatWidget from '../components/ChatWidget';
 
 const CareerPortal = () => {
   const { user } = useContext(AuthContext);
@@ -20,6 +21,7 @@ const CareerPortal = () => {
   const [loading, setLoading] = useState(true);
   const [appsLoading, setAppsLoading] = useState(false);
   const [notesLoading, setNotesLoading] = useState(false);
+  const [activeChatAppId, setActiveChatAppId] = useState(null);
   
   // Application form modal
   const [applyingJob, setApplyingJob] = useState(null);
@@ -482,6 +484,25 @@ const CareerPortal = () => {
                         }`} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
                           {app.status}
                         </span>
+                        <button 
+                          onClick={() => setActiveChatAppId(app.id)}
+                          style={{
+                            background: 'transparent',
+                            color: 'var(--brand-red)',
+                            border: '1px solid var(--brand-red)',
+                            padding: '6px 12px',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            marginTop: '8px'
+                          }}
+                        >
+                          <MessageSquare size={12} /> Chat with Recruiter
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -654,6 +675,19 @@ const CareerPortal = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {activeChatAppId && (
+        <ChatWidget
+          key={activeChatAppId}
+          type="application"
+          targetId={activeChatAppId}
+          userId={user?.userID || user?.userId}
+          userName={user?.userName || user?.username}
+          receiverId={1}
+          initialOpen={true}
+          onClose={() => setActiveChatAppId(null)}
+        />
       )}
     </>
   );

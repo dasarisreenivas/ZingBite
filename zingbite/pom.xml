@@ -7,8 +7,14 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>war</packaging>
 
+	<properties>
+		<maven.compiler.source>17</maven.compiler.source>
+		<maven.compiler.target>17</maven.compiler.target>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+
 	<dependencies>
-		<!--Mysqk Connector-->
+		<!--Mysql Connector-->
 		<dependency>
 			<groupId>com.mysql</groupId>
 			<artifactId>mysql-connector-j</artifactId>
@@ -32,13 +38,61 @@
 			<artifactId>hibernate-core</artifactId>
 			<version>6.6.13.Final</version>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.hibernate.orm/hibernate-hikaricp -->
+		<dependency>
+			<groupId>org.hibernate.orm</groupId>
+			<artifactId>hibernate-hikaricp</artifactId>
+			<version>6.6.13.Final</version>
+		</dependency>
 
+		<!-- Jakarta Servlet API - must match Tomcat 10.0.x (Jakarta EE 9) -->
 		<dependency>
 			<groupId>jakarta.servlet</groupId>
 			<artifactId>jakarta.servlet-api</artifactId>
-			<version>6.0.0</version>
+			<version>5.0.0</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<!-- BouncyCastle for Argon2id -->
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcprov-jdk18on</artifactId>
+			<version>1.78.1</version>
+		</dependency>
+
+		<!-- Jakarta Mail API & Implementation -->
+		<dependency>
+			<groupId>com.sun.mail</groupId>
+			<artifactId>jakarta.mail</artifactId>
+			<version>2.0.1</version>
+		</dependency>
+
+		<!-- Jakarta WebSocket API - must match Tomcat 10.0.x (Jakarta EE 9) -->
+		<dependency>
+			<groupId>jakarta.websocket</groupId>
+			<artifactId>jakarta.websocket-api</artifactId>
+			<version>2.0.0</version>
 			<scope>provided</scope>
 		</dependency>
 
 	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.11.0</version>
+				<configuration>
+					<source>17</source>
+					<target>17</target>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-war-plugin</artifactId>
+				<version>3.4.0</version>
+			</plugin>
+		</plugins>
+	</build>
 </project>

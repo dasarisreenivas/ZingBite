@@ -49,6 +49,9 @@ public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 			return oH.getOrderHistoryId();
 
 		} catch (Exception e) {
+			if (tx != null && tx.isActive()) {
+				tx.rollback();
+			}
 			e.printStackTrace();
 		}
 		return 0;
@@ -59,6 +62,7 @@ public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 		List<OrderHistory> OrderHistoryList = new ArrayList<>();
 		Transaction tx = null;
 		try (Session session = DBUtils.openSession()) {
+			tx = session.beginTransaction();
 			String hql = "from OrderHistory";
 			Query<OrderHistory> query = session.createQuery(hql, OrderHistory.class);
 			OrderHistoryList = query.list();
@@ -66,7 +70,7 @@ public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 			return OrderHistoryList;
 		} catch (Exception e) {
 
-			if (tx != null) {
+			if (tx != null && tx.isActive()) {
 				tx.rollback();
 			}
 			e.printStackTrace();
@@ -86,7 +90,7 @@ public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 			return orderHistory;
 
 		} catch (Exception e) {
-			if (tx != null)
+			if (tx != null && tx.isActive())
 				tx.rollback();
 			e.printStackTrace();
 		}
@@ -104,7 +108,7 @@ public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 			result = 1;
 
 		} catch (Exception e) {
-			if (tx != null)
+			if (tx != null && tx.isActive())
 				tx.rollback();
 			e.printStackTrace();
 		}
@@ -121,8 +125,12 @@ public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 			if (orderHistory != null) {
 				session.delete(orderHistory);
 				tx.commit();
+				return 1;
 			}
 		} catch (Exception e) {
+			if (tx != null && tx.isActive()) {
+				tx.rollback();
+			}
 			e.printStackTrace();
 		}
 		return 0;

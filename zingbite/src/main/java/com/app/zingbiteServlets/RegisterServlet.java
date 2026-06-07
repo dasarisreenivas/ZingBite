@@ -5,6 +5,7 @@ import java.io.BufferedReader;
 
 import com.app.zingbitedao.UserDAO;
 import com.app.zingbitedaoimpl.UserDAOImplementation;
+import com.app.zingbiteutils.PasswordUtils;
 import com.app.zingbitemodels.User;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -38,6 +39,9 @@ public class RegisterServlet extends HttpServlet {
             String password = requestBody.has("password") ? requestBody.get("password").getAsString() : null;
             String confirmPassword = requestBody.has("confirmPassword") ? requestBody.get("confirmPassword").getAsString() : null;
             String address = requestBody.has("address") ? requestBody.get("address").getAsString() : null;
+            Double latitude = requestBody.has("latitude") && !requestBody.get("latitude").isJsonNull() ? requestBody.get("latitude").getAsDouble() : null;
+            Double longitude = requestBody.has("longitude") && !requestBody.get("longitude").isJsonNull() ? requestBody.get("longitude").getAsDouble() : null;
+            String city = requestBody.has("city") && !requestBody.get("city").isJsonNull() ? requestBody.get("city").getAsString() : null;
 
             if (email == null || password == null || userName == null || mobile == null || address == null) {
                 jsonResponse.addProperty("error", "All fields are required");
@@ -72,12 +76,24 @@ public class RegisterServlet extends HttpServlet {
                 return;
             }
 
-            String role = requestBody.has("role") ? requestBody.get("role").getAsString() : "customer";
-            User user = new User(userName, email, password, mobileNumber, address);
-            user.setRole(role);
+            String hashedPassword = PasswordUtils.hashPassword(password);
+            User user = new User(userName, email, hashedPassword, mobileNumber, address);
+            user.setRole("customer");
+            if (latitude != null) user.setLatitude(latitude);
+            if (longitude != null) user.setLongitude(longitude);
+            if (city != null) user.setCity(city);
             int added = userDAO.addUser(user);
 
             if (added > 0) {
+                User registeredUser = userDAO.getUserById(email);
+                if (registeredUser != null) {
+                    com.app.zingbiteutils.EmailService.sendEmailAsync(
+                        registeredUser.getUserID(),
+                        registeredUser.getEmail(),
+                        "Welcome to ZingBite!",
+                        com.app.zingbiteutils.EmailTemplates.welcome(registeredUser.getUserName())
+                    );
+                }
                 jsonResponse.addProperty("success", true);
             } else {
                 jsonResponse.addProperty("error", "Registration failed");

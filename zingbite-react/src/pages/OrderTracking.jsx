@@ -8,6 +8,128 @@ import {
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { useModal } from '../context/ModalContext';
+import ChatWidget from '../components/ChatWidget';
+
+const ActiveOrderMap = ({ orderDetail, leafletLoaded, currentLat, currentLng, isRealGPS }) => {
+  const mapRef = React.useRef(null);
+  const mapInstanceRef = React.useRef(null);
+  const riderMarkerRef = React.useRef(null);
+  const restaurantMarkerRef = React.useRef(null);
+  const customerMarkerRef = React.useRef(null);
+  const routePolylineRef = React.useRef(null);
+
+  // Initialize Map
+  useEffect(() => {
+    if (!leafletLoaded || !mapRef.current) return;
+    if (mapInstanceRef.current) return;
+
+    const L = window.L;
+    if (!L) return;
+
+    const map = L.map(mapRef.current, {
+      zoomControl: true,
+      scrollWheelZoom: true
+    }).setView([12.977, 77.601], 14);
+    mapInstanceRef.current = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const restaurantIcon = L.divIcon({
+      html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">🍳</div>`,
+      className: 'custom-map-marker-restaurant',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+
+    const customerIcon = L.divIcon({
+      html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">🏠</div>`,
+      className: 'custom-map-marker-customer',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+
+    const riderIcon = L.divIcon({
+      html: `<div style="font-size: 28px; text-align: center; line-height: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">🛵</div>`,
+      className: 'custom-map-marker-rider',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+
+    restaurantMarkerRef.current = L.marker([12.9716, 77.5946], { icon: restaurantIcon }).addTo(map).bindPopup('<b>ZingBite Kitchen (Restaurant)</b>');
+    customerMarkerRef.current = L.marker([12.9821, 77.6085], { icon: customerIcon }).addTo(map).bindPopup('<b>Delivery Address (Home)</b>');
+
+    const routePoints = [
+      [12.9716, 77.5946],
+      [12.9716, 77.6010],
+      [12.9821, 77.6010],
+      [12.9821, 77.6085]
+    ];
+
+    routePolylineRef.current = L.polyline(routePoints, { color: '#8b5cf6', weight: 4, opacity: 0.7, dashArray: '8, 8' }).addTo(map);
+
+    riderMarkerRef.current = L.marker([currentLat, currentLng], { icon: riderIcon }).addTo(map).bindPopup('<b>Rider (Live Location)</b>');
+
+    map.fitBounds([
+      [12.9716, 77.5946],
+      [12.9821, 77.6085]
+    ], { padding: [40, 40] });
+
+    // Invalidate size inside a small timeout to guarantee leaflet calculates height/width correctly
+    setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 200);
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        riderMarkerRef.current = null;
+        restaurantMarkerRef.current = null;
+        customerMarkerRef.current = null;
+        routePolylineRef.current = null;
+      }
+    };
+  }, [leafletLoaded, orderDetail.id]);
+
+  // Update Rider Position
+  useEffect(() => {
+    if (!leafletLoaded || !riderMarkerRef.current) return;
+    riderMarkerRef.current.setLatLng([currentLat, currentLng]);
+  }, [currentLat, currentLng, leafletLoaded]);
+
+  return (
+    <div className="map-wrapper" style={{ height: '320px', position: 'relative' }}>
+      <div className="map-overlay-text" style={{ zIndex: 10 }}>
+        {isRealGPS ? '🔴 LIVE REAL-TIME MAP' : '📍 PROJECTED ROUTE MAP'}
+      </div>
+      
+      <div 
+        ref={mapRef} 
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          borderRadius: 'inherit', 
+          zIndex: 1, 
+          visibility: leafletLoaded ? 'visible' : 'hidden' 
+        }} 
+      />
+
+      {!leafletLoaded && (
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f4f6f8', gap: '12px', zIndex: 5, borderRadius: 'inherit' }}>
+          <Loader size={24} style={{ animation: 'spin 1s linear infinite', color: '#8b5cf6' }} />
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            Loading Leaflet Interactive Map...
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const OrderTracking = () => {
   const navigate = useNavigate();
@@ -28,6 +150,7 @@ const OrderTracking = () => {
   const [isAutoSimulating, setIsAutoSimulating] = useState(false);
   const [confetti, setConfetti] = useState([]);
   const [mounted, setMounted] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -39,24 +162,57 @@ const OrderTracking = () => {
 
   useEffect(() => {
     if (!user) return;
-    const fetchOrders = async (isBackground = false) => {
+    const fetchOrders = async () => {
       try {
         const res = await axios.get('/api/profile?action=orders');
         setOrders(res.data);
       } catch (err) {
         console.error("Failed to load orders for tracking:", err);
       } finally {
-        if (!isBackground) setOrdersLoading(false);
+        setOrdersLoading(false);
       }
     };
-    fetchOrders(false);
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchOrders(true);
-      }
-    }, 8000);
-    return () => clearInterval(timer);
+    fetchOrders();
   }, [user]);
+
+  // Establish SSE EventSource stream connection for the active tracked order
+  useEffect(() => {
+    if (!orderIdParam) return;
+    
+    const cleanId = String(orderIdParam).replace(/^ZB-/, '').trim();
+    const eventSource = new EventSource(`/api/order/stream?orderId=${cleanId}`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data && String(data.orderId) === cleanId) {
+          setOrders(prevOrders => {
+            return prevOrders.map(o => {
+              const cleanOId = String(o.id || o.orderId || '').replace(/^ZB-/, '').trim();
+              if (cleanOId === cleanId) {
+                const updatedOrder = { ...o };
+                if (data.status) updatedOrder.status = data.status;
+                if (data.gpsProgress !== undefined) updatedOrder.gpsProgress = data.gpsProgress;
+                if (data.gpsCoordinates !== undefined) updatedOrder.gpsCoordinates = data.gpsCoordinates;
+                return updatedOrder;
+              }
+              return o;
+            });
+          });
+        }
+      } catch (err) {
+        console.error("Failed to parse SSE update data:", err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("SSE connection error:", err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [orderIdParam]);
 
   useEffect(() => {
     if (orders.length === 0) {
@@ -162,12 +318,6 @@ const OrderTracking = () => {
 
   // Leaflet Interactive Maps Integration
   const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
-  const mapRef = React.useRef(null);
-  const mapInstanceRef = React.useRef(null);
-  const riderMarkerRef = React.useRef(null);
-  const restaurantMarkerRef = React.useRef(null);
-  const customerMarkerRef = React.useRef(null);
-  const routePolylineRef = React.useRef(null);
 
   // Coordinates mapping
   const getRiderPosition = (p) => {
@@ -220,14 +370,14 @@ const OrderTracking = () => {
     if (!link) {
       link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
       document.head.appendChild(link);
     }
 
     let script = document.querySelector('script[src*="leaflet.js"]');
     if (!script) {
       script = document.createElement('script');
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
       script.async = true;
       script.onload = () => {
         const interval = setInterval(() => {
@@ -249,85 +399,7 @@ const OrderTracking = () => {
     }
   }, []);
 
-  // Initialize Map
-  useEffect(() => {
-    if (!leafletLoaded || !mapRef.current) return;
-    if (mapInstanceRef.current) return;
-
-    const L = window.L;
-    if (!L) return;
-
-    const map = L.map(mapRef.current, {
-      zoomControl: true,
-      scrollWheelZoom: true
-    }).setView([12.977, 77.601], 14);
-    mapInstanceRef.current = map;
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-
-    const restaurantIcon = L.divIcon({
-      html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">🍳</div>`,
-      className: 'custom-map-marker-restaurant',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
-    });
-
-    const customerIcon = L.divIcon({
-      html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">🏠</div>`,
-      className: 'custom-map-marker-customer',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
-    });
-
-    const riderIcon = L.divIcon({
-      html: `<div style="font-size: 28px; text-align: center; line-height: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">🛵</div>`,
-      className: 'custom-map-marker-rider',
-      iconSize: [28, 28],
-      iconAnchor: [14, 14]
-    });
-
-    restaurantMarkerRef.current = L.marker([12.9716, 77.5946], { icon: restaurantIcon }).addTo(map).bindPopup('<b>ZingBite Kitchen (Restaurant)</b>');
-    customerMarkerRef.current = L.marker([12.9821, 77.6085], { icon: customerIcon }).addTo(map).bindPopup('<b>Delivery Address (Home)</b>');
-
-    const routePoints = [
-      [12.9716, 77.5946],
-      [12.9716, 77.6010],
-      [12.9821, 77.6010],
-      [12.9821, 77.6085]
-    ];
-
-    routePolylineRef.current = L.polyline(routePoints, { color: '#8b5cf6', weight: 4, opacity: 0.7, dashArray: '8, 8' }).addTo(map);
-
-    riderMarkerRef.current = L.marker([currentLat, currentLng], { icon: riderIcon }).addTo(map).bindPopup('<b>Rider (Live Location)</b>');
-
-    map.fitBounds([
-      [12.9716, 77.5946],
-      [12.9821, 77.6085]
-    ], { padding: [40, 40] });
-
-    // Invalidate size inside a small timeout to guarantee leaflet calculates height/width correctly
-    setTimeout(() => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.invalidateSize();
-      }
-    }, 200);
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, [leafletLoaded, mounted]);
-
-  // Update Rider Position
-  useEffect(() => {
-    if (!leafletLoaded || !riderMarkerRef.current) return;
-    riderMarkerRef.current.setLatLng([currentLat, currentLng]);
-  }, [currentLat, currentLng, leafletLoaded]);
+  // Map helper hooks and telemetry triggers are encapsulated in the ActiveOrderMap component below
 
   // Dynamic status details
   let etaVal = 25;
@@ -1341,32 +1413,13 @@ const OrderTracking = () => {
               </div>
     
               {/* Interactive Leaflet Map */}
-              <div className="map-wrapper" style={{ height: '320px', position: 'relative' }}>
-                <div className="map-overlay-text" style={{ zIndex: 10 }}>
-                  {isRealGPS ? '🔴 LIVE REAL-TIME MAP' : '📍 PROJECTED ROUTE MAP'}
-                </div>
-                
-                {/* The map container is always rendered in the DOM to avoid React Ref timing issues */}
-                <div 
-                  ref={mapRef} 
-                  style={{ 
-                    width: '100%', 
-                    height: '100%', 
-                    borderRadius: 'inherit', 
-                    zIndex: 1, 
-                    visibility: leafletLoaded ? 'visible' : 'hidden' 
-                  }} 
-                />
-
-                {!leafletLoaded && (
-                  <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f4f6f8', gap: '12px', zIndex: 5, borderRadius: 'inherit' }}>
-                    <Loader size={24} style={{ animation: 'spin 1s linear infinite', color: '#8b5cf6' }} />
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                      Loading Leaflet Interactive Map...
-                    </span>
-                  </div>
-                )}
-              </div>
+              <ActiveOrderMap 
+                orderDetail={orderDetail}
+                leafletLoaded={leafletLoaded}
+                currentLat={currentLat}
+                currentLng={currentLng}
+                isRealGPS={isRealGPS}
+              />
     
               {/* Timeline progress steps */}
               <div className="status-timeline">
@@ -1471,7 +1524,7 @@ const OrderTracking = () => {
                     <button onClick={() => showAlert(`Calling rider ${orderDetail.riderName} at ${orderDetail.riderPhone}...`, 'info')} className="rider-contact-btn call">
                       <Phone size={14} /> Call Rider
                     </button>
-                    <button onClick={() => showAlert("Opening instant chat overlay...", 'info')} className="rider-contact-btn chat">
+                    <button onClick={() => setIsChatOpen(prev => !prev)} className="rider-contact-btn chat">
                       <MessageSquare size={14} /> Chat
                     </button>
                   </div>
@@ -1584,6 +1637,19 @@ const OrderTracking = () => {
           }}
         />
       ))}
+
+      {isChatOpen && orderDetail && orderDetail.riderId && (
+        <ChatWidget
+          key={orderDetail.id}
+          type="order"
+          targetId={parseInt(String(orderDetail.id).replace(/^ZB-/, ''), 10)}
+          userId={user?.userID || user?.userId}
+          userName={user?.userName || user?.username}
+          receiverId={orderDetail.riderId}
+          initialOpen={true}
+          onClose={() => setIsChatOpen(false)}
+        />
+      )}
     </>
   );
 };

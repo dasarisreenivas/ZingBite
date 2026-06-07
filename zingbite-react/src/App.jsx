@@ -14,11 +14,13 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Info from './pages/Info';
 import Profile from './pages/Profile';
-import OrderTracking from './pages/OrderTracking';
-import DeliveryDashboard from './pages/DeliveryDashboard';
-import RestaurantDashboard from './pages/RestaurantDashboard';
-import CareerPortal from './pages/CareerPortal';
-import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import { Loader } from 'lucide-react';
+
+const OrderTracking = React.lazy(() => import('./pages/OrderTracking'));
+const DeliveryDashboard = React.lazy(() => import('./pages/DeliveryDashboard'));
+const RestaurantDashboard = React.lazy(() => import('./pages/RestaurantDashboard'));
+const CareerPortal = React.lazy(() => import('./pages/CareerPortal'));
+const SuperAdminDashboard = React.lazy(() => import('./pages/SuperAdminDashboard'));
 
 function App() {
   return (
@@ -29,22 +31,28 @@ function App() {
             <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
               <Header />
               <main style={{ flex: 1, minHeight: '75vh', display: 'flex', flexDirection: 'column' }}>
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/home" element={<Home />} />
-                  <Route path="/menu" element={<Menu />} />
-                  <Route path="/cart" element={<Cart />} />
-                  <Route path="/checkout" element={<Checkout />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-                  <Route path="/info/:sectionId" element={<Info />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/track-order" element={<OrderTracking />} />
-                  <Route path="/delivery" element={<DeliveryDashboard />} />
-                  <Route path="/restaurant-admin" element={<RestaurantDashboard />} />
-                  <Route path="/careers" element={<CareerPortal />} />
-                  <Route path="/admin" element={<SuperAdminDashboard />} />
-                </Routes>
+                <React.Suspense fallback={
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px', flex: 1 }}>
+                    <Loader size={36} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
+                  </div>
+                }>
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/home" element={<Home />} />
+                    <Route path="/menu" element={<Menu />} />
+                    <Route path="/cart" element={<Cart />} />
+                    <Route path="/checkout" element={<Checkout />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/info/:sectionId" element={<Info />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/track-order" element={<OrderTracking />} />
+                    <Route path="/delivery" element={<DeliveryDashboard />} />
+                    <Route path="/restaurant-admin" element={<RestaurantDashboard />} />
+                    <Route path="/careers" element={<CareerPortal />} />
+                    <Route path="/admin" element={<SuperAdminDashboard />} />
+                  </Routes>
+                </React.Suspense>
               </main>
               <Footer />
             </div>

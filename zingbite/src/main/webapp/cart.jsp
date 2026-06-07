@@ -1,2 +1,160 @@
-"<%@ page language=\"java\" contentType=\"text/html; charset=UTF-8\"\n\tpageEncoding=\"UTF-8\"%>\n<%@ page\n\timport=\"java.util.*, com.app.zingbitemodels.User, com.app.zingbitemodels.Cart, com.app.zingbitemodels.CartItem\"%>\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>Your Cart | ZingBite</title>\n<link rel=\"stylesheet\" href=\"css/global.css\">\n<link rel=\"stylesheet\" href=\"css/cart.css\">\n</head>\n<body>\n\n\t<!-- Header -->\n\t<jsp:include page=\"includes/header.jsp\" />\n\n\t<%\n\tCart cart = (Cart) session.getAttribute(\"cart\");\n\tMap<Integer, CartItem> items = (cart != null) ? cart.getItems() : new HashMap<>();\n\n\tdouble shipping = 50.0;\n\tdouble tax = 50.0;\n\n\tInteger restaurantConflict = (session.getAttribute(\"restaurantConflict\") != null) ? 1 : 0;\n\tInteger newItemId = (Integer) session.getAttribute(\"newItemId\");\n\tInteger newQuantity = (Integer) session.getAttribute(\"newQuantity\");\n\t%>\n\n\t<main class=\"cart-container\">\n\n\t\t<!-- Cart Items Section -->\n\t\t<div class=\"cart-items-section reveal\">\n\t\t\t<div class=\"cart-items-header\">\n\t\t\t\t<h2>\n\t\t\t\t\tSecure Checkout <span id=\"item-count-badge\"><%=items.size()%> ITEMS</span>\n\t\t\t\t</h2>\n\t\t\t\t<%\n\t\t\t\tif (!items.isEmpty()) {\n\t\t\t\t%>\n\t\t\t\t<button id=\"clear-cart-btn\" class=\"clear-cart-btn\">CLEAR CART</button>\n\t\t\t\t<%\n\t\t\t\t}\n\t\t\t\t%>\n\t\t\t</div>\n\n\t\t\t<div class=\"cart-items-list reveal-stagger\" id=\"cart-items-list\">\n\t\t\t\t<%\n\t\t\t\tif (items.isEmpty()) {\n\t\t\t\t%>\n\t\t\t\t<div id=\"empty-cart-msg\" class=\"empty-cart-message\">\n\t\t\t\t\t<img src=\"https://res.cloudinary.com/swiggy/image/upload/fl_lossy,f_auto,q_auto/2xempty_cart_yfxml0\" alt=\"Empty Cart\" style=\"width: 250px; opacity:0.8; margin-bottom: 16px;\">\n\t\t\t\t\t<h3>Your cart is empty.</h3>\n\t\t\t\t\t<p style=\"color:var(--text-muted);\">You can go to home page to view more restaurants.</p>\n\
-<truncated 3799 bytes>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+	pageEncoding="UTF-8"%>
+<%@ page
+	import="java.util.*, com.app.zingbitemodels.User, com.app.zingbitemodels.Cart, com.app.zingbitemodels.CartItem"%>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Cart | ZingBite</title>
+<link rel="stylesheet" href="css/cart.css">
+</head>
+<body class="light">
+
+	<!-- Header -->
+	<jsp:include page="includes/header.jsp" />
+
+	<%
+	Cart cart = (Cart) session.getAttribute("cart");
+	Map<Integer, CartItem> items = (cart != null) ? cart.getItems() : new HashMap<>();
+
+	double shipping = 50.0;
+	double tax = 50.0;
+
+	Integer restaurantConflict = (session.getAttribute("restaurantConflict") != null) ? 1 : 0;
+	Integer newItemId = (Integer) session.getAttribute("newItemId");
+	Integer newQuantity = (Integer) session.getAttribute("newQuantity");
+	%>
+
+	<main class="cart-container">
+
+		<!-- Cart Items Section -->
+		<div class="cart-items-section">
+			<div class="cart-items-header">
+				<h2>
+					YOUR CART <span id="item-count-badge"><%=items.size()%>
+						Items</span>
+				</h2>
+				<%
+				if (!items.isEmpty()) {
+				%>
+				<button id="clear-cart-btn" class="clear-cart-btn">Clear
+					Cart</button>
+				<%
+				}
+				%>
+			</div>
+
+			<div class="cart-items-list" id="cart-items-list">
+				<%
+				if (items.isEmpty()) {
+				%>
+				<div id="empty-cart-msg" class="empty-cart-message">
+					<h3>Your cart is empty.</h3>
+				</div>
+				<%
+				} else {
+				for (CartItem cItem : items.values()) {
+				%>
+				<div class="cart-item" id="item-<%=cItem.getItemId()%>">
+					<div class="item-details">
+						<p class="restaurant-name"><%=session.getAttribute("restaurantName")%></p>
+						<h3 class="menu-name"><%=cItem.getItemName()%></h3>
+						<p class="description">A short description of the menu item
+							would go here.</p>
+						<p class="subtotal" id="subtotal-<%=cItem.getItemId()%>">
+							Subtotal: &#8377;<%=String.format("%.2f", cItem.getPrice() * cItem.getQuantity())%>
+						</p>
+
+						<div class="item-controls">
+							<div class="quantity-adjuster">
+								<button class="quantity-btn" data-action="decrease"
+									data-item-id="<%=cItem.getItemId()%>">-</button>
+								<span class="quantity-display"
+									id="quantity-<%=cItem.getItemId()%>"><%=cItem.getQuantity()%></span>
+								<button class="quantity-btn" data-action="increase"
+									data-item-id="<%=cItem.getItemId()%>">+</button>
+							</div>
+						</div>
+					</div>
+
+					<div class="image-and-delete-section">
+						<div class="menu-image">
+							<img
+								src="https://images.pexels.com/photos/1633578/pexels-photo-1633578.jpeg?cs=srgb&dl=beef-bread-buns-1633578.jpg&fm=jpg"
+								alt="<%=cItem.getItemName()%>">
+						</div>
+						<button class="delete-btn" data-action="remove"
+							data-item-id="<%=cItem.getItemId()%>">Delete</button>
+					</div>
+				</div>
+				<%
+				}
+				}
+				%>
+			</div>
+		</div>
+
+		<!-- Grand Total Section -->
+		<%
+		double subtotal = 0;
+		for (CartItem ci : items.values()) {
+			subtotal += ci.getPrice() * ci.getQuantity();
+		}
+		double total = (subtotal >= 1000) ? subtotal + tax : subtotal + shipping + tax;
+		%>
+
+		<%
+		if (!items.isEmpty()) {
+		%>
+		<div class="grand-total-section" id="grand-total-section">
+			<h2>Grand Total</h2>
+			<p>Order Summary</p>
+			<div class="summary-row">
+				<span id="summary-item-count">Subtotal (<%=items.size()%>
+					items)
+				</span> <span id="summary-subtotal">&#8377;<%=String.format("%.2f", subtotal)%></span>
+			</div>
+			<div class="summary-row">
+				<span>Shipping</span> <span id="summary-shipping">&#8377;<%=(subtotal >= 1000) ? 0 : shipping%></span>
+			</div>
+			<div class="summary-row">
+				<span>Tax</span> <span id="summary-tax">&#8377;<%=tax%></span>
+			</div>
+			<hr>
+			<div class="summary-row total-row">
+				<span>Total</span> <span id="summary-total">&#8377;<%=total%></span>
+			</div>
+			<div class="summary-actions">
+				<button class="checkout-btn"
+					onclick="window.location.href='checkout.jsp'">Proceed to
+					checkout</button>
+				<button class="shopping-btn" onclick="window.location.href='home'">Continue
+					Shopping</button>
+			</div>
+		</div>
+		<%
+		}
+		%>
+
+	</main>
+
+	<script>
+		window.restaurantConflict =
+	<%=(restaurantConflict != null ? restaurantConflict : 0)%>
+		;
+		window.newItemId =
+	<%=(newItemId != null ? newItemId : 0)%>
+		;
+		window.newQuantity =
+	<%=(newQuantity != null ? newQuantity : 0)%>
+		;
+	</script>
+	<script src="script/cart.js" defer></script>
+	<!-- Global Popup -->
+	<div id="global-cart-popup" class="popup-hidden">Cart Updated!</div>
+
+
+</body>
+</html>

@@ -46,6 +46,8 @@ public class RestaurantDAOImplementation implements RestaurantDAO {
 			tx.commit();
 			return restaurant.getRestaurantId();
 		} catch (Exception e) {
+			if (tx != null && tx.isActive())
+				tx.rollback();
 			e.printStackTrace();
 		}
 		return 0;
@@ -84,7 +86,7 @@ public class RestaurantDAOImplementation implements RestaurantDAO {
 			restaurant = session.get(Restaurant.class, restaurantId);
 			tx.commit();
 		} catch (Exception e) {
-			if (tx != null)
+			if (tx != null && tx.isActive())
 				tx.rollback();
 			e.printStackTrace();
 		}
@@ -102,7 +104,7 @@ public class RestaurantDAOImplementation implements RestaurantDAO {
 			tx.commit();
 			result = 1;
 		} catch (Exception e) {
-			if (tx != null)
+			if (tx != null && tx.isActive())
 				tx.rollback();
 			e.printStackTrace();
 		}
@@ -118,12 +120,12 @@ public class RestaurantDAOImplementation implements RestaurantDAO {
 			tx = session.beginTransaction();
 			restaurant = session.get(Restaurant.class, restaurantId);
 			if (restaurant != null) {
-				session.delete(restaurant);
+				session.remove(restaurant);
 				tx.commit();
 				result = 1;
 			}
 		} catch (Exception e) {
-			if (tx != null)
+			if (tx != null && tx.isActive())
 				tx.rollback();
 			e.printStackTrace();
 		}

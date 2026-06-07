@@ -1,29 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://xmlns.jcp.org/xml/ns/javaee" xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd" id="WebApp_ID" version="4.0">
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_5_0.xsd"
+         version="5.0">
+
   <display-name>ZingBite</display-name>
+
   <welcome-file-list>
     <welcome-file>index.html</welcome-file>
   </welcome-file-list>
-  <servlet>
-    <description></description>
-    <display-name>Menu</display-name>
-    <servlet-name>Menu</servlet-name>
-    <servlet-class>com.app.zingbiteServlets.Menu</servlet-class>
-  </servlet>
-  <servlet-mapping>
-    <servlet-name>Menu</servlet-name>
-    <url-pattern>/Menu</url-pattern>
-  </servlet-mapping>
-  <servlet>
-    <description></description>
-    <display-name>CartServlet</display-name>
-    <servlet-name>CartServlet</servlet-name>
-    <servlet-class>com.app.zingbiteServlets.CartServlet</servlet-class>
-  </servlet>
-  <servlet-mapping>
-    <servlet-name>CartServlet</servlet-name>
-    <url-pattern>/CartServlet</url-pattern>
-  </servlet-mapping>
 
   <!-- React Router SPA support -->
   <error-page>
@@ -31,5 +16,4 @@
       <location>/index.html</location>
   </error-page>
 
-  <!-- Context trigger reload -->
 </web-app>

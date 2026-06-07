@@ -164,6 +164,8 @@ public class CareersServlet extends HttpServlet {
             String email = requestBody.get("email").getAsString();
             String phone = requestBody.get("phone").getAsString();
             String resumeUrl = requestBody.has("resumeUrl") ? requestBody.get("resumeUrl").getAsString() : "https://zingbite.com/resumes/demo.pdf";
+            String city = requestBody.has("city") && !requestBody.get("city").isJsonNull() ? requestBody.get("city").getAsString() : null;
+            String vehicleType = requestBody.has("vehicle") && !requestBody.get("vehicle").isJsonNull() ? requestBody.get("vehicle").getAsString() : null;
 
             Application app = new Application();
             app.setJobId(jobId);
@@ -179,6 +181,22 @@ public class CareersServlet extends HttpServlet {
             try (Session hibernateSession = DBUtils.openSession()) {
                 tx = hibernateSession.beginTransaction();
                 hibernateSession.persist(app);
+
+                // Update User details if it is a rider application
+                Job job = hibernateSession.get(Job.class, jobId);
+                if (job != null && "Delivery Rider".equalsIgnoreCase(job.getTitle())) {
+                    User u = hibernateSession.get(User.class, user.getUserID());
+                    if (u != null) {
+                        if (city != null) u.setCity(city);
+                        if (vehicleType != null) u.setVehicleType(vehicleType);
+                        u.setRiderStatus("Pending");
+                        hibernateSession.merge(u);
+                        
+                        // Update the session user
+                        session.setAttribute("loggedInUser", u);
+                    }
+                }
+
                 tx.commit();
                 
                 resp.getWriter().write("{\"success\":true}");

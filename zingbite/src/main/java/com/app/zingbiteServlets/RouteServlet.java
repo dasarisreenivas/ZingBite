@@ -3,7 +3,6 @@ package com.app.zingbiteServlets;
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.util.List;
-import java.util.ArrayList;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -38,7 +37,62 @@ public class RouteServlet extends HttpServlet {
         if (session == null || session.getAttribute("loggedInUser") == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Unauthorized\"}");
-       
+            return;
+        }
+
+        String orderIdStr = req.getParameter("orderId");
+        if (orderIdStr == null) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            resp.getWriter().write("{\"error\":\"Missing orderId parameter\"}");
+            return;
+        }
+
+        try (Session dbSession = DBUtils.openSession()) {
+            int orderId = Integer.parseInt(orderIdStr.replace("ZB-", "").trim());
+            Orders order = dbSession.get(Orders.class, orderId);
+            if (order == null) {
+                resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                resp.getWriter().write("{\"error\":\"Order not found\"}");
+                return;
+            }
+
+            // Calculate optimized delivery route
+            String startNode = "Kitchen";
+            String endNode = "Customer";
+            List<String> optimizedRoute = RouteOptimizer.findShortestPath(startNode, endNode);
+
+            JsonObject jsonResponse = new JsonObject();
+            JsonArray routeArray = new JsonArray();
+            for (String node : optimizedRoute) {
+                routeArray.add(node);
+            }
+            jsonResponse.add("route", routeArray);
+            jsonResponse.addProperty("orderId", orderId);
+            resp.getWriter().write(jsonResponse.toString());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            resp.getWriter().write("{\"error\":\"Failed to retrieve routing details\"}");
+        }
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
+
+        HttpSession session = req.getSession(false);
+        if (session == null || session.getAttribute("loggedInUser") == null) {
+            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            resp.getWriter().write("{\"error\":\"Unauthorized\"}");
+            return;
+        }
+
+        try {
+            BufferedReader reader = req.getReader();
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
             String action = requestBody.has("action") ? requestBody.get("action").getAsString() : "";
 

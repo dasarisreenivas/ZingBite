@@ -52,9 +52,9 @@ public class RestaurantAdminServlet extends HttpServlet {
         }
 
         User user = (User) session.getAttribute("loggedInUser");
-        if (!"restaurant_admin".equals(user.getRole())) {
+        if (!"restaurant_admin".equals(user.getRole()) && !"customer".equals(user.getRole())) {
             resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            resp.getWriter().write("{\"error\":\"Forbidden: Only restaurant admins can access this resource.\"}");
+            resp.getWriter().write("{\"error\":\"Forbidden: Only restaurant admins or onboarding customers can access this resource.\"}");
             return;
         }
 
@@ -154,16 +154,20 @@ public class RestaurantAdminServlet extends HttpServlet {
         }
 
         User user = (User) session.getAttribute("loggedInUser");
-        if (!"restaurant_admin".equals(user.getRole())) {
-            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            resp.getWriter().write("{\"error\":\"Forbidden: Only restaurant admins can access this resource.\"}");
-            return;
-        }
 
         try {
             BufferedReader reader = req.getReader();
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
             String action = requestBody.has("action") ? requestBody.get("action").getAsString() : "";
+
+            // If action is NOT submitRestaurantRequest, restrict to restaurant_admin role
+            if (!"submitRestaurantRequest".equals(action)) {
+                if (!"restaurant_admin".equals(user.getRole())) {
+                    resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    resp.getWriter().write("{\"error\":\"Forbidden: Only restaurant admins can access this resource.\"}");
+                    return;
+                }
+            }
 
             Transaction tx = null;
 
@@ -281,6 +285,21 @@ public class RestaurantAdminServlet extends HttpServlet {
                     order.setOrderStatus(status);
                     ordersDAO.updateOrders(order);
 
+                    // Send stage status update email to the customer
+                    try (Session hibernateSession = DBUtils.openSession()) {
+                        User customer = hibernateSession.get(User.class, order.getUserId());
+                        if (customer != null) {
+                            com.app.zingbiteutils.EmailService.sendEmailAsync(
+                                customer.getUserID(),
+                                customer.getEmail(),
+                                "Order status update: ZB-" + orderId,
+                                com.app.zingbiteutils.EmailTemplates.orderStatusUpdate(customer.getUserName(), orderId, status)
+                            );
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+
                     try (Session hibernateSession = DBUtils.openSession()) {
                         tx = hibernateSession.beginTransaction();
                         String hql = "from OrderHistory where orderId = :orderId";
@@ -296,6 +315,12 @@ public class RestaurantAdminServlet extends HttpServlet {
                         if (tx != null) tx.rollback();
                         ex.printStackTrace();
                     }
+
+                    // Broadcast SSE Update
+                    JsonObject ssePayload = new JsonObject();
+                    ssePayload.addProperty("orderId", orderId);
+                    ssePayload.addProperty("status", status);
+                    com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastUpdate(orderId, ssePayload.toString());
 
                     resp.getWriter().write("{\"success\":true}");
                 } else {

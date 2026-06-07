@@ -21,11 +21,17 @@ public class EmailNotification implements Serializable {
     @Column(name = "userId")
     private int userId;
 
-    @Column(name = "subject")
+    @Column(name = "recipient_email", nullable = false)
+    private String recipientEmail;
+
+    @Column(name = "subject", nullable = false)
     private String subject;
 
-    @Column(name = "body", columnDefinition = "TEXT")
+    @Column(name = "body", columnDefinition = "TEXT", nullable = false)
     private String body;
+
+    @Column(name = "status", nullable = false)
+    private String status; // PENDING, SENT, FAILED, DISABLED
 
     @Column(name = "sentDate")
     private String sentDate;
@@ -34,12 +40,24 @@ public class EmailNotification implements Serializable {
         super();
     }
 
+    public EmailNotification(int userId, String recipientEmail, String subject, String body, String status) {
+        super();
+        this.userId = userId;
+        this.recipientEmail = recipientEmail;
+        this.subject = subject;
+        this.body = body;
+        this.status = status;
+    }
+
     public EmailNotification(int userId, String subject, String body, String sentDate) {
         super();
         this.userId = userId;
         this.subject = subject;
         this.body = body;
         this.sentDate = sentDate;
+        this.status = "PENDING";
+        // Recipient email will be resolved during dispatch or set to default placeholder
+        this.recipientEmail = "";
     }
 
     public int getId() {
@@ -58,6 +76,14 @@ public class EmailNotification implements Serializable {
         this.userId = userId;
     }
 
+    public String getRecipientEmail() {
+        return recipientEmail;
+    }
+
+    public void setRecipientEmail(String recipientEmail) {
+        this.recipientEmail = recipientEmail;
+    }
+
     public String getSubject() {
         return subject;
     }
@@ -72,6 +98,14 @@ public class EmailNotification implements Serializable {
 
     public void setBody(String body) {
         this.body = body;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public String getSentDate() {

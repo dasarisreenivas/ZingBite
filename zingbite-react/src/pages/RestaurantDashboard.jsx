@@ -57,8 +57,8 @@ const RestaurantDashboard = () => {
       navigate('/login?redirect=/restaurant-admin');
       return;
     }
-    if (user.role !== 'restaurant_admin') {
-      setError('Access Restricted. You are currently logged in as a ' + user.role + '. Only Restaurant Admins can access this portal.');
+    if (user.role !== 'restaurant_admin' && user.role !== 'customer') {
+      setError('Access Restricted. You are currently logged in as a ' + user.role + '. Only Restaurant Admins or onboarding partners can access this portal.');
       setLoading(false);
       return;
     }
@@ -365,14 +365,6 @@ const RestaurantDashboard = () => {
         `}</style>
 
         <div className="onboard-container fade-in">
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
-            <button 
-              onClick={async () => { await logout(); navigate('/login?redirect=/restaurant-admin'); }} 
-              className="portal-logout-btn"
-            >
-              <LogOut size={16} /> Logout
-            </button>
-          </div>
           {isPending ? (
             <div className="status-panel">
               <Loader size={48} style={{ animation: 'spin 2s linear infinite', color: '#ff9f40', margin: '0 auto 16px' }} />
@@ -1427,12 +1419,7 @@ const RestaurantDashboard = () => {
                 )}
               </div>
             </div>
-            <button 
-              onClick={async () => { await logout(); navigate('/login?redirect=/restaurant-admin'); }} 
-              className="portal-banner-logout-btn"
-            >
-              <LogOut size={16} /> Logout
-            </button>
+
           </div>
         )}
 

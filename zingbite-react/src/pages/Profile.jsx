@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
@@ -25,6 +25,145 @@ const Profile = () => {
     mobile: String(user?.phoneNumber || user?.mobile || ''),
     address: user?.address || '123 Main Street'
   });
+
+  // Leaflet Map states & refs
+  const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
+  const [geocoding, setGeocoding] = useState(false);
+
+  useEffect(() => {
+    if (window.L) {
+      setLeafletLoaded(true);
+      return;
+    }
+
+    let link = document.querySelector('link[href*="leaflet.css"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    let script = document.querySelector('script[src*="leaflet.js"]');
+    if (!script) {
+      script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.async = true;
+      script.onload = () => {
+        const interval = setInterval(() => {
+          if (window.L) {
+            setLeafletLoaded(true);
+            clearInterval(interval);
+          }
+        }, 50);
+      };
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const reverseGeocode = async (lat, lng, targetField) => {
+    setGeocoding(true);
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
+      const data = await response.json();
+      if (data && data.display_name) {
+        if (targetField === 'profile') {
+          setProfileData(prev => ({ ...prev, address: data.display_name }));
+        } else {
+          setNewAddressText(data.display_name);
+        }
+      }
+    } catch (err) {
+      console.error("Reverse geocoding error:", err);
+    } finally {
+      setGeocoding(false);
+    }
+  };
+
+  const detectLocation = (targetField) => {
+    if (!navigator.geolocation) {
+      showAlert("Geolocation is not supported by your browser.", "error");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.setView([latitude, longitude], 16);
+          if (markerRef.current) {
+            markerRef.current.setLatLng([latitude, longitude]);
+          }
+        }
+        reverseGeocode(latitude, longitude, targetField);
+      },
+      (err) => {
+        showAlert("Error retrieving location: " + err.message, "error");
+      }
+    );
+  };
+
+  useEffect(() => {
+    const showMap = (activeTab === 'details' && isEditing) || (activeTab === 'addresses' && showAddressForm);
+    if (!leafletLoaded || !mapRef.current || !showMap) {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markerRef.current = null;
+      }
+      return;
+    }
+
+    if (mapInstanceRef.current) return;
+
+    const L = window.L;
+    if (!L) return;
+
+    const defaultLat = 12.9716;
+    const defaultLng = 77.5946;
+
+    const map = L.map(mapRef.current).setView([defaultLat, defaultLng], 14);
+    mapInstanceRef.current = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const customIcon = L.divIcon({
+      html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">📍</div>`,
+      className: 'custom-profile-marker',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+
+    const marker = L.marker([defaultLat, defaultLng], { icon: customIcon, draggable: true }).addTo(map);
+    markerRef.current = marker;
+
+    const targetField = activeTab === 'details' ? 'profile' : 'newAddress';
+
+    marker.on('dragend', () => {
+      const latLng = marker.getLatLng();
+      reverseGeocode(latLng.lat, latLng.lng, targetField);
+    });
+
+    map.on('click', (e) => {
+      marker.setLatLng(e.latlng);
+      reverseGeocode(e.latlng.lat, e.latlng.lng, targetField);
+    });
+
+    reverseGeocode(defaultLat, defaultLng, targetField);
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, [leafletLoaded, activeTab, isEditing, showAddressForm]);
 
   useEffect(() => {
     if (user) {
@@ -684,6 +823,39 @@ const Profile = () => {
                     value={profileData.address}
                     onChange={e => setProfileData({...profileData, address: e.target.value})}
                   ></textarea>
+                  {isEditing && (
+                    <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <button 
+                        type="button"
+                        onClick={() => detectLocation('profile')}
+                        style={{
+                          alignSelf: 'flex-start',
+                          padding: '8px 14px',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          background: 'var(--brand-red)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <MapPin size={12} /> {geocoding ? 'Detecting Location...' : 'Auto-Detect Address'}
+                      </button>
+                      <div 
+                        ref={mapRef} 
+                        style={{ 
+                          height: '180px', 
+                          borderRadius: 'var(--radius-sm)', 
+                          border: '1px solid var(--border-medium)',
+                          zIndex: 1
+                        }} 
+                      />
+                    </div>
+                  )}
                 </div>
                 
                 {isEditing && (
@@ -739,6 +911,37 @@ const Profile = () => {
                         placeholder="House No, Building Name, Street, Landmark"
                         style={{ width: '100%', padding: '10px', marginTop: '4px', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-sm)', fontFamily: 'inherit' }}
                       ></textarea>
+                      <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <button 
+                          type="button"
+                          onClick={() => detectLocation('newAddress')}
+                          style={{
+                            alignSelf: 'flex-start',
+                            padding: '8px 14px',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            background: 'var(--brand-red)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <MapPin size={12} /> {geocoding ? 'Detecting Location...' : 'Auto-Detect Address'}
+                        </button>
+                        <div 
+                          ref={mapRef} 
+                          style={{ 
+                            height: '180px', 
+                            borderRadius: 'var(--radius-sm)', 
+                            border: '1px solid var(--border-medium)',
+                            zIndex: 1
+                          }} 
+                        />
+                      </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                       <button type="button" onClick={() => setShowAddressForm(false)} style={{ padding: '8px 12px', border: '1px solid var(--border-medium)', background: 'transparent', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>Cancel</button>

@@ -182,6 +182,9 @@ public class ProfileServlet extends HttpServlet {
                 String username = requestBody.has("username") ? requestBody.get("username").getAsString() : null;
                 String mobile = requestBody.has("mobile") ? requestBody.get("mobile").getAsString() : null;
                 String address = requestBody.has("address") ? requestBody.get("address").getAsString() : null;
+                Double latitude = requestBody.has("latitude") && !requestBody.get("latitude").isJsonNull() ? requestBody.get("latitude").getAsDouble() : null;
+                Double longitude = requestBody.has("longitude") && !requestBody.get("longitude").isJsonNull() ? requestBody.get("longitude").getAsDouble() : null;
+                String city = requestBody.has("city") && !requestBody.get("city").isJsonNull() ? requestBody.get("city").getAsString() : null;
 
                 if (username == null || mobile == null || address == null) {
                     resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -193,6 +196,9 @@ public class ProfileServlet extends HttpServlet {
                 user.setUserName(username);
                 user.setPhoneNumber(mobileNumber);
                 user.setAddress(address);
+                if (latitude != null) user.setLatitude(latitude);
+                if (longitude != null) user.setLongitude(longitude);
+                if (city != null) user.setCity(city);
 
                 UserDAO userDao = new UserDAOImplementation();
                 int success = userDao.updateUser(user);
@@ -207,30 +213,57 @@ public class ProfileServlet extends HttpServlet {
                 }
                 resp.getWriter().write(jsonResponse.toString());
 
+            } else if ("upgradeRole".equals(action)) {
+                String role = requestBody.has("role") ? requestBody.get("role").getAsString() : null;
+                if (role == null || (!"delivery_partner".equals(role) && !"restaurant_admin".equals(role))) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"Invalid role upgrade request\"}");
+                    return;
+                }
+                user.setRole(role);
+                UserDAO userDao = new UserDAOImplementation();
+                int success = userDao.updateUser(user);
+                if (success > 0) {
+                    session.setAttribute("loggedInUser", user);
+                    jsonResponse.addProperty("success", true);
+                    jsonResponse.add("user", new Gson().toJsonTree(user));
+                } else {
+                    resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    jsonResponse.addProperty("error", "Failed to update role in database");
+                }
+                resp.getWriter().write(jsonResponse.toString());
+
             } else if ("createOrder".equals(action)) {
                 double total = requestBody.has("total") ? requestBody.get("total").getAsDouble() : 0.0;
                 String paymentMethod = requestBody.has("paymentMethod") ? requestBody.get("paymentMethod").getAsString() : "UPI";
                 JsonArray itemsArray = requestBody.has("items") ? requestBody.getAsJsonArray("items") : new JsonArray();
 
                 Integer restaurantId = (Integer) session.getAttribute("restaurantId");
-                Restaurant restaurant = null;
-                if (restaurantId != null) {
-                    restaurant = new RestaurantDAOImplementation().getRestaurantById(restaurantId);
-                }
+                
+                int orderId = 0;
+                Transaction tx = null;
+                String orderTime = new SimpleDateFormat("MMMM dd, yyyy").format(new Date());
 
-                Orders order = new Orders();
-                order.setUserId(user.getUserID());
-                order.setRestaurantId(restaurant);
-                order.setOrderTime(new SimpleDateFormat("MMMM dd, yyyy").format(new Date()));
-                order.setTotalAmount((float) total);
-                order.setOrderStatus("Placed");
-                order.setPaymentMethod(paymentMethod);
+                try (Session dbSession = DBUtils.openSession()) {
+                    tx = dbSession.beginTransaction();
 
-                OrdersDAOImplementation ordersDAO = new OrdersDAOImplementation();
-                int orderId = ordersDAO.addOrders(order);
+                    Restaurant restaurant = null;
+                    if (restaurantId != null) {
+                        restaurant = dbSession.get(Restaurant.class, restaurantId);
+                    }
 
-                if (orderId > 0) {
-                    OrderItemDAOImplementation orderItemDAO = new OrderItemDAOImplementation();
+                    Orders order = new Orders();
+                    order.setUserId(user.getUserID());
+                    order.setRestaurantId(restaurant);
+                    order.setOrderTime(orderTime);
+                    order.setTotalAmount((float) total);
+                    order.setOrderStatus("Placed");
+                    order.setPaymentMethod(paymentMethod);
+
+                    dbSession.persist(order);
+                    dbSession.flush(); // populated orderId
+                    orderId = order.getOrderId();
+
                     for (JsonElement itemEl : itemsArray) {
                         JsonObject itemObj = itemEl.getAsJsonObject();
                         int itemId = itemObj.get("id").getAsInt();
@@ -238,7 +271,7 @@ public class ProfileServlet extends HttpServlet {
                         double price = itemObj.get("price").getAsDouble();
 
                         OrderItem orderItem = new OrderItem(orderId, itemId, qty, price * qty);
-                        orderItemDAO.addOrderItem(orderItem);
+                        dbSession.persist(orderItem);
                     }
 
                     // Also add to OrderHistory
@@ -249,7 +282,24 @@ public class ProfileServlet extends HttpServlet {
                     orderHistory.setTotalAmount(total);
                     orderHistory.setOrderStatus("Placed");
 
-                    new OrderHistoryDAOImplementation().addOrderHIstory(orderHistory);
+                    dbSession.persist(orderHistory);
+
+                    tx.commit();
+                } catch (Exception e) {
+                    if (tx != null && tx.isActive()) {
+                        tx.rollback();
+                    }
+                    throw e;
+                }
+
+                if (orderId > 0) {
+                    // Send order confirmation email
+                    com.app.zingbiteutils.EmailService.sendEmailAsync(
+                        user.getUserID(),
+                        user.getEmail(),
+                        "ZingBite Order Confirmation - ZB-" + orderId,
+                        com.app.zingbiteutils.EmailTemplates.orderPlaced(user.getUserName(), orderId, (float) total, orderTime)
+                    );
 
                     jsonResponse.addProperty("success", true);
                     jsonResponse.addProperty("orderId", "ZB-" + orderId);

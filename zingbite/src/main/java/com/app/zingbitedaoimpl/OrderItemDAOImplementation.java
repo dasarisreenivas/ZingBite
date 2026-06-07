@@ -48,7 +48,7 @@ public class OrderItemDAOImplementation implements OrderItemDAO {
 			tx.commit();
 			return orderItem.getMenuId();
 		} catch (Exception e) {
-			if (tx != null)
+			if (tx != null && tx.isActive())
 				tx.rollback();
 			e.printStackTrace();
 		}
@@ -66,7 +66,7 @@ public class OrderItemDAOImplementation implements OrderItemDAO {
 			list = query.list();
 			tx.commit();
 		} catch (Exception e) {
-			if (tx != null)
+			if (tx != null && tx.isActive())
 				tx.rollback();
 			e.printStackTrace();
 		}
@@ -94,7 +94,7 @@ public class OrderItemDAOImplementation implements OrderItemDAO {
 			tx.commit();
 			result = 1;
 		} catch (Exception e) {
-			if (tx != null)
+			if (tx != null && tx.isActive())
 				tx.rollback();
 			e.printStackTrace();
 		}
@@ -110,12 +110,12 @@ public class OrderItemDAOImplementation implements OrderItemDAO {
 			tx = session.beginTransaction();
 			OrderItem orderItem = session.get(OrderItem.class, orderItemId);
 			if (orderItem != null) {
-				session.delete(orderItemId);
+				session.remove(orderItem);
 				tx.commit();
 				result = 1;
 			}
 		} catch (Exception e) {
-			if (tx != null)
+			if (tx != null && tx.isActive())
 				tx.rollback();
 			e.printStackTrace();
 		}

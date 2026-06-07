@@ -1,4 +1,4 @@
-"package com.app.zingbitemodels;
+package com.app.zingbitemodels;
 
 import java.io.Serializable;
 import java.util.Date;
@@ -26,10 +26,10 @@ public class ChatMessage implements Serializable {
     private int id;
 
     @Column(name = "order_id")
-    private Integer orderId; // Nullable for application-based chat
+    private Integer orderId;
 
     @Column(name = "application_id")
-    private Integer applicationId; // Nullable for order-based chat
+    private Integer applicationId;
 
     @Column(name = "sender_id", nullable = false)
     private int senderId;
@@ -61,5 +61,42 @@ public class ChatMessage implements Serializable {
     public ChatMessage(Integer orderId, Integer applicationId, int senderId, String senderName, int receiverId, String messageText, Date timestamp) {
         super();
         this.orderId = orderId;
-        this
-<truncated 1833 bytes>
+        this.applicationId = applicationId;
+        this.senderId = senderId;
+        this.senderName = senderName;
+        this.receiverId = receiverId;
+        this.messageText = messageText;
+        this.timestamp = timestamp;
+        this.isRead = false;
+    }
+
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
+
+    public Integer getOrderId() { return orderId; }
+    public void setOrderId(Integer orderId) { this.orderId = orderId; }
+
+    public Integer getApplicationId() { return applicationId; }
+    public void setApplicationId(Integer applicationId) { this.applicationId = applicationId; }
+
+    public int getSenderId() { return senderId; }
+    public void setSenderId(int senderId) { this.senderId = senderId; }
+
+    public String getSenderName() { return senderName; }
+    public void setSenderName(String senderName) { this.senderName = senderName; }
+
+    public int getReceiverId() { return receiverId; }
+    public void setReceiverId(int receiverId) { this.receiverId = receiverId; }
+
+    public String getMessageText() { return messageText; }
+    public void setMessageText(String messageText) { this.messageText = messageText; }
+
+    public Date getTimestamp() { return timestamp; }
+    public void setTimestamp(Date timestamp) { this.timestamp = timestamp; }
+
+    public boolean isRead() { return isRead; }
+    public void setRead(boolean read) { isRead = read; }
+
+    public Date getReadAt() { return readAt; }
+    public void setReadAt(Date readAt) { this.readAt = readAt; }
+}

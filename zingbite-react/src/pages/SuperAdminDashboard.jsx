@@ -6,8 +6,9 @@ import { useModal } from '../context/ModalContext';
 import { 
   Users, Store, ShoppingBag, IndianRupee, Briefcase, 
   FileText, Plus, CheckCircle, XCircle, AlertTriangle, 
-  Loader, Shield, UserCheck, Check, X, FileCheck2, LogOut
+  Loader, Shield, UserCheck, Check, X, FileCheck2, LogOut, MessageSquare
 } from 'lucide-react';
+import ChatWidget from '../components/ChatWidget';
 
 const SuperAdminDashboard = () => {
   const { user, logout, loading: authLoading } = useContext(AuthContext);
@@ -29,6 +30,7 @@ const SuperAdminDashboard = () => {
   
   // Action triggers
   const [actionLoading, setActionLoading] = useState(null);
+  const [activeChatAppId, setActiveChatAppId] = useState(null);
 
   // Forms state
   const [restaurantForm, setRestaurantForm] = useState({ name: '', cuisine: '', address: '', deliveryTime: '', imagePath: '' });
@@ -202,6 +204,8 @@ const SuperAdminDashboard = () => {
   // Separate pending requests
   const pendingRequests = (data.restaurantRequests || []).filter(r => r.status === 'Pending');
   const reviewedRequests = (data.restaurantRequests || []).filter(r => r.status !== 'Pending');
+  const riderApps = (data.applications || []).filter(app => app.jobTitle === 'Delivery Rider');
+  const generalApps = (data.applications || []).filter(app => app.jobTitle !== 'Delivery Rider');
 
   return (
     <>
@@ -445,12 +449,6 @@ const SuperAdminDashboard = () => {
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '2px' }}>Site statistics, role allocation, and listings management.</p>
             </div>
           </div>
-          <button 
-            onClick={async () => { await logout(); navigate('/login?redirect=/admin'); }} 
-            className="portal-logout-btn"
-          >
-            <LogOut size={16} /> Logout
-          </button>
         </div>
 
         {/* Global Statistics Cards */}
@@ -459,28 +457,28 @@ const SuperAdminDashboard = () => {
             <div className="stat-icon red"><Users size={24} /></div>
             <div>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Active Users</span>
-              <div className="stat-number">{data.userCount}</div>
+              <div className="stat-number">{data?.userCount || 0}</div>
             </div>
           </div>
           <div className="stat-card">
             <div className="stat-icon blue"><Store size={24} /></div>
             <div>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Restaurants</span>
-              <div className="stat-number">{data.restaurantCount}</div>
+              <div className="stat-number">{data?.restaurantCount || 0}</div>
             </div>
           </div>
           <div className="stat-card">
             <div className="stat-icon green"><ShoppingBag size={24} /></div>
             <div>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Orders Placed</span>
-              <div className="stat-number">{data.orderCount}</div>
+              <div className="stat-number">{data?.orderCount || 0}</div>
             </div>
           </div>
           <div className="stat-card">
             <div className="stat-icon purple"><IndianRupee size={24} /></div>
             <div>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Gross Revenue</span>
-              <div className="stat-number">&#8377;{data.totalRevenue.toFixed(2)}</div>
+              <div className="stat-number">&#8377;{(data?.totalRevenue ?? 0).toFixed(2)}</div>
             </div>
           </div>
         </div>
@@ -503,13 +501,13 @@ const SuperAdminDashboard = () => {
             className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`} 
             onClick={() => setActiveTab('users')}
           >
-            Users Control ({data.users.length})
+            Users Control ({(data?.users || []).length})
           </button>
           <button 
             className={`tab-btn ${activeTab === 'applications' ? 'active' : ''}`} 
             onClick={() => setActiveTab('applications')}
           >
-            Applications Review ({data.applications.length})
+            Applications Review ({(data?.applications || []).length})
           </button>
         </div>
 
@@ -765,69 +763,230 @@ const SuperAdminDashboard = () => {
         )}
 
         {activeTab === 'applications' && (
-          <div className="admin-table-wrapper">
-            {data.applications.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '48px' }}>
-                <p style={{ color: 'var(--text-secondary)' }}>No applications received yet.</p>
-              </div>
-            ) : (
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Candidate Name</th>
-                    <th>Target Role</th>
-                    <th>Email / Phone</th>
-                    <th>Applied Date</th>
-                    <th>Resume</th>
-                    <th>Status Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.applications.map((app) => (
-                    <tr key={app.id}>
-                      <td style={{ fontWeight: 700 }}>{app.candidateName}</td>
-                      <td>{app.jobTitle}</td>
-                      <td>
-                        <div style={{ fontSize: '0.85rem' }}>{app.email}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{app.phone}</div>
-                      </td>
-                      <td>{app.appliedDate}</td>
-                      <td>
-                        <a 
-                          href={app.resumeUrl} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
-                        >
-                          <FileText size={14} /> Resume
-                        </a>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <select 
-                            className="role-selector"
-                            value={app.status || 'Applied'}
-                            disabled={actionLoading === `app-${app.id}`}
-                            onChange={(e) => handleUpdateAppStatus(app.id, e.target.value)}
-                          >
-                            <option value="Applied">Applied</option>
-                            <option value="Interview Scheduled">Interview</option>
-                            <option value="Offer Extended">Offer</option>
-                            <option value="Rejected">Rejected</option>
-                          </select>
-                          {actionLoading === `app-${app.id}` && (
-                            <Loader size={14} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
-                          )}
-                        </div>
-                      </td>
+          <div>
+            {/* 1. Rider Onboarding Queue */}
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <UserCheck size={20} style={{ color: 'var(--brand-red)' }} /> Delivery Rider Onboarding Queue ({riderApps.length})
+            </h2>
+            <div className="admin-table-wrapper" style={{ marginBottom: '40px' }}>
+              {riderApps.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '32px' }}>
+                  <p style={{ color: 'var(--text-secondary)' }}>No delivery rider applications pending review.</p>
+                </div>
+              ) : (
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Candidate Name</th>
+                      <th>Email / Phone</th>
+                      <th>Applied Date</th>
+                      <th>Resume</th>
+                      <th>Chat Review</th>
+                      <th>Status</th>
+                      <th>Rider Onboarding Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                  </thead>
+                  <tbody>
+                    {riderApps.map((app) => (
+                      <tr key={app.id}>
+                        <td style={{ fontWeight: 700 }}>{app.candidateName}</td>
+                        <td>
+                          <div style={{ fontSize: '0.85rem' }}>{app.email}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{app.phone}</div>
+                        </td>
+                        <td>{app.appliedDate}</td>
+                        <td>
+                          <a 
+                            href={app.resumeUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
+                          >
+                            <FileText size={14} /> Resume
+                          </a>
+                        </td>
+                        <td>
+                          <button 
+                            onClick={() => setActiveChatAppId(app.id)}
+                            style={{
+                              background: 'transparent',
+                              color: '#8b5cf6',
+                              border: '1px solid #8b5cf6',
+                              padding: '6px 10px',
+                              borderRadius: '4px',
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <MessageSquare size={12} /> Chat
+                          </button>
+                        </td>
+                        <td>
+                          <span className={`badge ${
+                            app.status.toLowerCase().includes('applied') ? 'applied' : 
+                            app.status.toLowerCase().includes('interview') ? 'interview' : 
+                            app.status.toLowerCase().includes('offer') ? 'offered' : 'rejected'
+                          }`}>
+                            {app.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              disabled={actionLoading === `app-${app.id}` || app.status === 'Offer Extended'}
+                              onClick={() => handleUpdateAppStatus(app.id, 'Offer Extended')}
+                              style={{
+                                background: '#4bc0c0',
+                                color: 'white',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '4px',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                opacity: app.status === 'Offer Extended' ? 0.6 : 1
+                              }}
+                            >
+                              <Check size={12} /> Approve Rider
+                            </button>
+                            <button
+                              disabled={actionLoading === `app-${app.id}` || app.status === 'Rejected'}
+                              onClick={() => handleUpdateAppStatus(app.id, 'Rejected')}
+                              style={{
+                                background: 'var(--danger)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '4px',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                opacity: app.status === 'Rejected' ? 0.6 : 1
+                              }}
+                            >
+                              <X size={12} /> Reject Rider
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* 2. General Career Applications */}
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Briefcase size={20} style={{ color: 'var(--brand-red)' }} /> General Career Applications ({generalApps.length})
+            </h2>
+            <div className="admin-table-wrapper">
+              {generalApps.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '32px' }}>
+                  <p style={{ color: 'var(--text-secondary)' }}>No other career applications received.</p>
+                </div>
+              ) : (
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Candidate Name</th>
+                      <th>Target Role</th>
+                      <th>Email / Phone</th>
+                      <th>Applied Date</th>
+                      <th>Resume</th>
+                      <th>Chat</th>
+                      <th>Status Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {generalApps.map((app) => (
+                      <tr key={app.id}>
+                        <td style={{ fontWeight: 700 }}>{app.candidateName}</td>
+                        <td>{app.jobTitle}</td>
+                        <td>
+                          <div style={{ fontSize: '0.85rem' }}>{app.email}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{app.phone}</div>
+                        </td>
+                        <td>{app.appliedDate}</td>
+                        <td>
+                          <a 
+                            href={app.resumeUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
+                          >
+                            <FileText size={14} /> Resume
+                          </a>
+                        </td>
+                        <td>
+                          <button 
+                            onClick={() => setActiveChatAppId(app.id)}
+                            style={{
+                              background: 'transparent',
+                              color: '#8b5cf6',
+                              border: '1px solid #8b5cf6',
+                              padding: '6px 10px',
+                              borderRadius: '4px',
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <MessageSquare size={12} /> Chat
+                          </button>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <select 
+                              className="role-selector"
+                              value={app.status || 'Applied'}
+                              disabled={actionLoading === `app-${app.id}`}
+                              onChange={(e) => handleUpdateAppStatus(app.id, e.target.value)}
+                            >
+                              <option value="Applied">Applied</option>
+                              <option value="Interview Scheduled">Interview Scheduled</option>
+                              <option value="Offer Extended">Offer Extended</option>
+                              <option value="Rejected">Rejected</option>
+                            </select>
+                            {actionLoading === `app-${app.id}` && (
+                              <Loader size={14} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         )}
       </div>
+
+      {activeChatAppId && (
+        <ChatWidget
+          key={activeChatAppId}
+          type="application"
+          targetId={activeChatAppId}
+          userId={user?.userID || user?.userId}
+          userName={user?.userName || user?.username}
+          receiverId={(data?.applications || []).find(a => a.id === activeChatAppId)?.userId || 0}
+          initialOpen={true}
+          onClose={() => setActiveChatAppId(null)}
+        />
+      )}
     </>
   );
 };

@@ -3,7 +3,207 @@ import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../context/ModalContext';
-import { Bike, CheckCircle2, Navigation, IndianRupee, Loader, AlertTriangle, MapPin, ClipboardCheck, LogOut } from 'lucide-react';
+import { Bike, CheckCircle2, Navigation, IndianRupee, Loader, AlertTriangle, MapPin, ClipboardCheck, LogOut, MessageSquare } from 'lucide-react';
+import ChatWidget from '../components/ChatWidget';
+
+const ActiveDeliveryMap = ({ order }) => {
+  const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
+  const mapRef = React.useRef(null);
+  const mapInstanceRef = React.useRef(null);
+  const riderMarkerRef = React.useRef(null);
+  const restaurantMarkerRef = React.useRef(null);
+  const customerMarkerRef = React.useRef(null);
+  const routePolylineRef = React.useRef(null);
+
+  // Load Leaflet dynamically
+  useEffect(() => {
+    if (window.L) {
+      setLeafletLoaded(true);
+      return;
+    }
+
+    let link = document.querySelector('link[href*="leaflet.css"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    let script = document.querySelector('script[src*="leaflet.js"]');
+    if (!script) {
+      script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
+      script.async = true;
+      script.onload = () => {
+        const interval = setInterval(() => {
+          if (window.L) {
+            setLeafletLoaded(true);
+            clearInterval(interval);
+          }
+        }, 50);
+      };
+      document.body.appendChild(script);
+    } else {
+      const interval = setInterval(() => {
+        if (window.L) {
+          setLeafletLoaded(true);
+          clearInterval(interval);
+        }
+      }, 50);
+      return () => clearInterval(interval);
+    }
+  }, []);
+
+  // Resolve current coordinates
+  const restaurantLat = 12.9716;
+  const restaurantLng = 77.5946;
+  const customerLat = 12.9821;
+  const customerLng = 77.6085;
+
+  let currentLat = restaurantLat;
+  let currentLng = restaurantLng;
+  let isRealGPS = false;
+
+  if (order && order.gpsCoordinates) {
+    const parts = order.gpsCoordinates.split(',');
+    if (parts.length === 2) {
+      const plat = parseFloat(parts[0]);
+      const plng = parseFloat(parts[1]);
+      if (!isNaN(plat) && !isNaN(plng)) {
+        currentLat = plat;
+        currentLng = plng;
+        isRealGPS = true;
+      }
+    }
+  } else if (order) {
+    const progress = order.gpsProgress || 0;
+    currentLat = restaurantLat + (customerLat - restaurantLat) * (progress / 100);
+    currentLng = restaurantLng + (customerLng - restaurantLng) * (progress / 100);
+  }
+
+  // Initialize Map
+  useEffect(() => {
+    if (!leafletLoaded || !mapRef.current) return;
+    if (mapInstanceRef.current) return;
+
+    const L = window.L;
+    if (!L) return;
+
+    const map = L.map(mapRef.current, {
+      zoomControl: true,
+      scrollWheelZoom: true
+    }).setView([12.977, 77.601], 14);
+    mapInstanceRef.current = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const restaurantIcon = L.divIcon({
+      html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">🍳</div>`,
+      className: 'custom-map-marker-restaurant',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+
+    const customerIcon = L.divIcon({
+      html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">🏠</div>`,
+      className: 'custom-map-marker-customer',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+
+    const riderIcon = L.divIcon({
+      html: `<div style="font-size: 28px; text-align: center; line-height: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">🛵</div>`,
+      className: 'custom-map-marker-rider',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+
+    restaurantMarkerRef.current = L.marker([restaurantLat, restaurantLng], { icon: restaurantIcon }).addTo(map).bindPopup('<b>ZingBite Kitchen</b>');
+    customerMarkerRef.current = L.marker([customerLat, customerLng], { icon: customerIcon }).addTo(map).bindPopup('<b>Customer Address</b>');
+
+    const routePoints = [
+      [restaurantLat, restaurantLng],
+      [restaurantLat, 77.6010],
+      [customerLat, 77.6010],
+      [customerLat, customerLng]
+    ];
+
+    routePolylineRef.current = L.polyline(routePoints, { color: '#8b5cf6', weight: 4, opacity: 0.7, dashArray: '8, 8' }).addTo(map);
+
+    riderMarkerRef.current = L.marker([currentLat, currentLng], { icon: riderIcon }).addTo(map).bindPopup('<b>Rider (You)</b>');
+
+    map.fitBounds([
+      [restaurantLat, restaurantLng],
+      [customerLat, customerLng]
+    ], { padding: [40, 40] });
+
+    setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 200);
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        riderMarkerRef.current = null;
+        restaurantMarkerRef.current = null;
+        customerMarkerRef.current = null;
+        routePolylineRef.current = null;
+      }
+    };
+  }, [leafletLoaded, order.orderId]);
+
+  // Update Rider Position
+  useEffect(() => {
+    if (!leafletLoaded || !riderMarkerRef.current) return;
+    riderMarkerRef.current.setLatLng([currentLat, currentLng]);
+  }, [currentLat, currentLng, leafletLoaded]);
+
+  return (
+    <div className="map-wrapper" style={{ height: '200px', position: 'relative', marginTop: '16px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-medium)' }}>
+      <div className="map-overlay-text" style={{ 
+        position: 'absolute', 
+        top: '8px', 
+        left: '8px', 
+        background: 'rgba(255,255,255,0.9)', 
+        padding: '4px 8px', 
+        borderRadius: '4px', 
+        fontSize: '0.7rem', 
+        fontWeight: 700, 
+        color: '#8b5cf6',
+        zIndex: 10,
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      }}>
+        {isRealGPS ? '🔴 LIVE GPS MAP' : '📍 PROJECTED ROUTE MAP'}
+      </div>
+      
+      <div 
+        ref={mapRef} 
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          zIndex: 1, 
+          visibility: leafletLoaded ? 'visible' : 'hidden' 
+        }} 
+      />
+
+      {!leafletLoaded && (
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f4f6f8', gap: '8px', zIndex: 5 }}>
+          <Loader size={20} className="spin" style={{ color: '#8b5cf6' }} />
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            Loading Leaflet Interactive Map...
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const DeliveryDashboard = () => {
   const { user, logout, loading: authLoading } = useContext(AuthContext);
@@ -14,6 +214,7 @@ const DeliveryDashboard = () => {
   const [actionLoading, setActionLoading] = useState(null);
   const [simulators, setSimulators] = useState({});
   const [watchers, setWatchers] = useState({});
+  const [activeChatOrderId, setActiveChatOrderId] = useState(null);
 
   const restaurantLat = 12.9716;
   const restaurantLng = 77.5946;
@@ -643,35 +844,35 @@ const DeliveryDashboard = () => {
             <div className="stat-icon green"><IndianRupee size={24} /></div>
             <div>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Rider Earnings</span>
-              <div className="stat-number">&#8377;{data.totalEarnings.toFixed(2)}</div>
+              <div className="stat-number">&#8377;{(data?.totalEarnings ?? 0).toFixed(2)}</div>
             </div>
           </div>
           <div className="stat-card">
             <div className="stat-icon blue"><CheckCircle2 size={24} /></div>
             <div>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Completed Trips</span>
-              <div className="stat-number">{data.completedCount}</div>
+              <div className="stat-number">{(data?.completedCount ?? 0)}</div>
             </div>
           </div>
           <div className="stat-card">
             <div className="stat-icon red"><Bike size={24} /></div>
             <div>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Active Runs</span>
-              <div className="stat-number">{data.active.length}</div>
+              <div className="stat-number">{(data?.active || []).length}</div>
             </div>
           </div>
         </div>
 
         {/* Available Runs (Claim Feed) */}
-        <h2 className="section-title">Available Delivery Runs ({data.available.length})</h2>
-        {data.available.length === 0 ? (
+        <h2 className="section-title">Available Delivery Runs ({(data?.available || []).length})</h2>
+        {(data?.available || []).length === 0 ? (
           <div className="empty-state">
             <AlertTriangle size={32} style={{ margin: '0 auto 12px', color: 'var(--text-muted)' }} />
             <p>No available delivery runs at the moment. Waiting for new customer orders...</p>
           </div>
         ) : (
           <div className="orders-grid">
-            {data.available.map((o) => (
+            {(data?.available || []).map((o) => (
               <div key={o.orderId} className="delivery-card">
                 <div>
                   <div className="delivery-card-header">
@@ -708,14 +909,14 @@ const DeliveryDashboard = () => {
         )}
 
         {/* Active Deliveries */}
-        <h2 className="section-title">My Active Tasks ({data.active.length})</h2>
-        {data.active.length === 0 ? (
+        <h2 className="section-title">My Active Tasks ({(data?.active || []).length})</h2>
+        {(data?.active || []).length === 0 ? (
           <div className="empty-state" style={{ marginBottom: '32px' }}>
             <p>No active delivery runs claimed. Accept a run from the feed above!</p>
           </div>
         ) : (
           <div className="orders-grid">
-            {data.active.map((o) => (
+            {(data?.active || []).map((o) => (
               <div key={o.orderId} className="delivery-card">
                 <div>
                   <div className="delivery-card-header">
@@ -727,7 +928,25 @@ const DeliveryDashboard = () => {
                   <h4 style={{ fontSize: '1.05rem', fontWeight: 700 }}>{o.restaurantName}</h4>
                   
                   <div className="loc-box" style={{ background: '#f5f0ff' }}>
-                    <p style={{ fontWeight: 700, marginBottom: '4px' }}>Customer: {o.customerName}</p>
+                    <p style={{ fontWeight: 700, marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Customer: {o.customerName}</span>
+                      <button 
+                        onClick={() => setActiveChatOrderId(o.orderId)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--brand-red)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '0.78rem',
+                          fontWeight: 700
+                        }}
+                      >
+                        <MessageSquare size={14} /> Chat
+                      </button>
+                    </p>
                     <p style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <MapPin size={12} style={{ flexShrink: 0 }} /> Address: {o.customerAddress}
                     </p>
@@ -739,6 +958,9 @@ const DeliveryDashboard = () => {
                 </div>
                 
                 {renderRiderStepper(o)}
+
+                {/* Route map visible to delivery partner for all active statuses */}
+                <ActiveDeliveryMap order={o} />
 
                 {o.status === 'Out for Delivery' && (
                   <div style={{ marginTop: '20px', padding: '16px', background: '#fcfaff', border: '1px solid #dcd3ff', borderRadius: '8px' }}>
@@ -823,13 +1045,13 @@ const DeliveryDashboard = () => {
 
         {/* Completed Deliveries */}
         <h2 className="section-title">Trip Log (Completed)</h2>
-        {data.completed.length === 0 ? (
+        {(data?.completed || []).length === 0 ? (
           <div className="empty-state">
             <p>Your completed delivery logs will show up here.</p>
           </div>
         ) : (
           <div className="orders-grid">
-            {data.completed.map((o) => (
+            {(data?.completed || []).map((o) => (
               <div key={o.orderId} className="delivery-card" style={{ opacity: 0.8 }}>
                 <div>
                   <div className="delivery-card-header">
@@ -847,6 +1069,19 @@ const DeliveryDashboard = () => {
           </div>
         )}
       </div>
+
+      {activeChatOrderId && (
+        <ChatWidget
+          key={activeChatOrderId}
+          type="order"
+          targetId={activeChatOrderId}
+          userId={user?.userID || user?.userId}
+          userName={user?.userName || user?.username}
+          receiverId={(data?.active || []).find(a => a.orderId === activeChatOrderId)?.customerId || 0}
+          initialOpen={true}
+          onClose={() => setActiveChatOrderId(null)}
+        />
+      )}
     </>
   );
 };

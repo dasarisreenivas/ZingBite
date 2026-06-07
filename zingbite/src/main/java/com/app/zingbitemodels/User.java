@@ -35,6 +35,16 @@ public class User implements Serializable{
 	private Date lastLogin;
 	@Column(name="role")
 	private String role;
+	@Column(name="latitude")
+	private Double latitude;
+	@Column(name="longitude")
+	private Double longitude;
+	@Column(name="city")
+	private String city;
+	@Column(name="rider_status")
+	private String riderStatus;
+	@Column(name="vehicle_type")
+	private String vehicleType;
 	
 	
 	public User() {
@@ -135,10 +145,51 @@ public class User implements Serializable{
 		this.role = role;
 	}
 
+	public Double getLatitude() {
+		return latitude;
+	}
+
+	public void setLatitude(Double latitude) {
+		this.latitude = latitude;
+	}
+
+	public Double getLongitude() {
+		return longitude;
+	}
+
+	public void setLongitude(Double longitude) {
+		this.longitude = longitude;
+	}
+
+	public String getCity() {
+		return city;
+	}
+
+	public void setCity(String city) {
+		this.city = city;
+	}
+
+	public String getRiderStatus() {
+		return riderStatus;
+	}
+
+	public void setRiderStatus(String riderStatus) {
+		this.riderStatus = riderStatus;
+	}
+
+	public String getVehicleType() {
+		return vehicleType;
+	}
+
+	public void setVehicleType(String vehicleType) {
+		this.vehicleType = vehicleType;
+	}
+
 	@Override
 	public String toString() {
 		return "User [userID=" + userID + ", userName=" + userName + ", email=" + email + ", password=" + password
-				+ ", phoneNumber=" + phoneNumber + ", createdOn=" + createdOn + ", lastLogin=" + lastLogin + ", role=" + role + "]";
+				+ ", phoneNumber=" + phoneNumber + ", createdOn=" + createdOn + ", lastLogin=" + lastLogin + ", role=" + role 
+				+ ", latitude=" + latitude + ", longitude=" + longitude + ", city=" + city + ", riderStatus=" + riderStatus + ", vehicleType=" + vehicleType + "]";
 	}
 	
 	

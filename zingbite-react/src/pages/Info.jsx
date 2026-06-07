@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
+import { AuthContext } from '../context/AuthContext';
 import { useModal } from '../context/ModalContext';
 import { 
   Info, Briefcase, Users, BookOpen, HelpCircle, Mail, 
   Building2, Bike, FileText, Shield, Cookie, RefreshCw,
-  Send, CheckCircle, ChevronDown, Search, MapPin, Phone, ExternalLink, AlertCircle
+  Send, CheckCircle, ChevronDown, Search, MapPin, Phone, ExternalLink, AlertCircle, Loader
 } from 'lucide-react';
 
 const InfoPage = () => {
@@ -13,13 +15,157 @@ const InfoPage = () => {
   const { showAlert } = useModal();
   const activeSection = sectionId || 'about-us';
 
+  const { user, updateUser } = useContext(AuthContext);
+  const [partnerSubmitting, setPartnerSubmitting] = useState(false);
+  const [riderSubmitting, setRiderSubmitting] = useState(false);
+
   // State for forms & interactions
   const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [contactSubmitted, setContactSubmitted] = useState(false);
-  const [partnerForm, setPartnerForm] = useState({ restName: '', owner: '', email: '', phone: '', city: '' });
+  const [partnerForm, setPartnerForm] = useState({ restName: '', owner: '', email: '', phone: '', city: '', cuisine: '', address: '', licenseNo: '', aadhaarNo: '', gstNo: '' });
   const [partnerSubmitted, setPartnerSubmitted] = useState(false);
   const [riderForm, setRiderForm] = useState({ name: '', city: '', vehicle: 'bike', phone: '' });
   const [riderSubmitted, setRiderSubmitted] = useState(false);
+
+  // Leaflet Map states & refs
+  const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
+  const [geocoding, setGeocoding] = useState(false);
+
+  useEffect(() => {
+    if (window.L) {
+      setLeafletLoaded(true);
+      return;
+    }
+
+    let link = document.querySelector('link[href*="leaflet.css"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    let script = document.querySelector('script[src*="leaflet.js"]');
+    if (!script) {
+      script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.async = true;
+      script.onload = () => {
+        const interval = setInterval(() => {
+          if (window.L) {
+            setLeafletLoaded(true);
+            clearInterval(interval);
+          }
+        }, 50);
+      };
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const reverseGeocode = async (lat, lng) => {
+    setGeocoding(true);
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
+      const data = await response.json();
+      if (data) {
+        const addr = data.display_name || '';
+        const city = data.address?.city || data.address?.town || data.address?.village || data.address?.suburb || '';
+        
+        if (activeSection === 'partner-with-us') {
+          setPartnerForm(prev => ({ ...prev, address: addr, city: city }));
+        } else if (activeSection === 'ride-with-us') {
+          setRiderForm(prev => ({ ...prev, city: city || addr }));
+        }
+      }
+    } catch (err) {
+      console.error("Reverse geocoding error:", err);
+    } finally {
+      setGeocoding(false);
+    }
+  };
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      showAlert("Geolocation is not supported by your browser.", "error");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.setView([latitude, longitude], 16);
+          if (markerRef.current) {
+            markerRef.current.setLatLng([latitude, longitude]);
+          }
+        }
+        reverseGeocode(latitude, longitude);
+      },
+      (err) => {
+        showAlert("Error retrieving location: " + err.message, "error");
+      }
+    );
+  };
+
+  useEffect(() => {
+    const showMap = activeSection === 'partner-with-us' || activeSection === 'ride-with-us';
+    if (!leafletLoaded || !mapRef.current || !showMap || !user) {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markerRef.current = null;
+      }
+      return;
+    }
+
+    if (mapInstanceRef.current) return;
+
+    const L = window.L;
+    if (!L) return;
+
+    const defaultLat = 12.9716;
+    const defaultLng = 77.5946;
+
+    const map = L.map(mapRef.current).setView([defaultLat, defaultLng], 14);
+    mapInstanceRef.current = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const customIcon = L.divIcon({
+      html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">📍</div>`,
+      className: 'custom-info-marker',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+
+    const marker = L.marker([defaultLat, defaultLng], { icon: customIcon, draggable: true }).addTo(map);
+    markerRef.current = marker;
+
+    marker.on('dragend', () => {
+      const latLng = marker.getLatLng();
+      reverseGeocode(latLng.lat, latLng.lng);
+    });
+
+    map.on('click', (e) => {
+      marker.setLatLng(e.latlng);
+      reverseGeocode(e.latlng.lat, e.latlng.lng);
+    });
+
+    reverseGeocode(defaultLat, defaultLng);
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, [leafletLoaded, activeSection, user]);
   
   // Job apply state
   const [appliedJob, setAppliedJob] = useState(null);
@@ -58,22 +204,82 @@ const InfoPage = () => {
     }, 4000);
   };
 
-  const handlePartnerSubmit = (e) => {
+  const handlePartnerSubmit = async (e) => {
     e.preventDefault();
-    setPartnerSubmitted(true);
-    setTimeout(() => {
-      setPartnerForm({ restName: '', owner: '', email: '', phone: '', city: '' });
-      setPartnerSubmitted(false);
-    }, 4000);
+    if (!user) {
+      showAlert("You must be logged in to apply as a partner", "error");
+      return;
+    }
+    if (!partnerForm.address || !partnerForm.licenseNo || !partnerForm.aadhaarNo || !partnerForm.gstNo) {
+      showAlert("Please fill out all required onboarding fields, including map location coordinates.", "warning");
+      return;
+    }
+    setPartnerSubmitting(true);
+    try {
+      const res = await axios.post('/api/restaurant-admin', {
+        action: 'submitRestaurantRequest',
+        name: partnerForm.restName,
+        cuisine: partnerForm.cuisine || 'Multi-Cuisine',
+        address: partnerForm.address,
+        deliveryTime: '30 mins',
+        imagePath: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop',
+        licenseNo: partnerForm.licenseNo,
+        aadhaarNo: partnerForm.aadhaarNo,
+        gstNo: partnerForm.gstNo
+      });
+      if (res.data.success) {
+        setPartnerSubmitted(true);
+        showAlert("Partner onboarding application submitted successfully! Pending administrator verification and role elevation.", "success");
+      }
+    } catch (err) {
+      showAlert(err.response?.data?.error || "Failed to submit partner application.", "error");
+    } finally {
+      setPartnerSubmitting(false);
+    }
   };
 
-  const handleRiderSubmit = (e) => {
+  const handleRiderSubmit = async (e) => {
     e.preventDefault();
-    setRiderSubmitted(true);
-    setTimeout(() => {
-      setRiderForm({ name: '', city: '', vehicle: 'bike', phone: '' });
-      setRiderSubmitted(false);
-    }, 4000);
+    if (!user) {
+      showAlert("You must be logged in to apply as a rider", "error");
+      return;
+    }
+    setRiderSubmitting(true);
+    try {
+      // 1. Fetch available career jobs
+      const jobsRes = await axios.get('/api/careers?action=jobs');
+      const jobsList = jobsRes.data || [];
+      
+      // 2. Find job named "Delivery Rider"
+      let riderJob = jobsList.find(j => j.title && j.title.toLowerCase().includes('rider'));
+      if (!riderJob && jobsList.length > 0) {
+        riderJob = jobsList[0];
+      }
+      
+      if (!riderJob) {
+        throw new Error("Delivery Rider position not found in careers listing.");
+      }
+      
+      // 3. Submit application
+      const res = await axios.post('/api/careers', {
+        jobId: riderJob.id,
+        name: riderForm.name,
+        email: user.email,
+        phone: riderForm.phone,
+        resumeUrl: 'https://zingbite.com/resumes/rider_application.pdf',
+        city: riderForm.city,
+        vehicle: riderForm.vehicle
+      });
+      
+      if (res.data.success) {
+        setRiderSubmitted(true);
+        showAlert("Rider job application submitted! Pending admin review.", "success");
+      }
+    } catch (err) {
+      showAlert(err.message || err.response?.data?.error || "Failed to submit rider application.", "error");
+    } finally {
+      setRiderSubmitting(false);
+    }
   };
 
   const toggleFaq = (index) => {
@@ -345,11 +551,25 @@ const InfoPage = () => {
               </div>
 
               <div className="contact-form-container">
-                {partnerSubmitted ? (
-                  <div className="form-success">
-                    <CheckCircle size={32} color="var(--success)" />
-                    <h3>Application Submitted!</h3>
-                    <p>Our merchant team will review your application and reach out within 2 business days.</p>
+                {!user ? (
+                  <div className="login-prompt-card" style={{ padding: '32px 20px', border: '2px dashed var(--border-medium)', borderRadius: 'var(--radius-md)', textAlign: 'center', background: 'var(--bg-surface)' }}>
+                    <AlertCircle size={36} style={{ color: 'var(--brand-red)', margin: '0 auto 12px' }} />
+                    <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-primary)' }}>Login Required</h4>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
+                      Please log in with your ZingBite account to register a restaurant.
+                    </p>
+                    <Link to="/login?redirect=/info/partner-with-us" className="form-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center', width: 'auto', padding: '10px 24px', fontWeight: 600 }}>
+                      Log In to Apply
+                    </Link>
+                  </div>
+                ) : partnerSubmitted ? (
+                  <div className="form-success" style={{ textAlign: 'center', padding: '32px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-md)' }}>
+                    <CheckCircle size={48} style={{ color: 'var(--success)', margin: '0 auto 16px' }} />
+                    <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '8px' }}>Application Submitted!</h3>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: 1.5 }}>Our merchant team will review your application and reach out within 2 business days.</p>
+                    <Link to="/restaurant-admin" className="form-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center', width: 'auto', padding: '12px 28px', fontWeight: 700 }}>
+                      Go to Onboarding Dashboard
+                    </Link>
                   </div>
                 ) : (
                   <form onSubmit={handlePartnerSubmit} className="info-form">
@@ -372,6 +592,16 @@ const InfoPage = () => {
                       />
                     </div>
                     <div className="form-group">
+                      <label>Cuisine Type</label>
+                      <input 
+                        type="text" 
+                        required 
+                        placeholder="e.g., Chinese, Italian, Indian"
+                        value={partnerForm.cuisine}
+                        onChange={e => setPartnerForm({...partnerForm, cuisine: e.target.value})}
+                      />
+                    </div>
+                    <div className="form-group">
                       <label>Email Address</label>
                       <input 
                         type="email" 
@@ -389,16 +619,86 @@ const InfoPage = () => {
                         onChange={e => setPartnerForm({...partnerForm, phone: e.target.value})}
                       />
                     </div>
+                    <div className="form-row-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                      <div className="form-group">
+                        <label>License No</label>
+                        <input 
+                          type="text" 
+                          required 
+                          placeholder="FSSAI License"
+                          value={partnerForm.licenseNo}
+                          onChange={e => setPartnerForm({...partnerForm, licenseNo: e.target.value})}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Aadhaar No</label>
+                        <input 
+                          type="text" 
+                          required 
+                          placeholder="Owner Aadhaar"
+                          value={partnerForm.aadhaarNo}
+                          onChange={e => setPartnerForm({...partnerForm, aadhaarNo: e.target.value})}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>GST Number</label>
+                        <input 
+                          type="text" 
+                          required 
+                          placeholder="GSTIN"
+                          value={partnerForm.gstNo}
+                          onChange={e => setPartnerForm({...partnerForm, gstNo: e.target.value})}
+                        />
+                      </div>
+                    </div>
                     <div className="form-group">
-                      <label>City</label>
+                      <label>Restaurant Address</label>
                       <input 
                         type="text" 
                         required 
-                        value={partnerForm.city}
-                        onChange={e => setPartnerForm({...partnerForm, city: e.target.value})}
+                        placeholder="Select location or enter manually"
+                        value={partnerForm.address}
+                        onChange={e => setPartnerForm({...partnerForm, address: e.target.value})}
                       />
                     </div>
-                    <button type="submit" className="form-submit-btn"><Building2 size={16} /> REGISTER RESTAURANT</button>
+                    <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                      <button 
+                        type="button"
+                        onClick={detectLocation}
+                        style={{
+                          alignSelf: 'flex-start',
+                          padding: '8px 14px',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          background: 'var(--brand-red)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <MapPin size={12} /> {geocoding ? 'Detecting Location...' : 'Auto-Detect Restaurant Location'}
+                      </button>
+                      <div 
+                        ref={mapRef} 
+                        style={{ 
+                          height: '180px', 
+                          borderRadius: 'var(--radius-sm)', 
+                          border: '1px solid var(--border-medium)',
+                          zIndex: 1
+                        }} 
+                      />
+                    </div>
+                    <button type="submit" className="form-submit-btn" disabled={partnerSubmitting}>
+                      {partnerSubmitting ? (
+                        <><Loader size={16} style={{ animation: 'spin 1s linear infinite', display: 'inline-block', verticalAlign: 'middle', marginRight: '6px' }} /> Registering...</>
+                      ) : (
+                        <><Building2 size={16} /> REGISTER RESTAURANT</>
+                      )}
+                    </button>
                   </form>
                 )}
               </div>
@@ -423,11 +723,25 @@ const InfoPage = () => {
               </div>
 
               <div className="contact-form-container">
-                {riderSubmitted ? (
-                  <div className="form-success">
-                    <CheckCircle size={32} color="var(--success)" />
-                    <h3>Rider Registration Initiated!</h3>
-                    <p>We've sent onboarding details to your phone number. Visit our local office to collect your kit!</p>
+                {!user ? (
+                  <div className="login-prompt-card" style={{ padding: '32px 20px', border: '2px dashed var(--border-medium)', borderRadius: 'var(--radius-md)', textAlign: 'center', background: 'var(--bg-surface)' }}>
+                    <AlertCircle size={36} style={{ color: 'var(--brand-red)', margin: '0 auto 12px' }} />
+                    <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-primary)' }}>Login Required</h4>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
+                      Please log in with your ZingBite account to register as a delivery rider.
+                    </p>
+                    <Link to="/login?redirect=/info/ride-with-us" className="form-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center', width: 'auto', padding: '10px 24px', fontWeight: 600 }}>
+                      Log In to Apply
+                    </Link>
+                  </div>
+                ) : riderSubmitted ? (
+                  <div className="form-success" style={{ textAlign: 'center', padding: '32px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-md)' }}>
+                    <CheckCircle size={48} style={{ color: 'var(--success)', margin: '0 auto 16px' }} />
+                    <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '8px' }}>Rider Registration Initiated!</h3>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: 1.5 }}>We've sent onboarding details to your phone number. You can track your application status in the Career Portal.</p>
+                    <Link to="/careers" className="form-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center', width: 'auto', padding: '12px 28px', fontWeight: 700 }}>
+                      View Application Status
+                    </Link>
                   </div>
                 ) : (
                   <form onSubmit={handleRiderSubmit} className="info-form">
@@ -450,12 +764,44 @@ const InfoPage = () => {
                       />
                     </div>
                     <div className="form-group">
-                      <label>City</label>
+                      <label>City / Hub Area</label>
                       <input 
                         type="text" 
                         required 
+                        placeholder="Select location or enter manually"
                         value={riderForm.city}
                         onChange={e => setRiderForm({...riderForm, city: e.target.value})}
+                      />
+                    </div>
+                    <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                      <button 
+                        type="button"
+                        onClick={detectLocation}
+                        style={{
+                          alignSelf: 'flex-start',
+                          padding: '8px 14px',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          background: 'var(--brand-red)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <MapPin size={12} /> {geocoding ? 'Detecting Location...' : 'Auto-Detect City Area'}
+                      </button>
+                      <div 
+                        ref={mapRef} 
+                        style={{ 
+                          height: '150px', 
+                          borderRadius: 'var(--radius-sm)', 
+                          border: '1px solid var(--border-medium)',
+                          zIndex: 1
+                        }} 
                       />
                     </div>
                     <div className="form-group">
@@ -470,7 +816,13 @@ const InfoPage = () => {
                         <option value="walk">On Foot (Selected zones)</option>
                       </select>
                     </div>
-                    <button type="submit" className="form-submit-btn"><Bike size={16} /> APPLY AS RIDER</button>
+                    <button type="submit" className="form-submit-btn" disabled={riderSubmitting}>
+                      {riderSubmitting ? (
+                        <><Loader size={16} style={{ animation: 'spin 1s linear infinite', display: 'inline-block', verticalAlign: 'middle', marginRight: '6px' }} /> Applying...</>
+                      ) : (
+                        <><Bike size={16} /> APPLY AS RIDER</>
+                      )}
+                    </button>
                   </form>
                 )}
               </div>

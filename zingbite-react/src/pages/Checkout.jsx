@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useCart } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -8,10 +8,147 @@ import { MapPin, CreditCard, Smartphone, Banknote } from 'lucide-react';
 
 const Checkout = () => {
   const { cart, clearCart } = useCart();
-  const { user } = React.useContext(AuthContext);
+  const { user, updateUser } = React.useContext(AuthContext);
   const navigate = useNavigate();
   const { showAlert } = useModal();
   const [addressChoice, setAddressChoice] = useState('profile');
+  const [manualAddress, setManualAddress] = useState('');
+
+  // Leaflet Map states & refs
+  const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
+  const [geocoding, setGeocoding] = useState(false);
+
+  useEffect(() => {
+    if (window.L) {
+      setLeafletLoaded(true);
+      return;
+    }
+
+    let link = document.querySelector('link[href*="leaflet.css"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    let script = document.querySelector('script[src*="leaflet.js"]');
+    if (!script) {
+      script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
+      script.async = true;
+      script.onload = () => {
+        const interval = setInterval(() => {
+          if (window.L) {
+            setLeafletLoaded(true);
+            clearInterval(interval);
+          }
+        }, 50);
+      };
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const reverseGeocode = async (lat, lng) => {
+    setGeocoding(true);
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
+      const data = await response.json();
+      if (data && data.display_name) {
+        setManualAddress(data.display_name);
+      } else {
+        setManualAddress(`Latitude: ${lat.toFixed(5)}, Longitude: ${lng.toFixed(5)}`);
+      }
+    } catch (err) {
+      console.error("Reverse geocoding error:", err);
+      setManualAddress(`Latitude: ${lat.toFixed(5)}, Longitude: ${lng.toFixed(5)}`);
+    } finally {
+      setGeocoding(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!leafletLoaded || !mapRef.current || addressChoice !== 'manual') {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markerRef.current = null;
+      }
+      return;
+    }
+
+    if (mapInstanceRef.current) return;
+
+    const L = window.L;
+    if (!L) return;
+
+    const defaultLat = 12.9716;
+    const defaultLng = 77.5946;
+
+    const map = L.map(mapRef.current).setView([defaultLat, defaultLng], 14);
+    mapInstanceRef.current = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const customIcon = L.divIcon({
+      html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">📍</div>`,
+      className: 'custom-checkout-marker',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+
+    const marker = L.marker([defaultLat, defaultLng], { icon: customIcon, draggable: true }).addTo(map);
+    markerRef.current = marker;
+
+    marker.on('dragend', () => {
+      const latLng = marker.getLatLng();
+      reverseGeocode(latLng.lat, latLng.lng);
+    });
+
+    map.on('click', (e) => {
+      marker.setLatLng(e.latlng);
+      reverseGeocode(e.latlng.lat, e.latlng.lng);
+    });
+
+    // Trigger initial reverse geocode
+    reverseGeocode(defaultLat, defaultLng);
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, [leafletLoaded, addressChoice]);
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      showAlert("Geolocation is not supported by your browser.", "error");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.setView([latitude, longitude], 16);
+          if (markerRef.current) {
+            markerRef.current.setLatLng([latitude, longitude]);
+          }
+        }
+        reverseGeocode(latitude, longitude);
+      },
+      (err) => {
+        showAlert("Error retrieving location: " + err.message, "error");
+      }
+    );
+  };
 
   if (!cart || cart.itemCount === 0) {
     navigate('/cart');
@@ -53,6 +190,19 @@ const Checkout = () => {
             qty: item.quantity,
             price: item.price
           }));
+
+          const finalAddress = addressChoice === 'profile' ? (user?.address || '') : manualAddress;
+          if (addressChoice === 'manual' && finalAddress) {
+            const upRes = await axios.post('/api/profile', {
+              action: 'update',
+              username: user.userName || user.username || 'User',
+              mobile: String(user.phoneNumber || user.mobile || ''),
+              address: finalAddress
+            });
+            if (upRes.data.success && typeof updateUser === 'function') {
+              updateUser(upRes.data.user);
+            }
+          }
 
           const res = await axios.post('/api/profile', {
             action: 'createOrder',
@@ -236,12 +386,58 @@ const Checkout = () => {
             </label>
           </div>
 
-          <input 
-            type="text" 
-            className="address-field" 
-            placeholder="Enter your delivery address" 
-            defaultValue={addressChoice === 'profile' && user ? user.address : ''}
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <input 
+              type="text" 
+              className="address-field" 
+              placeholder="Enter your delivery address" 
+              value={addressChoice === 'profile' ? (user ? user.address : '') : manualAddress}
+              onChange={(e) => {
+                if (addressChoice === 'manual') {
+                  setManualAddress(e.target.value);
+                }
+              }}
+              disabled={addressChoice === 'profile'}
+            />
+            {addressChoice === 'manual' && (
+              <>
+                <button 
+                  type="button"
+                  onClick={detectLocation}
+                  style={{
+                    alignSelf: 'flex-start',
+                    padding: '8px 14px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    background: 'var(--brand-red)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    marginTop: '4px'
+                  }}
+                >
+                  <MapPin size={12} /> {geocoding ? 'Detecting Location...' : 'Auto-Detect Current Location'}
+                </button>
+                <div 
+                  ref={mapRef} 
+                  style={{ 
+                    height: '220px', 
+                    borderRadius: 'var(--radius-sm)', 
+                    border: '1px solid var(--border-medium)',
+                    marginTop: '8px',
+                    zIndex: 1
+                  }} 
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                  * Drag the red marker pin or click anywhere on the map to select your delivery coordinates.
+                </p>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="checkout-payment-card">

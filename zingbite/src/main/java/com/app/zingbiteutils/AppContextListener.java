@@ -1,4 +1,4 @@
-"package com.app.zingbiteutils;
+package com.app.zingbiteutils;
 
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
@@ -42,5 +42,32 @@ public class AppContextListener implements ServletContextListener {
         System.out.println("[AppContextListener] Deregistering JDBC drivers...");
         Enumeration<Driver> drivers = DriverManager.getDrivers();
         while (drivers.hasMoreElements()) {
-            Driver driver = drive
-<truncated 1055 bytes>
+            Driver driver = drivers.nextElement();
+            try {
+                DriverManager.deregisterDriver(driver);
+                System.out.println("[AppContextListener] Deregistered driver: " + driver.getClass().getName());
+            } catch (Exception e) {
+                System.err.println("[AppContextListener] Error deregistering driver " + driver.getClass().getName() + ": " + e.getMessage());
+            }
+        }
+
+        // 3. Shutdown the MySQL AbandonedConnectionCleanupThread
+        System.out.println("[AppContextListener] Shutting down AbandonedConnectionCleanupThread...");
+        try {
+            AbandonedConnectionCleanupThread.checkedShutdown();
+            System.out.println("[AppContextListener] AbandonedConnectionCleanupThread shutdown completed.");
+        } catch (Exception e) {
+            System.err.println("[AppContextListener] Error shutting down AbandonedConnectionCleanupThread: " + e.getMessage());
+        }
+
+        // 4. Shutdown EmailService executor pool
+        System.out.println("[AppContextListener] Shutting down EmailService executor...");
+        try {
+            EmailService.shutdown();
+        } catch (Exception e) {
+            System.err.println("[AppContextListener] Error shutting down EmailService: " + e.getMessage());
+        }
+
+        System.out.println("[AppContextListener] Web application shutdown completed.");
+    }
+}

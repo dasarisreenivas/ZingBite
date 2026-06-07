@@ -8,9 +8,17 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [hoveredCard, setHoveredCard] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedCuisine, setSelectedCuisine] = useState('All');
   const [sortBy, setSortBy] = useState('default');
   const heroRef = useRef(null);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   useEffect(() => {
     const fetchRestaurants = async () => {
@@ -31,8 +39,8 @@ const Home = () => {
       const name = r.restaurantName ? r.restaurantName.toLowerCase() : '';
       const cuisine = r.cusineType ? r.cusineType.toLowerCase() : '';
       
-      const matchesSearch = name.includes(searchQuery.toLowerCase()) || 
-                            cuisine.includes(searchQuery.toLowerCase());
+      const matchesSearch = name.includes(debouncedSearchQuery.toLowerCase()) || 
+                            cuisine.includes(debouncedSearchQuery.toLowerCase());
                             
       const matchesCuisine = selectedCuisine === 'All' || 
                              cuisine.includes(selectedCuisine.toLowerCase());

@@ -86,6 +86,7 @@ public class DeliveryServlet extends HttpServlet {
 
                 // Get customer address & name
                 User customer = hibernateSession.get(User.class, o.getUserId());
+                oJson.addProperty("customerId", o.getUserId());
                 oJson.addProperty("customerName", customer != null ? customer.getUserName() : "Customer");
                 oJson.addProperty("customerAddress", customer != null ? customer.getAddress() : "ZingBite Hub");
                 oJson.addProperty("customerPhone", customer != null ? String.valueOf(customer.getPhoneNumber()) : "");
@@ -218,11 +219,23 @@ public class DeliveryServlet extends HttpServlet {
                 double progress = requestBody.get("progress").getAsDouble();
                 activeGpsProgress.put(orderId, progress);
 
+                String coords = null;
                 if (requestBody.has("latitude") && requestBody.has("longitude")) {
                     double lat = requestBody.get("latitude").getAsDouble();
                     double lng = requestBody.get("longitude").getAsDouble();
-                    activeGpsCoordinates.put(orderId, lat + "," + lng);
+                    coords = lat + "," + lng;
+                    activeGpsCoordinates.put(orderId, coords);
                 }
+
+                // Broadcast SSE Update
+                JsonObject ssePayload = new JsonObject();
+                ssePayload.addProperty("orderId", orderId);
+                ssePayload.addProperty("status", order.getOrderStatus());
+                ssePayload.addProperty("gpsProgress", progress);
+                if (coords != null) {
+                    ssePayload.addProperty("gpsCoordinates", coords);
+                }
+                com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastUpdate(orderId, ssePayload.toString());
 
                 JsonObject jsonResponse = new JsonObject();
                 jsonResponse.addProperty("success", true);
@@ -242,6 +255,21 @@ public class DeliveryServlet extends HttpServlet {
                     order.setOrderStatus(nextStatus);
                 }
                 ordersDAO.updateOrders(order);
+
+                // Send rider assigned email to the customer
+                try (Session hibernateSession = DBUtils.openSession()) {
+                    User customer = hibernateSession.get(User.class, order.getUserId());
+                    if (customer != null) {
+                        com.app.zingbiteutils.EmailService.sendEmailAsync(
+                            customer.getUserID(),
+                            customer.getEmail(),
+                            "Delivery Partner Assigned - ZB-" + orderId,
+                            com.app.zingbiteutils.EmailTemplates.riderAssigned(customer.getUserName(), orderId, user.getUserName())
+                        );
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
 
                 // Update OrderHistory
                 try (Session hibernateSession = DBUtils.openSession()) {
@@ -263,6 +291,13 @@ public class DeliveryServlet extends HttpServlet {
                 JsonObject jsonResponse = new JsonObject();
                 jsonResponse.addProperty("success", true);
                 jsonResponse.addProperty("status", nextStatus);
+
+                // Broadcast SSE Update
+                JsonObject ssePayload = new JsonObject();
+                ssePayload.addProperty("orderId", orderId);
+                ssePayload.addProperty("status", nextStatus);
+                com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastUpdate(orderId, ssePayload.toString());
+
                 resp.getWriter().write(jsonResponse.toString());
 
             } else {
@@ -281,6 +316,21 @@ public class DeliveryServlet extends HttpServlet {
                 if ("Delivered".equalsIgnoreCase(status)) {
                     activeGpsProgress.put(orderId, 100.0);
                     activeGpsCoordinates.remove(orderId);
+
+                    // Send delivery confirmation email
+                    try (Session hibernateSession = DBUtils.openSession()) {
+                        User customer = hibernateSession.get(User.class, order.getUserId());
+                        if (customer != null) {
+                            com.app.zingbiteutils.EmailService.sendEmailAsync(
+                                customer.getUserID(),
+                                customer.getEmail(),
+                                "Order ZB-" + orderId + " Delivered!",
+                                com.app.zingbiteutils.EmailTemplates.delivered(customer.getUserName(), orderId)
+                            );
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
                 }
 
                 // Update OrderHistory
@@ -303,6 +353,17 @@ public class DeliveryServlet extends HttpServlet {
                 JsonObject jsonResponse = new JsonObject();
                 jsonResponse.addProperty("success", true);
                 jsonResponse.addProperty("status", status);
+
+                // Broadcast SSE Update
+                JsonObject ssePayload = new JsonObject();
+                ssePayload.addProperty("orderId", orderId);
+                ssePayload.addProperty("status", status);
+                ssePayload.addProperty("gpsProgress", activeGpsProgress.containsKey(orderId) ? activeGpsProgress.get(orderId) : 0.0);
+                if (activeGpsCoordinates.containsKey(orderId)) {
+                    ssePayload.addProperty("gpsCoordinates", activeGpsCoordinates.get(orderId));
+                }
+                com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastUpdate(orderId, ssePayload.toString());
+
                 resp.getWriter().write(jsonResponse.toString());
             }
 

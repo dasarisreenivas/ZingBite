@@ -5,6 +5,7 @@ import java.io.BufferedReader;
 
 import com.app.zingbitedao.UserDAO;
 import com.app.zingbitedaoimpl.UserDAOImplementation;
+import com.app.zingbiteutils.PasswordUtils;
 import com.app.zingbitemodels.User;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -71,7 +72,7 @@ public class LoginServlet extends HttpServlet {
             UserDAO userDao = new UserDAOImplementation();
             User user = userDao.getUserById(email);
 
-            if (user != null && password.equals(user.getPassword())) {
+            if (user != null && PasswordUtils.verifyPassword(password, user.getPassword())) {
                 HttpSession session = req.getSession();
                 session.setAttribute("loggedInUser", user);
 
@@ -102,9 +103,17 @@ public class LoginServlet extends HttpServlet {
         
         HttpSession session = req.getSession(false);
         if (session != null && session.getAttribute("loggedInUser") != null) {
-            User user = (User) session.getAttribute("loggedInUser");
-            jsonResponse.addProperty("loggedIn", true);
-            jsonResponse.add("user", gson.toJsonTree(user));
+            User sessionUser = (User) session.getAttribute("loggedInUser");
+            UserDAO userDao = new UserDAOImplementation();
+            User freshUser = userDao.getUserById(sessionUser.getEmail());
+            if (freshUser != null) {
+                session.setAttribute("loggedInUser", freshUser);
+                jsonResponse.addProperty("loggedIn", true);
+                jsonResponse.add("user", gson.toJsonTree(freshUser));
+            } else {
+                session.invalidate();
+                jsonResponse.addProperty("loggedIn", false);
+            }
         } else {
             jsonResponse.addProperty("loggedIn", false);
         }

@@ -81,6 +81,7 @@ public class SuperAdminServlet extends HttpServlet {
                 aJson.addProperty("resumeUrl", app.getResumeUrl());
                 aJson.addProperty("status", app.getStatus());
                 aJson.addProperty("appliedDate", app.getAppliedDate());
+                aJson.addProperty("userId", app.getUserId());
                 
                 Job job = hibernateSession.get(Job.class, app.getJobId());
                 aJson.addProperty("jobTitle", job != null ? job.getTitle() : "Position");
@@ -159,6 +160,31 @@ public class SuperAdminServlet extends HttpServlet {
                             if (adminUser != null) {
                                 adminUser.setRole("restaurant_admin");
                                 hibernateSession.merge(adminUser);
+
+                                // Send approval email
+                                com.app.zingbiteutils.EmailService.sendEmailAsync(
+                                    adminUser.getUserID(),
+                                    adminUser.getEmail(),
+                                    "ZingBite Onboarding Approved! 🍕",
+                                    "<h2>Restaurant Onboarding Approved! 🎉</h2>"
+                                    + "<p>Dear " + adminUser.getUserName() + ", we are thrilled to inform you that your restaurant request for <b>" + rr.getRestaurantName() + "</b> has been approved!</p>"
+                                    + "<p>Your role has been upgraded to <b>Restaurant Admin</b>. You can now log into your dashboard to add menu items and manage preparation states.</p>"
+                                    + "<a href='http://localhost:5173/zingbite/restaurant-admin' class='btn' style='display:inline-block;padding:12px 24px;background-color:#F7374F;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;'>Go to Dashboard</a>"
+                                );
+                            }
+                        } else {
+                            // Send rejection email
+                            User adminUser = hibernateSession.get(User.class, rr.getAdminId());
+                            if (adminUser != null) {
+                                com.app.zingbiteutils.EmailService.sendEmailAsync(
+                                    adminUser.getUserID(),
+                                    adminUser.getEmail(),
+                                    "Restaurant Onboarding Status Update",
+                                    "<h2>Restaurant Onboarding Request Update ❌</h2>"
+                                    + "<p>Dear " + adminUser.getUserName() + ", thank you for your interest in partnering with ZingBite.</p>"
+                                    + "<p>Unfortunately, your request to onboard <b>" + rr.getRestaurantName() + "</b> could not be approved at this time as it did not pass our credential verification check.</p>"
+                                    + "<p>If you have questions, please reach out to support@zingbite.com.</p>"
+                                );
                             }
                         }
                         
@@ -241,6 +267,24 @@ public class SuperAdminServlet extends HttpServlet {
                             new SimpleDateFormat("MMMM dd, yyyy HH:mm").format(new Date())
                         );
                         hibernateSession.persist(note);
+
+                        // Send real email to candidate
+                        com.app.zingbiteutils.EmailService.sendEmailAsync(
+                            app.getUserId(),
+                            app.getEmail(),
+                            subject,
+                            com.app.zingbiteutils.EmailTemplates.applicationStatusUpdate(app.getCandidateName(), jobTitle, status)
+                        );
+
+                        // If approved Delivery Rider, elevate role to delivery_partner and set riderStatus to Active
+                        if (job != null && "Delivery Rider".equalsIgnoreCase(job.getTitle()) && ("Offer Extended".equalsIgnoreCase(status) || "Approved".equalsIgnoreCase(status) || "Offered".equalsIgnoreCase(status))) {
+                            User riderUser = hibernateSession.get(User.class, app.getUserId());
+                            if (riderUser != null) {
+                                riderUser.setRole("delivery_partner");
+                                riderUser.setRiderStatus("Active");
+                                hibernateSession.merge(riderUser);
+                            }
+                        }
 
                         tx.commit();
                         resp.getWriter().write("{\"success\":true}");

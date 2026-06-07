@@ -23,27 +23,16 @@ const Login = () => {
     setLoading(false);
     if (result.success) {
       const loggedUser = result.user;
-      let targetRedirect = redirect;
+      let targetRedirect = '/';
       
-      const restrictedRoutes = {
-        '/delivery': 'delivery_partner',
-        '/restaurant-admin': 'restaurant_admin',
-        '/admin': 'super_admin'
-      };
-      
-      // Prevent cross-portal redirect mismatch
-      if (restrictedRoutes[targetRedirect] && loggedUser.role !== restrictedRoutes[targetRedirect]) {
-        targetRedirect = '/';
-      }
-      
-      if (targetRedirect === '/') {
-        if (loggedUser.role === 'delivery_partner') {
-          targetRedirect = '/delivery';
-        } else if (loggedUser.role === 'restaurant_admin') {
-          targetRedirect = '/restaurant-admin';
-        } else if (loggedUser.role === 'super_admin') {
-          targetRedirect = '/admin';
-        }
+      if (loggedUser.role === 'delivery_partner') {
+        targetRedirect = '/delivery';
+      } else if (loggedUser.role === 'restaurant_admin') {
+        targetRedirect = '/restaurant-admin';
+      } else if (loggedUser.role === 'super_admin') {
+        targetRedirect = '/admin';
+      } else {
+        targetRedirect = redirect;
       }
       navigate(targetRedirect);
     } else {
