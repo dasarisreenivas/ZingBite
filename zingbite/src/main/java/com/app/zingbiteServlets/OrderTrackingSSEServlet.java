@@ -11,6 +11,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import com.app.zingbiteutils.OrderEventBroker;
+import com.app.zingbiteutils.GeoUtils;
+import com.app.zingbiteutils.VRPRouteOptimizer;
+import com.app.zingbitedao.OrdersDAo;
+import com.app.zingbitedaoimpl.OrdersDAOImplementation;
+import com.app.zingbitemodels.Orders;
+import com.google.gson.JsonObject;
+import com.google.gson.Gson;
+import java.util.List;
 
 @WebServlet(urlPatterns = "/api/order/stream", asyncSupported = true)
 public class OrderTrackingSSEServlet extends HttpServlet {
@@ -61,6 +69,68 @@ public class OrderTrackingSSEServlet extends HttpServlet {
 
         // Add listener to the event broker
         OrderEventBroker.getInstance().addListener(orderId, listener);
+
+        // Fetch order details and push current status & paths immediately to the connected client
+        try {
+            OrdersDAo ordersDAO = new OrdersDAOImplementation();
+            Orders order = ordersDAO.getOrdersById(orderId);
+            if (order != null) {
+                JsonObject initPayload = new JsonObject();
+                initPayload.addProperty("orderId", orderId);
+                initPayload.addProperty("status", order.getOrderStatus());
+                
+                double progress = order.getGpsProgress() != null ? order.getGpsProgress() : 0.0;
+                initPayload.addProperty("gpsProgress", progress);
+                
+                if (order.getGpsCoordinates() != null) {
+                    initPayload.addProperty("gpsCoordinates", order.getGpsCoordinates());
+                }
+                
+                int restId = order.getRestaurantId() != null ? order.getRestaurantId().getRestaurantId() : 0;
+                double restLat = GeoUtils.getRestaurantLatitude(restId);
+                double restLon = GeoUtils.getRestaurantLongitude(restId);
+                double custLat = GeoUtils.getUserLatitude(order.getUserId());
+                double custLon = GeoUtils.getUserLongitude(order.getUserId());
+
+                int riderId = order.getRiderId() != null ? order.getRiderId() : 0;
+                double rLat = GeoUtils.getRiderLatitude(riderId);
+                double rLon = GeoUtils.getRiderLongitude(riderId);
+
+                if (order.getGpsCoordinates() != null) {
+                    String coords = order.getGpsCoordinates();
+                    String[] parts = coords.split(",");
+                    if (parts.length == 2) {
+                        try {
+                            rLat = Double.parseDouble(parts[0]);
+                            rLon = Double.parseDouble(parts[1]);
+                        } catch (Exception ex) {}
+                    }
+                }
+
+                // Include raw coordinates for map marker placement
+                initPayload.addProperty("restaurantLat", restLat);
+                initPayload.addProperty("restaurantLon", restLon);
+                initPayload.addProperty("customerLat", custLat);
+                initPayload.addProperty("customerLon", custLon);
+                initPayload.addProperty("riderLat", rLat);
+                initPayload.addProperty("riderLon", rLon);
+
+                java.util.Map<String, List<VRPRouteOptimizer.Node>> vrpPaths = 
+                    VRPRouteOptimizer.getVRPPathsForOrder(
+                        rLat, rLon,
+                        restLat, restLon,
+                        custLat, custLon
+                    );
+
+                Gson sseGson = new Gson();
+                initPayload.add("pathFM", sseGson.toJsonTree(vrpPaths.get("pathFM")));
+                initPayload.add("pathLM1", sseGson.toJsonTree(vrpPaths.get("pathLM1")));
+                
+                listener.onUpdate(initPayload.toString());
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
 
         // Remove listener when connection ends
         asyncContext.addListener(new AsyncListener() {

@@ -35,6 +35,12 @@ public class Orders implements Serializable{
 	
 	@Column(name ="riderId")
 	private Integer riderId;
+
+	@Column(name = "gpsProgress")
+	private Double gpsProgress = 0.0;
+
+	@Column(name = "gpsCoordinates")
+	private String gpsCoordinates;
 	
 	public Orders() {
 		super();
@@ -125,6 +131,22 @@ public class Orders implements Serializable{
 
 	public void setRiderId(Integer riderId) {
 		this.riderId = riderId;
+	}
+
+	public Double getGpsProgress() {
+		return gpsProgress;
+	}
+
+	public void setGpsProgress(Double gpsProgress) {
+		this.gpsProgress = gpsProgress;
+	}
+
+	public String getGpsCoordinates() {
+		return gpsCoordinates;
+	}
+
+	public void setGpsCoordinates(String gpsCoordinates) {
+		this.gpsCoordinates = gpsCoordinates;
 	}
 
 	@Override

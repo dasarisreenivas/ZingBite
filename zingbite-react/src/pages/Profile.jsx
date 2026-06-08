@@ -26,6 +26,23 @@ const Profile = () => {
     address: user?.address || '123 Main Street'
   });
 
+  const [addresses, setAddresses] = useState(() => {
+    const saved = localStorage.getItem(`addresses_${user?.email}`);
+    return saved ? JSON.parse(saved) : [
+      { id: 1, type: 'Home', address: user?.address || '123 Main Street, Indiranagar, Bangalore' },
+      { id: 2, type: 'Work', address: '456 Tech Park, Whitefield, Bangalore' }
+    ];
+  });
+  
+  const [newAddressType, setNewAddressType] = useState('Other');
+  const [newAddressText, setNewAddressText] = useState('');
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  
+  const [reordering, setReordering] = useState(false);
+
+  const [pastOrders, setPastOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+
   // Leaflet Map states & refs
   const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
   const mapRef = useRef(null);
@@ -176,28 +193,11 @@ const Profile = () => {
     }
   }, [user]);
   
-  const [addresses, setAddresses] = useState(() => {
-    const saved = localStorage.getItem(`addresses_${user?.email}`);
-    return saved ? JSON.parse(saved) : [
-      { id: 1, type: 'Home', address: user?.address || '123 Main Street, Indiranagar, Bangalore' },
-      { id: 2, type: 'Work', address: '456 Tech Park, Whitefield, Bangalore' }
-    ];
-  });
-
   useEffect(() => {
     if (user?.email) {
       localStorage.setItem(`addresses_${user.email}`, JSON.stringify(addresses));
     }
   }, [addresses, user?.email]);
-  
-  const [newAddressType, setNewAddressType] = useState('Other');
-  const [newAddressText, setNewAddressText] = useState('');
-  const [showAddressForm, setShowAddressForm] = useState(false);
-  
-  const [reordering, setReordering] = useState(false);
-
-  const [pastOrders, setPastOrders] = useState([]);
-  const [ordersLoading, setOrdersLoading] = useState(true);
 
   useEffect(() => {
     const fetchPastOrders = async (isBackground = false) => {
@@ -212,8 +212,23 @@ const Profile = () => {
     };
     if (user) {
       fetchPastOrders(false);
-      const interval = setInterval(() => fetchPastOrders(true), 4000);
-      return () => clearInterval(interval);
+      const eventSource = new EventSource('/api/stream?topic=user_orders');
+      eventSource.onmessage = (event) => {
+        try {
+          console.log("[ZingBite SSE] Received real-time user profile orders update");
+          fetchPastOrders(true);
+        } catch (err) {
+          console.error("[ZingBite SSE] Error on message:", err);
+        }
+      };
+
+      eventSource.onerror = (err) => {
+        console.error("[ZingBite SSE] EventSource connection error:", err);
+      };
+
+      return () => {
+        eventSource.close();
+      };
     }
   }, [user]);
 

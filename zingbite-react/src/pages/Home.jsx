@@ -1,17 +1,83 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { Zap, UtensilsCrossed, BadgeDollarSign, Star, Flame, Clock, Truck, Search } from 'lucide-react';
+import { ArrowRight, Flame, Search, ShieldCheck, Star, Truck, UtensilsCrossed, Zap } from 'lucide-react';
+
+const HERO_IMAGE = 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?q=80&w=2200&auto=format&fit=crop';
+const RESTAURANT_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop';
+
+const getDeliveryMinutes = (value) => {
+  const match = String(value ?? '').match(/\d+/);
+  return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
+};
+
+const formatDeliveryTime = (value) => {
+  const text = String(value ?? '').trim();
+  if (!text) return '30-40 min';
+  return /\b(min|mins|minutes)\b/i.test(text) ? text : `${text} min`;
+};
+
+const formatRating = (value) => {
+  const rating = Number(value);
+  return Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : 'New';
+};
 
 const Home = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [hoveredCard, setHoveredCard] = useState(null);
+  const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedCuisine, setSelectedCuisine] = useState('All');
   const [sortBy, setSortBy] = useState('default');
   const heroRef = useRef(null);
+
+  const fetchRestaurants = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await axios.get('/api/home');
+      setRestaurants(Array.isArray(response.data) ? response.data : []);
+      setError('');
+    } catch (err) {
+      console.error(err);
+      setError('We could not load restaurants right now. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const retryRestaurants = () => {
+    fetchRestaurants();
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadInitialRestaurants = async () => {
+      try {
+        const response = await axios.get('/api/home');
+        if (!isMounted) return;
+        setRestaurants(Array.isArray(response.data) ? response.data : []);
+        setError('');
+      } catch (err) {
+        console.error(err);
+        if (isMounted) {
+          setError('We could not load restaurants right now. Please try again.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadInitialRestaurants();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -19,20 +85,6 @@ const Home = () => {
     }, 300);
     return () => clearTimeout(handler);
   }, [searchQuery]);
-
-  useEffect(() => {
-    const fetchRestaurants = async () => {
-      try {
-        const response = await axios.get('/api/home');
-        setRestaurants(response.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRestaurants();
-  }, []);
 
   const filteredAndSortedRestaurants = restaurants
     .filter(r => {
@@ -49,10 +101,10 @@ const Home = () => {
     })
     .sort((a, b) => {
       if (sortBy === 'rating') {
-        return b.rating - a.rating;
+        return Number(b.rating || 0) - Number(a.rating || 0);
       }
       if (sortBy === 'time') {
-        return a.deliveryTime - b.deliveryTime;
+        return getDeliveryMinutes(a.deliveryTime) - getDeliveryMinutes(b.deliveryTime);
       }
       return 0; // default
     });
@@ -62,45 +114,40 @@ const Home = () => {
       <style>{`
         .home-hero {
           position: relative;
-          padding: 48px 20px 36px;
-          text-align: center;
+          min-height: min(72vh, 640px);
+          padding: 72px 20px;
+          display: flex;
+          align-items: center;
           overflow: hidden;
-          background: linear-gradient(135deg, #fff5f5 0%, #fff 30%, #f0fdf4 60%, #fff 100%);
+          background-image:
+            linear-gradient(90deg, rgba(16, 16, 16, 0.82) 0%, rgba(16, 16, 16, 0.56) 48%, rgba(16, 16, 16, 0.22) 100%),
+            url('${HERO_IMAGE}');
+          background-size: cover;
+          background-position: center;
+          color: #fff;
         }
         .home-hero::before {
           content: '';
           position: absolute;
-          top: -50%;
-          right: -20%;
-          width: 500px;
-          height: 500px;
-          background: radial-gradient(circle, rgba(247, 55, 79, 0.06) 0%, transparent 70%);
-          border-radius: 50%;
-          pointer-events: none;
-        }
-        .home-hero::after {
-          content: '';
-          position: absolute;
-          bottom: -30%;
-          left: -10%;
-          width: 400px;
-          height: 400px;
-          background: radial-gradient(circle, rgba(96, 178, 70, 0.05) 0%, transparent 70%);
-          border-radius: 50%;
+          inset: 0;
+          background: linear-gradient(180deg, rgba(0,0,0,0) 65%, rgba(255,255,255,0.96) 100%);
           pointer-events: none;
         }
         .hero-content {
-          max-width: 700px;
+          max-width: 680px;
+          width: min(92%, 1400px);
           margin: 0 auto;
           position: relative;
           z-index: 1;
+          text-align: left;
         }
         .hero-tag {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          background: rgba(247, 55, 79, 0.08);
-          color: var(--brand-red);
+          background: rgba(255, 255, 255, 0.14);
+          color: #fff;
+          border: 1px solid rgba(255, 255, 255, 0.22);
           padding: 6px 16px;
           border-radius: 20px;
           font-size: 0.85rem;
@@ -112,46 +159,109 @@ const Home = () => {
           font-family: 'Outfit', sans-serif;
           font-size: clamp(2.4rem, 4.5vw, 3.6rem);
           font-weight: 800;
-          letter-spacing: -1.2px;
+          letter-spacing: 0;
           line-height: 1.1;
           margin-bottom: 16px;
-          color: var(--text-primary);
+          color: #fff;
           animation: fadeIn 0.6s ease-out 0.1s both;
         }
         .hero-subtitle {
           font-size: 1.05rem;
-          color: var(--text-secondary);
+          color: rgba(255, 255, 255, 0.84);
           line-height: 1.6;
-          max-width: 500px;
-          margin: 0 auto;
+          max-width: 560px;
+          margin: 0;
           animation: fadeIn 0.6s ease-out 0.2s both;
+        }
+        .hero-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+          margin-top: 28px;
+          animation: fadeIn 0.6s ease-out 0.3s both;
+        }
+        .hero-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          min-height: 44px;
+          padding: 0 18px;
+          border-radius: 999px;
+          font-size: 0.92rem;
+          font-weight: 800;
+          text-decoration: none;
+          transition: transform var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+        }
+        .hero-btn.primary {
+          background: var(--brand-red);
+          color: #fff;
+          box-shadow: 0 12px 28px rgba(247, 55, 79, 0.32);
+        }
+        .hero-btn.secondary {
+          background: rgba(255, 255, 255, 0.12);
+          color: #fff;
+          border: 1px solid rgba(255, 255, 255, 0.28);
+        }
+        .hero-btn:hover {
+          transform: translateY(-2px);
+          color: #fff;
         }
         .hero-chips {
           display: flex;
-          justify-content: center;
+          justify-content: flex-start;
           gap: 10px;
           flex-wrap: wrap;
           margin-top: 24px;
-          animation: fadeIn 0.6s ease-out 0.3s both;
+          animation: fadeIn 0.6s ease-out 0.4s both;
         }
         .hero-chip {
           display: flex;
           align-items: center;
           gap: 6px;
-          background: #fff;
-          border: 1px solid var(--border-light);
+          background: rgba(255, 255, 255, 0.12);
+          border: 1px solid rgba(255, 255, 255, 0.18);
           padding: 8px 16px;
           border-radius: 30px;
           font-size: 0.85rem;
           font-weight: 500;
-          color: var(--text-primary);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+          color: #fff;
           transition: all 0.3s ease;
           cursor: default;
         }
         .hero-chip:hover {
           transform: translateY(-2px);
           box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+        }
+        .home-status-card {
+          grid-column: 1 / -1;
+          text-align: center;
+          padding: 56px 24px;
+          color: var(--text-secondary);
+          border: 1px dashed var(--border-medium);
+          border-radius: var(--radius-lg);
+          background: #fff;
+        }
+        .home-status-card strong {
+          display: block;
+          color: var(--text-primary);
+          font-size: 1.1rem;
+          margin-bottom: 8px;
+        }
+        .retry-btn {
+          margin-top: 18px;
+          border: none;
+          background: var(--brand-red);
+          color: #fff;
+          border-radius: 999px;
+          padding: 10px 18px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: background var(--transition-fast), transform var(--transition-fast);
+        }
+        .retry-btn:hover {
+          background: var(--brand-red-hover);
+          transform: translateY(-1px);
         }
         .section-title-row {
           display: flex;
@@ -375,6 +485,9 @@ const Home = () => {
         @media (max-width: 768px) {
           .home-hero { padding: 32px 16px 24px; }
           .hero-title { font-size: 2rem; }
+          .hero-content { text-align: center; }
+          .hero-subtitle { margin: 0 auto; }
+          .hero-actions, .hero-chips { justify-content: center; }
           .restaurant-grid { grid-template-columns: 1fr; gap: 16px; margin-bottom: 32px; }
           .control-bar {
             flex-direction: column;
@@ -401,14 +514,22 @@ const Home = () => {
       <div>
         <section className="home-hero" ref={heroRef}>
           <div className="hero-content">
-            <div className="hero-tag"><Flame size={16} /> #1 Food Delivery App</div>
-            <h2 className="hero-title">Hungry? You're in<br />the right place.</h2>
-            <p className="hero-subtitle">Order from the best restaurants near you. Delicious food, delivered fast to your doorstep.</p>
+            <div className="hero-tag"><Flame size={16} /> Fresh meals, fast routes</div>
+            <h2 className="hero-title">Food that reaches you hot, fast, and right on time.</h2>
+            <p className="hero-subtitle">Explore trusted local restaurants, order in a few taps, and track every step from kitchen prep to doorstep delivery.</p>
+            <div className="hero-actions">
+              <a href="#restaurants" className="hero-btn primary">
+                Explore restaurants <ArrowRight size={17} />
+              </a>
+              <Link to="/track-order" className="hero-btn secondary">
+                Track an order
+              </Link>
+            </div>
             <div className="hero-chips">
-              <div className="hero-chip"><Zap size={16} /> Fast Delivery</div>
-              <div className="hero-chip"><UtensilsCrossed size={16} /> 500+ Restaurants</div>
-              <div className="hero-chip"><BadgeDollarSign size={16} /> Best Prices</div>
-              <div className="hero-chip"><Star size={16} /> Top Rated</div>
+              <div className="hero-chip"><Zap size={16} /> Fast checkout</div>
+              <div className="hero-chip"><Truck size={16} /> Live delivery updates</div>
+              <div className="hero-chip"><UtensilsCrossed size={16} /> Local favorites</div>
+              <div className="hero-chip"><ShieldCheck size={16} /> Secure payments</div>
             </div>
           </div>
         </section>
@@ -419,6 +540,7 @@ const Home = () => {
             <input 
               type="text" 
               placeholder="Search for restaurants or cuisines..." 
+              aria-label="Search restaurants or cuisines"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
@@ -446,9 +568,9 @@ const Home = () => {
           ))}
         </div>
 
-        <div className="section-title-row">
+        <div id="restaurants" className="section-title-row">
           <h2>Restaurants near you</h2>
-          {!loading && <span className="section-count">{filteredAndSortedRestaurants.length} restaurants</span>}
+          {!loading && !error && <span className="section-count">{filteredAndSortedRestaurants.length} restaurants</span>}
         </div>
 
         <section className="restaurant-grid stagger-children">
@@ -456,25 +578,35 @@ const Home = () => {
             Array.from({ length: 6 }).map((_, i) => (
               <div key={i} style={{ height: '300px', borderRadius: 'var(--radius-lg)' }} className="skeleton"></div>
             ))
+          ) : error ? (
+            <div className="home-status-card">
+              <strong>Restaurants are taking a little longer to load.</strong>
+              <span>{error}</span>
+              <br />
+              <button type="button" className="retry-btn" onClick={retryRestaurants}>Retry</button>
+            </div>
           ) : filteredAndSortedRestaurants.length > 0 ? (
             filteredAndSortedRestaurants.map((r) => (
               <Link
                 to={`/menu?restaurantId=${r.restaurantId}&restaurantName=${encodeURIComponent(r.restaurantName)}`}
                 key={r.restaurantId}
                 className="rest-card"
-                onMouseEnter={() => setHoveredCard(r.restaurantId)}
-                onMouseLeave={() => setHoveredCard(null)}
               >
                 <div className="rest-card-img-wrap">
                   <img
-                    src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop"
-                    alt={r.restaurantName}
+                    src={r.imagePath || RESTAURANT_FALLBACK_IMAGE}
+                    alt={`${r.restaurantName || 'Restaurant'} dishes`}
                     className="rest-card-img"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = RESTAURANT_FALLBACK_IMAGE;
+                    }}
                   />
                   <div className="rest-card-img-overlay" />
                   <div className="rest-card-offer">Free Delivery</div>
                   <div className="rest-card-rating">
-                    <span className="star"><Star size={14} fill="#FFB800" color="#FFB800" /></span> {r.rating.toFixed(1)}
+                    <span className="star"><Star size={14} fill="#FFB800" color="#FFB800" /></span> {formatRating(r.rating)}
                   </div>
                 </div>
                 <div className="rest-card-details">
@@ -482,13 +614,16 @@ const Home = () => {
                   <div className="rest-card-meta">
                     <span>{r.cusineType}</span>
                     <span className="dot" />
-                    <span>{r.deliveryTime} min</span>
+                    <span>{formatDeliveryTime(r.deliveryTime)}</span>
                   </div>
                 </div>
               </Link>
             ))
           ) : (
-            <p style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>No restaurants found matching your criteria</p>
+            <div className="home-status-card">
+              <strong>No restaurants found</strong>
+              <span>Try a different search term, cuisine, or sort option.</span>
+            </div>
           )}
         </section>
       </div>

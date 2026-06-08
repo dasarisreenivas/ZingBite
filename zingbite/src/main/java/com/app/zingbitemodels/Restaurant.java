@@ -35,6 +35,12 @@ public class Restaurant implements Serializable{
 	@Column(name = "IMAGEPATH")
 	private String imagePath;
 	
+	@Column(name = "latitude")
+	private Double latitude;
+	
+	@Column(name = "longitude")
+	private Double longitude;
+	
 	public Restaurant() {
 		super();
 	}
@@ -138,11 +144,28 @@ public class Restaurant implements Serializable{
 		this.imagePath = imagePath;
 	}
 
+	public Double getLatitude() {
+		return latitude;
+	}
+
+	public void setLatitude(Double latitude) {
+		this.latitude = latitude;
+	}
+
+	public Double getLongitude() {
+		return longitude;
+	}
+
+	public void setLongitude(Double longitude) {
+		this.longitude = longitude;
+	}
+
 	@Override
 	public String toString() {
 		return "Restaurant [restaurantId=" + restaurantId + ", restaurantName=" + restaurantName + ", deliveryTime="
 				+ deliveryTime + ", cusineType=" + cusineType + ", address=" + address + ", rating=" + rating
-				+ ", isActive=" + isActive + ", adminId=" + adminId + ", imagePath=" + imagePath + "]";
+				+ ", isActive=" + isActive + ", adminId=" + adminId + ", imagePath=" + imagePath 
+				+ ", latitude=" + latitude + ", longitude=" + longitude + "]";
 	}
 	
 	

@@ -98,15 +98,53 @@ public class ProfileServlet extends HttpServlet {
                     }
                     oJson.addProperty("status", statusVal);
                     double gps = 0.0;
-                    if (DeliveryServlet.activeGpsProgress.containsKey(oh.getOrderId())) {
-                        gps = DeliveryServlet.activeGpsProgress.get(oh.getOrderId());
+                    if (associatedOrder != null && associatedOrder.getGpsProgress() != null) {
+                        gps = associatedOrder.getGpsProgress();
                     } else if ("Delivered".equalsIgnoreCase(statusVal)) {
                         gps = 100.0;
                     }
                     oJson.addProperty("gpsProgress", gps);
 
-                    if (DeliveryServlet.activeGpsCoordinates.containsKey(oh.getOrderId())) {
-                        oJson.addProperty("gpsCoordinates", DeliveryServlet.activeGpsCoordinates.get(oh.getOrderId()));
+                    if (associatedOrder != null && associatedOrder.getGpsCoordinates() != null) {
+                        oJson.addProperty("gpsCoordinates", associatedOrder.getGpsCoordinates());
+                    }
+
+                    if (associatedOrder != null && !"Delivered".equalsIgnoreCase(statusVal)) {
+                        try {
+                            int restId = associatedOrder.getRestaurantId() != null ? associatedOrder.getRestaurantId().getRestaurantId() : 0;
+                            double restLat = com.app.zingbiteutils.GeoUtils.getRestaurantLatitude(restId);
+                            double restLon = com.app.zingbiteutils.GeoUtils.getRestaurantLongitude(restId);
+                            double custLat = com.app.zingbiteutils.GeoUtils.getUserLatitude(associatedOrder.getUserId());
+                            double custLon = com.app.zingbiteutils.GeoUtils.getUserLongitude(associatedOrder.getUserId());
+
+                            int riderId = associatedOrder.getRiderId() != null ? associatedOrder.getRiderId() : 0;
+                            double rLat = com.app.zingbiteutils.GeoUtils.getRiderLatitude(riderId);
+                            double rLon = com.app.zingbiteutils.GeoUtils.getRiderLongitude(riderId);
+
+                            if (associatedOrder.getGpsCoordinates() != null) {
+                                String coords = associatedOrder.getGpsCoordinates();
+                                String[] parts = coords.split(",");
+                                if (parts.length == 2) {
+                                    try {
+                                        rLat = Double.parseDouble(parts[0]);
+                                        rLon = Double.parseDouble(parts[1]);
+                                    } catch (Exception ex) {}
+                                }
+                            }
+
+                            java.util.Map<String, List<com.app.zingbiteutils.VRPRouteOptimizer.Node>> vrpPaths = 
+                                com.app.zingbiteutils.VRPRouteOptimizer.getVRPPathsForOrder(
+                                    rLat, rLon,
+                                    restLat, restLon,
+                                    custLat, custLon
+                                );
+
+                            Gson sseGson = new Gson();
+                            oJson.add("pathFM", sseGson.toJsonTree(vrpPaths.get("pathFM")));
+                            oJson.add("pathLM1", sseGson.toJsonTree(vrpPaths.get("pathLM1")));
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
                     }
 
                     if (associatedOrder != null && associatedOrder.getRiderId() != null) {
@@ -300,6 +338,23 @@ public class ProfileServlet extends HttpServlet {
                         "ZingBite Order Confirmation - ZB-" + orderId,
                         com.app.zingbiteutils.EmailTemplates.orderPlaced(user.getUserName(), orderId, (float) total, orderTime)
                     );
+
+                    // Broadcast real-time SSE event for new order
+                    try {
+                        JsonObject sseMsg = new JsonObject();
+                        sseMsg.addProperty("event", "new_order");
+                        sseMsg.addProperty("orderId", orderId);
+                        if (restaurantId != null) {
+                            sseMsg.addProperty("restaurantId", restaurantId);
+                        }
+                        com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:new_orders", sseMsg.toString());
+                        if (restaurantId != null) {
+                            com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:restaurant_orders:" + restaurantId, sseMsg.toString());
+                        }
+                        com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:rider_orders", sseMsg.toString());
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
 
                     jsonResponse.addProperty("success", true);
                     jsonResponse.addProperty("orderId", "ZB-" + orderId);

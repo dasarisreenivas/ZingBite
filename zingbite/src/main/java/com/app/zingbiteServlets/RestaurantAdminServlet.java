@@ -192,6 +192,14 @@ public class RestaurantAdminServlet extends HttpServlet {
                     hibernateSession.persist(request);
                     tx.commit();
                     resp.getWriter().write("{\"success\":true}");
+                    // Broadcast new onboarding request to admin
+                    try {
+                        JsonObject sseMsg = new JsonObject();
+                        sseMsg.addProperty("event", "new_request");
+                        com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:admin_requests", sseMsg.toString());
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
                 } catch (Exception e) {
                     if (tx != null) tx.rollback();
                     throw e;
@@ -221,6 +229,16 @@ public class RestaurantAdminServlet extends HttpServlet {
                         MenuServlet.menuCache.remove(restaurant.getRestaurantId());
 
                         resp.getWriter().write("{\"success\":true}");
+                        // Broadcast menu update
+                        try {
+                            JsonObject sseMsg = new JsonObject();
+                            sseMsg.addProperty("event", "menu_update");
+                            sseMsg.addProperty("menuId", menuId);
+                            sseMsg.addProperty("isAvailable", isAvailable);
+                            com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:menu:" + restaurant.getRestaurantId(), sseMsg.toString());
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
                     } else {
                         resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
                         resp.getWriter().write("{\"error\":\"Menu item not found\"}");
@@ -321,6 +339,23 @@ public class RestaurantAdminServlet extends HttpServlet {
                     ssePayload.addProperty("orderId", orderId);
                     ssePayload.addProperty("status", status);
                     com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastUpdate(orderId, ssePayload.toString());
+                    // Broadcast Topic SSE Update
+                    try {
+                        JsonObject msg = new JsonObject();
+                        msg.addProperty("event", "status_update");
+                        msg.addProperty("orderId", orderId);
+                        msg.addProperty("status", status);
+                        com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:user_orders:" + order.getUserId(), msg.toString());
+                        if (order.getRestaurantId() != null) {
+                            com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:restaurant_orders:" + order.getRestaurantId().getRestaurantId(), msg.toString());
+                        }
+                        if (order.getRiderId() != null) {
+                            com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:rider_orders:" + order.getRiderId(), msg.toString());
+                        }
+                        com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:rider_orders", msg.toString());
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
 
                     resp.getWriter().write("{\"success\":true}");
                 } else {

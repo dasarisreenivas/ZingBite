@@ -60,12 +60,35 @@ const SuperAdminDashboard = () => {
       return;
     }
     fetchAdminData(false);
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+
+    const eventSource = new EventSource('/api/stream?topic=admin_requests');
+    eventSource.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        console.log("[ZingBite SSE] Received real-time admin update:", payload);
+        
+        // Play notification sound on new onboarding request
+        if (payload && payload.event === 'new_request') {
+          try {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
+            audio.volume = 0.5;
+            audio.play();
+          } catch (audioErr) {}
+        }
+        
         fetchAdminData(true);
+      } catch (err) {
+        console.error("[ZingBite SSE] Error on message:", err);
       }
-    }, 12000);
-    return () => clearInterval(interval);
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("[ZingBite SSE] EventSource connection error:", err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, [user, authLoading]);
 
   const handleChangeRole = async (targetUserId, newRole) => {

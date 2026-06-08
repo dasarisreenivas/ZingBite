@@ -6,6 +6,40 @@ import { useModal } from '../context/ModalContext';
 import { Bike, CheckCircle2, Navigation, IndianRupee, Loader, AlertTriangle, MapPin, ClipboardCheck, LogOut, MessageSquare } from 'lucide-react';
 import ChatWidget from '../components/ChatWidget';
 
+const interpolatePolyline = (points, progressPercent) => {
+  if (!points || points.length === 0) return null;
+  if (points.length === 1) return points[0];
+  
+  const segments = [];
+  let totalLength = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const dx = p2[0] - p1[0];
+    const dy = p2[1] - p1[1];
+    const len = Math.sqrt(dx * dx + dy * dy);
+    segments.push({ from: p1, to: p2, length: len });
+    totalLength += len;
+  }
+  
+  if (totalLength === 0) return points[0];
+  
+  const targetDist = (progressPercent / 100) * totalLength;
+  
+  let accumulated = 0;
+  for (const seg of segments) {
+    if (accumulated + seg.length >= targetDist) {
+      const segmentProgress = seg.length > 0 ? (targetDist - accumulated) / seg.length : 0;
+      const lat = seg.from[0] + (seg.to[0] - seg.from[0]) * segmentProgress;
+      const lng = seg.from[1] + (seg.to[1] - seg.from[1]) * segmentProgress;
+      return [lat, lng];
+    }
+    accumulated += seg.length;
+  }
+  
+  return points[points.length - 1];
+};
+
 const ActiveDeliveryMap = ({ order }) => {
   const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
   const mapRef = React.useRef(null);
@@ -14,6 +48,8 @@ const ActiveDeliveryMap = ({ order }) => {
   const restaurantMarkerRef = React.useRef(null);
   const customerMarkerRef = React.useRef(null);
   const routePolylineRef = React.useRef(null);
+  const polylineFMRef = React.useRef(null);
+  const polylineLMRef = React.useRef(null);
 
   // Load Leaflet dynamically
   useEffect(() => {
@@ -55,6 +91,45 @@ const ActiveDeliveryMap = ({ order }) => {
     }
   }, []);
 
+  // Initialize Map
+  useEffect(() => {
+    if (!leafletLoaded || !mapRef.current) return;
+    if (mapInstanceRef.current) return;
+
+    const L = window.L;
+    if (!L) return;
+
+    const map = L.map(mapRef.current, {
+      zoomControl: true,
+      scrollWheelZoom: true
+    }).setView([12.977, 77.601], 14);
+    mapInstanceRef.current = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 200);
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        riderMarkerRef.current = null;
+        restaurantMarkerRef.current = null;
+        customerMarkerRef.current = null;
+        routePolylineRef.current = null;
+        polylineFMRef.current = null;
+        polylineLMRef.current = null;
+      }
+    };
+  }, [leafletLoaded, order?.orderId]);
+
   // Resolve current coordinates
   const restaurantLat = 12.9716;
   const restaurantLng = 77.5946;
@@ -76,31 +151,41 @@ const ActiveDeliveryMap = ({ order }) => {
         isRealGPS = true;
       }
     }
-  } else if (order) {
-    const progress = order.gpsProgress || 0;
-    currentLat = restaurantLat + (customerLat - restaurantLat) * (progress / 100);
-    currentLng = restaurantLng + (customerLng - restaurantLng) * (progress / 100);
   }
 
-  // Initialize Map
-  useEffect(() => {
-    if (!leafletLoaded || !mapRef.current) return;
-    if (mapInstanceRef.current) return;
+  if (!isRealGPS && order) {
+    const progress = order.gpsProgress || 0;
+    let pathPoints = [];
+    if (order.status === 'Out for Delivery') {
+      if (order.pathLM1 && order.pathLM1.length > 0) {
+        pathPoints = order.pathLM1.map(n => [n.latitude, n.longitude]);
+      }
+    } else {
+      if (order.pathFM && order.pathFM.length > 0) {
+        pathPoints = order.pathFM.map(n => [n.latitude, n.longitude]);
+      }
+    }
 
+    if (pathPoints.length > 0) {
+      const pos = interpolatePolyline(pathPoints, progress);
+      if (pos) {
+        currentLat = pos[0];
+        currentLng = pos[1];
+      }
+    } else {
+      currentLat = restaurantLat + (customerLat - restaurantLat) * (progress / 100);
+      currentLng = restaurantLng + (customerLng - restaurantLng) * (progress / 100);
+    }
+  }
+
+  // Handle Markers & Path rendering dynamically
+  useEffect(() => {
+    if (!leafletLoaded || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
     const L = window.L;
     if (!L) return;
 
-    const map = L.map(mapRef.current, {
-      zoomControl: true,
-      scrollWheelZoom: true
-    }).setView([12.977, 77.601], 14);
-    mapInstanceRef.current = map;
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-
+    // 1. Setup Icons
     const restaurantIcon = L.divIcon({
       html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">🍳</div>`,
       className: 'custom-map-marker-restaurant',
@@ -122,48 +207,84 @@ const ActiveDeliveryMap = ({ order }) => {
       iconAnchor: [14, 14]
     });
 
-    restaurantMarkerRef.current = L.marker([restaurantLat, restaurantLng], { icon: restaurantIcon }).addTo(map).bindPopup('<b>ZingBite Kitchen</b>');
-    customerMarkerRef.current = L.marker([customerLat, customerLng], { icon: customerIcon }).addTo(map).bindPopup('<b>Customer Address</b>');
+    // 2. Resolve coordinates from paths
+    let restCoords = [restaurantLat, restaurantLng];
+    let custCoords = [customerLat, customerLng];
 
-    const routePoints = [
-      [restaurantLat, restaurantLng],
-      [restaurantLat, 77.6010],
-      [customerLat, 77.6010],
-      [customerLat, customerLng]
-    ];
+    if (order?.pathFM && order.pathFM.length > 0) {
+      const lastNode = order.pathFM[order.pathFM.length - 1];
+      restCoords = [lastNode.latitude, lastNode.longitude];
+    }
+    if (order?.pathLM1 && order.pathLM1.length > 0) {
+      const lastNode = order.pathLM1[order.pathLM1.length - 1];
+      custCoords = [lastNode.latitude, lastNode.longitude];
+    }
 
-    routePolylineRef.current = L.polyline(routePoints, { color: '#8b5cf6', weight: 4, opacity: 0.7, dashArray: '8, 8' }).addTo(map);
+    // 3. Create or Update Markers
+    if (!restaurantMarkerRef.current) {
+      restaurantMarkerRef.current = L.marker(restCoords, { icon: restaurantIcon }).addTo(map).bindPopup('<b>ZingBite Kitchen</b>');
+    } else {
+      restaurantMarkerRef.current.setLatLng(restCoords);
+    }
 
-    riderMarkerRef.current = L.marker([currentLat, currentLng], { icon: riderIcon }).addTo(map).bindPopup('<b>Rider (You)</b>');
+    if (!customerMarkerRef.current) {
+      customerMarkerRef.current = L.marker(custCoords, { icon: customerIcon }).addTo(map).bindPopup('<b>Customer Address</b>');
+    } else {
+      customerMarkerRef.current.setLatLng(custCoords);
+    }
 
-    map.fitBounds([
-      [restaurantLat, restaurantLng],
-      [customerLat, customerLng]
-    ], { padding: [40, 40] });
+    if (!riderMarkerRef.current) {
+      riderMarkerRef.current = L.marker([currentLat, currentLng], { icon: riderIcon }).addTo(map).bindPopup('<b>Rider (You)</b>');
+    } else {
+      riderMarkerRef.current.setLatLng([currentLat, currentLng]);
+    }
 
-    setTimeout(() => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.invalidateSize();
-      }
-    }, 200);
+    // 4. Remove previous polylines
+    if (routePolylineRef.current) {
+      routePolylineRef.current.remove();
+      routePolylineRef.current = null;
+    }
+    if (polylineFMRef.current) {
+      polylineFMRef.current.remove();
+      polylineFMRef.current = null;
+    }
+    if (polylineLMRef.current) {
+      polylineLMRef.current.remove();
+      polylineLMRef.current = null;
+    }
 
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-        riderMarkerRef.current = null;
-        restaurantMarkerRef.current = null;
-        customerMarkerRef.current = null;
-        routePolylineRef.current = null;
-      }
-    };
-  }, [leafletLoaded, order.orderId]);
+    // 5. Draw VRP Paths if available
+    let drawn = false;
+    if (order?.pathFM && order.pathFM.length > 0) {
+      const latlngsFM = order.pathFM.map(n => [n.latitude, n.longitude]);
+      polylineFMRef.current = L.polyline(latlngsFM, { color: '#06b6d4', weight: 4, opacity: 0.8 }).addTo(map);
+      drawn = true;
+    }
+    if (order?.pathLM1 && order.pathLM1.length > 0) {
+      const latlngsLM = order.pathLM1.map(n => [n.latitude, n.longitude]);
+      polylineLMRef.current = L.polyline(latlngsLM, { color: '#8b5cf6', weight: 4, opacity: 0.8, dashArray: '6, 6' }).addTo(map);
+      drawn = true;
+    }
 
-  // Update Rider Position
-  useEffect(() => {
-    if (!leafletLoaded || !riderMarkerRef.current) return;
-    riderMarkerRef.current.setLatLng([currentLat, currentLng]);
-  }, [currentLat, currentLng, leafletLoaded]);
+    // Fallback static path if VRP paths are not available
+    if (!drawn) {
+      const fallbackPoints = [
+        [currentLat, currentLng],
+        restCoords,
+        custCoords
+      ];
+      routePolylineRef.current = L.polyline(fallbackPoints, { color: '#8b5cf6', weight: 4, opacity: 0.7, dashArray: '8, 8' }).addTo(map);
+    }
+
+    // 6. Fit map bounds to cover all points
+    const bounds = L.latLngBounds([
+      [currentLat, currentLng],
+      restCoords,
+      custCoords
+    ]);
+    map.fitBounds(bounds, { padding: [40, 40] });
+
+  }, [leafletLoaded, order?.pathFM, order?.pathLM1, currentLat, currentLng]);
 
   return (
     <div className="map-wrapper" style={{ height: '200px', position: 'relative', marginTop: '16px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-medium)' }}>
@@ -243,13 +364,15 @@ const DeliveryDashboard = () => {
         payload.latitude = latitude;
         payload.longitude = longitude;
       }
-      await axios.post('/api/delivery', payload);
+      const res = await axios.post('/api/delivery', payload);
       setData(prev => ({
         ...prev,
         active: (prev.active || []).map(a => a.orderId === orderId ? { 
           ...a, 
           gpsProgress: progress,
-          gpsCoordinates: (latitude !== null) ? `${latitude.toFixed(5)},${longitude.toFixed(5)}` : a.gpsCoordinates
+          gpsCoordinates: (latitude !== null) ? `${latitude.toFixed(5)},${longitude.toFixed(5)}` : a.gpsCoordinates,
+          pathFM: res.data.pathFM || a.pathFM,
+          pathLM1: res.data.pathLM1 || a.pathLM1
         } : a)
       }));
     } catch (err) {
@@ -370,12 +493,24 @@ const DeliveryDashboard = () => {
       return;
     }
     fetchDeliveryData(false);
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+
+    const eventSource = new EventSource('/api/stream?topic=rider_orders');
+    eventSource.onmessage = (event) => {
+      try {
+        console.log("[ZingBite SSE] Received real-time rider dashboard update");
         fetchDeliveryData(true);
+      } catch (err) {
+        console.error("[ZingBite SSE] Error on message:", err);
       }
-    }, 10000);
-    return () => clearInterval(interval);
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("[ZingBite SSE] EventSource connection error:", err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, [user, authLoading]);
 
   const handleClaimRun = async (orderId) => {
@@ -953,7 +1088,7 @@ const DeliveryDashboard = () => {
                   </div>
                   
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '12px' }}>
-                    Collect Amount: <strong>&#8377;{o.total.toFixed(2)}</strong> ({o.payment})
+                    Collect Amount: <strong>&#8377;{(o.total ?? 0).toFixed(2)}</strong> ({o.payment})
                   </p>
                 </div>
                 
@@ -1059,7 +1194,7 @@ const DeliveryDashboard = () => {
                     <span className="badge delivered">{o.status}</span>
                   </div>
                   <h4 style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 700 }}>{o.restaurantName}</h4>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>Total Amount: &#8377;{o.total.toFixed(2)}</p>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>Total Amount: &#8377;{(o.total ?? 0).toFixed(2)}</p>
                 </div>
                 <div style={{ marginTop: '16px', fontSize: '0.78rem', color: '#4bc0c0', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <CheckCircle2 size={12} /> EARNINGS CREDITED (+&#8377;45.00)

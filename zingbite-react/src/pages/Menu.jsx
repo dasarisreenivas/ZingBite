@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
 import { 
-  CircleCheck, CircleX, Minus, Plus, ArrowRight, AlertCircle, 
-  Search, MapPin, Clock, Star, Info, ShoppingBag, IndianRupee, Flame
+  Minus, Plus, ArrowRight, AlertCircle,
+  Search, MapPin, Clock, Star, ShoppingBag, Flame
 } from 'lucide-react';
+
+const DEFAULT_RESTAURANT_IMAGE = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop';
+const DEFAULT_DISH_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop';
 
 const Menu = () => {
   const navigate = useNavigate();
@@ -22,7 +25,7 @@ const Menu = () => {
   const [sortBy, setSortBy] = useState('Default'); // 'Default' | 'PriceLowHigh' | 'PriceHighLow'
   const [currentSlide, setCurrentSlide] = useState(0);
   
-  const { user } = React.useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const { cart, addToCart, updateQuantity, conflictPopup, clearAndAdd, setConflictPopup } = useCart();
 
   useEffect(() => {
@@ -36,11 +39,28 @@ const Menu = () => {
         if (!isBackground) setLoading(false);
       }
     };
-    if (restaurantId) {
-      fetchMenu(false);
-      const interval = setInterval(() => fetchMenu(true), 4000);
-      return () => clearInterval(interval);
+    if (!restaurantId) {
+      return undefined;
     }
+
+    fetchMenu(false);
+    const eventSource = new EventSource(`/api/stream?topic=menu&restaurantId=${restaurantId}`);
+    eventSource.onmessage = () => {
+      try {
+        console.log("[ZingBite SSE] Received real-time menu update");
+        fetchMenu(true);
+      } catch (err) {
+        console.error("[ZingBite SSE] Error on message:", err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("[ZingBite SSE] EventSource connection error:", err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, [restaurantId, restaurantNameParam]);
 
   const getCartQuantity = (itemId) => {
@@ -71,17 +91,17 @@ const Menu = () => {
   const dynRestaurant = hasItems && menuList[0].restaurant ? menuList[0].restaurant : null;
   
   const restName = dynRestaurant ? dynRestaurant.restaurantName : restaurantNameParam;
-  const restCuisine = dynRestaurant ? dynRestaurant.cuisineType : 'Cuisine details';
-  const restAddress = dynRestaurant ? dynRestaurant.address : 'Address details';
-  const restDelivery = dynRestaurant ? dynRestaurant.deliveryTime : '30 mins';
-  const restBanner = dynRestaurant?.imagePath || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop';
+  const restCuisine = dynRestaurant ? (dynRestaurant.cusineType || dynRestaurant.cuisineType || 'Cuisine details') : 'Cuisine details';
+  const restAddress = dynRestaurant ? (dynRestaurant.address || 'Address details') : 'Address details';
+  const restDelivery = dynRestaurant ? (dynRestaurant.deliveryTime || '30 mins') : '30 mins';
+  const restBanner = dynRestaurant?.imagePath || DEFAULT_RESTAURANT_IMAGE;
 
-  const slides = [
+  const slides = useMemo(() => [
     restBanner,
     "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1498837167922-ddd27525d352?q=80&w=2070&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1543007630-9710e4a00a20?q=80&w=2035&auto=format&fit=crop"
-  ];
+  ], [restBanner]);
 
   useEffect(() => {
     if (slides.length === 0) return;
@@ -92,7 +112,10 @@ const Menu = () => {
   }, [slides.length]);
 
   // Filter list by search term and veg/non-veg type
-  const filteredList = menuList.filter(item => {
+  const visibleMenuList = restaurantId ? menuList : [];
+  const isMenuLoading = Boolean(restaurantId) && loading;
+
+  const filteredList = visibleMenuList.filter(item => {
     const matchesSearch = (item.menuName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (item.description || '').toLowerCase().includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
@@ -168,17 +191,14 @@ const Menu = () => {
         }
 
         .hero-glass-card {
-          background: rgba(0, 0, 0, 0.55);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          border-radius: var(--radius-lg);
-          padding: 28px 36px;
-          max-width: 580px;
+          background: transparent;
+          border: none;
+          border-radius: 0;
+          padding: 0;
+          max-width: 720px;
           width: 100%;
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
           transform: translateY(0);
-          animation: heroCardFloat 4s ease-in-out infinite;
+          animation: none;
         }
 
         @keyframes heroCardFloat {
@@ -193,7 +213,7 @@ const Menu = () => {
           margin: 0 0 8px;
           color: #fff;
           text-shadow: 0 2px 4px rgba(0,0,0,0.4);
-          letter-spacing: -0.5px;
+          letter-spacing: 0;
         }
 
         .hero-info-row {
@@ -213,6 +233,10 @@ const Menu = () => {
           gap: 5px;
         }
 
+        .hero-separator {
+          color: rgba(255, 255, 255, 0.55);
+        }
+
         .cuisine-tag {
           font-size: 0.88rem;
           color: rgba(255, 255, 255, 0.75);
@@ -230,7 +254,7 @@ const Menu = () => {
           font-size: 0.82rem;
           font-weight: 700;
           color: #ffcbd1;
-          letter-spacing: 0.5px;
+          letter-spacing: 0;
         }
 
         .slideshow-dots {
@@ -403,7 +427,7 @@ const Menu = () => {
           border-radius: 6px;
           font-size: 0.7rem;
           font-weight: 800;
-          letter-spacing: 0.5px;
+          letter-spacing: 0;
           text-transform: uppercase;
         }
 
@@ -434,6 +458,9 @@ const Menu = () => {
         }
 
         .dish-featured-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
           font-size: 0.7rem;
           font-weight: 700;
           color: #ff9f40;
@@ -442,7 +469,7 @@ const Menu = () => {
           border-radius: 6px;
           border: 1px solid rgba(255, 159, 64, 0.15);
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0;
         }
 
         .dish-card-title {
@@ -534,7 +561,7 @@ const Menu = () => {
           transition: all 0.25s ease;
           box-shadow: 0 4px 10px rgba(96, 178, 70, 0.15);
           white-space: nowrap;
-          letter-spacing: 0.5px;
+          letter-spacing: 0;
         }
 
         .premium-add-btn:hover:not(:disabled) {
@@ -744,7 +771,7 @@ const Menu = () => {
           font-size: 0.85rem;
           font-weight: 800;
           color: var(--brand-red);
-          letter-spacing: 2px;
+          letter-spacing: 0;
           text-transform: uppercase;
         }
 
@@ -853,11 +880,11 @@ const Menu = () => {
                   <Star size={14} fill="#ffb703" color="#ffb703" /> 
                   <strong>4.2</strong> (100+ ratings)
                 </span>
-                <span>•</span>
+                <span className="hero-separator">|</span>
                 <span className="hero-info-item">
                   <Clock size={14} /> {restDelivery}
                 </span>
-                <span>•</span>
+                <span className="hero-separator">|</span>
                 <span className="hero-info-item">
                   <MapPin size={14} /> {restAddress}
                 </span>
@@ -866,7 +893,7 @@ const Menu = () => {
                 Cuisines: <strong>{restCuisine}</strong>
               </p>
               <div className="promo-tag">
-                🏷️ ZINGBITE50: 50% OFF up to ₹100 on your first order!
+                <Flame size={14} /> ZINGBITE50: 50% OFF up to &#8377;100 on your first order!
               </div>
             </div>
           </div>
@@ -934,7 +961,7 @@ const Menu = () => {
 
         {/* Menu Items Grid */}
         <div className="menu-items-grid">
-          {loading ? (
+          {isMenuLoading ? (
             Array.from({ length: 6 }).map((_, i) => (
               <div 
                 key={i} 
@@ -962,7 +989,7 @@ const Menu = () => {
                         </div>
                         {idx % 3 === 0 && (
                           <span className="dish-featured-tag">
-                            ★ Bestseller
+                            <Star size={12} fill="#ff9f40" color="#ff9f40" /> Bestseller
                           </span>
                         )}
                       </div>
@@ -970,7 +997,7 @@ const Menu = () => {
                       <h3 className="dish-card-title">{item.menuName}</h3>
                       
                       <div className="dish-card-price-row">
-                        <span className="price-symbol">₹</span>
+                        <span className="price-symbol">&#8377;</span>
                         <span className="price-value">{item.price}</span>
                       </div>
                       
@@ -981,12 +1008,13 @@ const Menu = () => {
                   <div className="dish-card-media">
                     <div className="dish-card-img-container">
                       <img 
-                        src={item.imagePath || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop"} 
+                        src={item.imagePath || DEFAULT_DISH_IMAGE} 
                         alt={item.menuName} 
                         className="dish-card-img" 
+                        loading="lazy"
                         onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop";
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = DEFAULT_DISH_IMAGE;
                         }}
                       />
                     </div>

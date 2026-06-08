@@ -15,12 +15,14 @@ import Register from './pages/Register';
 import Info from './pages/Info';
 import Profile from './pages/Profile';
 import { Loader } from 'lucide-react';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const OrderTracking = React.lazy(() => import('./pages/OrderTracking'));
 const DeliveryDashboard = React.lazy(() => import('./pages/DeliveryDashboard'));
 const RestaurantDashboard = React.lazy(() => import('./pages/RestaurantDashboard'));
 const CareerPortal = React.lazy(() => import('./pages/CareerPortal'));
 const SuperAdminDashboard = React.lazy(() => import('./pages/SuperAdminDashboard'));
+const VRPDashboard = React.lazy(() => import('./pages/VRPDashboard'));
 
 function App() {
   return (
@@ -31,11 +33,12 @@ function App() {
             <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
               <Header />
               <main style={{ flex: 1, minHeight: '75vh', display: 'flex', flexDirection: 'column' }}>
-                <React.Suspense fallback={
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px', flex: 1 }}>
-                    <Loader size={36} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
-                  </div>
-                }>
+                <ErrorBoundary>
+                  <React.Suspense fallback={
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px', flex: 1 }}>
+                      <Loader size={36} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
+                    </div>
+                  }>
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/home" element={<Home />} />
@@ -51,8 +54,10 @@ function App() {
                     <Route path="/restaurant-admin" element={<RestaurantDashboard />} />
                     <Route path="/careers" element={<CareerPortal />} />
                     <Route path="/admin" element={<SuperAdminDashboard />} />
+                    <Route path="/vrp" element={<VRPDashboard />} />
                   </Routes>
-                </React.Suspense>
+                  </React.Suspense>
+                </ErrorBoundary>
               </main>
               <Footer />
             </div>

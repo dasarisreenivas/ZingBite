@@ -30,6 +30,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+
 @WebServlet("/api/super-admin")
 public class SuperAdminServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
@@ -153,6 +158,17 @@ public class SuperAdminServlet extends HttpServlet {
                                 rr.getAdminId(),
                                 rr.getImagePath()
                             );
+
+                            // Geocode the restaurant address to get real coordinates
+                            double[] coords = geocodeAddress(rr.getAddress());
+                            if (coords != null) {
+                                r.setLatitude(coords[0]);
+                                r.setLongitude(coords[1]);
+                                System.out.println("[SuperAdmin] Geocoded restaurant '" + rr.getRestaurantName() + "' to: " + coords[0] + ", " + coords[1]);
+                            } else {
+                                System.out.println("[SuperAdmin] Could not geocode address for restaurant '" + rr.getRestaurantName() + "': " + rr.getAddress());
+                            }
+
                             hibernateSession.persist(r);
 
                             // Force Admin User role to restaurant_admin
@@ -190,6 +206,17 @@ public class SuperAdminServlet extends HttpServlet {
                         
                         tx.commit();
                         resp.getWriter().write("{\"success\":true}");
+                        // Broadcast approval/rejection event
+                        try {
+                            JsonObject sseMsg = new JsonObject();
+                            sseMsg.addProperty("event", "request_reviewed");
+                            sseMsg.addProperty("requestId", requestId);
+                            sseMsg.addProperty("status", status);
+                            com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:admin_requests", sseMsg.toString());
+                            com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:user_orders:" + rr.getAdminId(), sseMsg.toString());
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
                     } else {
                         resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
                         resp.getWriter().write("{\"error\":\"Restaurant Request not found\"}");
@@ -207,6 +234,14 @@ public class SuperAdminServlet extends HttpServlet {
                 String imagePath = requestBody.has("imagePath") ? requestBody.get("imagePath").getAsString() : "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop";
 
                 Restaurant restaurant = new Restaurant(name, deliveryTime, cuisine, address, 4.5f, true, 1, imagePath);
+
+                // Geocode the restaurant address to get real coordinates
+                double[] coords = geocodeAddress(address);
+                if (coords != null) {
+                    restaurant.setLatitude(coords[0]);
+                    restaurant.setLongitude(coords[1]);
+                    System.out.println("[SuperAdmin] Geocoded new restaurant '" + name + "' to: " + coords[0] + ", " + coords[1]);
+                }
 
                 try (Session hibernateSession = DBUtils.openSession()) {
                     tx = hibernateSession.beginTransaction();
@@ -325,6 +360,48 @@ public class SuperAdminServlet extends HttpServlet {
                     if (tx != null) tx.rollback();
                     throw e;
                 }
+            } else if ("geocodeRestaurants".equals(action)) {
+                // One-time backfill: geocode all restaurants that have NULL coordinates
+                int geocoded = 0;
+                int failed = 0;
+
+                try (Session hibernateSession = DBUtils.openSession()) {
+                    tx = hibernateSession.beginTransaction();
+                    String hql = "from Restaurant where latitude is null or longitude is null";
+                    Query<Restaurant> query = hibernateSession.createQuery(hql, Restaurant.class);
+                    List<Restaurant> restaurants = query.list();
+
+                    for (Restaurant r : restaurants) {
+                        if (r.getAddress() != null && !r.getAddress().trim().isEmpty()) {
+                            double[] coords = geocodeAddress(r.getAddress());
+                            if (coords != null) {
+                                r.setLatitude(coords[0]);
+                                r.setLongitude(coords[1]);
+                                hibernateSession.merge(r);
+                                geocoded++;
+                                System.out.println("[SuperAdmin] Backfill geocoded '" + r.getRestaurantName() + "' → " + coords[0] + ", " + coords[1]);
+
+                                // Rate limit: Nominatim requires 1 request per second
+                                try { Thread.sleep(1100); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                            } else {
+                                failed++;
+                            }
+                        } else {
+                            failed++;
+                        }
+                    }
+                    tx.commit();
+                } catch (Exception e) {
+                    if (tx != null) tx.rollback();
+                    throw e;
+                }
+
+                JsonObject result = new JsonObject();
+                result.addProperty("success", true);
+                result.addProperty("geocoded", geocoded);
+                result.addProperty("failed", failed);
+                resp.getWriter().write(result.toString());
+
             } else {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 resp.getWriter().write("{\"error\":\"Invalid action\"}");
@@ -335,5 +412,41 @@ public class SuperAdminServlet extends HttpServlet {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Operation failed\"}");
         }
+    }
+
+    /**
+     * Geocodes an address string into [latitude, longitude] using the Nominatim API.
+     * Returns null if geocoding fails or no results found.
+     */
+    private double[] geocodeAddress(String address) {
+        if (address == null || address.trim().isEmpty()) return null;
+        try {
+            String encoded = URLEncoder.encode(address.trim(), "UTF-8");
+            String apiUrl = "https://nominatim.openstreetmap.org/search?format=json&q=" + encoded + "&limit=1";
+            
+            HttpURLConnection conn = (HttpURLConnection) new URL(apiUrl).openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent", "ZingBite/1.0");
+            conn.setRequestProperty("Accept-Language", "en");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+
+            if (conn.getResponseCode() == 200) {
+                InputStreamReader reader = new InputStreamReader(conn.getInputStream(), "UTF-8");
+                com.google.gson.JsonArray results = JsonParser.parseReader(reader).getAsJsonArray();
+                reader.close();
+                
+                if (results.size() > 0) {
+                    JsonObject first = results.get(0).getAsJsonObject();
+                    double lat = first.get("lat").getAsDouble();
+                    double lon = first.get("lon").getAsDouble();
+                    return new double[]{lat, lon};
+                }
+            }
+            conn.disconnect();
+        } catch (Exception e) {
+            System.err.println("[SuperAdmin] Geocoding failed for address '" + address + "': " + e.getMessage());
+        }
+        return null;
     }
 }

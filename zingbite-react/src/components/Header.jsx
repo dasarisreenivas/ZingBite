@@ -1,6 +1,6 @@
-import React, { useContext, useState, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Flame, Home, ShoppingCart, LogOut, User, Menu, X, Briefcase, Shield, Bike, Store, MapPin } from 'lucide-react';
+import { Flame, Home, ShoppingCart, User, X, Briefcase, Shield, Bike, Store, MapPin, Compass } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
@@ -19,8 +19,23 @@ const Header = () => {
   }, []);
 
   useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [location]);
+    if (!mobileMenuOpen) return undefined;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
 
   // Lock specialized roles (delivery partner, restaurant admin, super admin) 
   // out of customer-facing pages (home, menu, cart, checkout, profile)
@@ -42,8 +57,11 @@ const Header = () => {
 
   const handleLogout = () => {
     logout();
+    setMobileMenuOpen(false);
     navigate('/');
   };
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
 
   const getHomeLink = () => {
     if (!user) return '/';
@@ -117,7 +135,7 @@ const Header = () => {
           font-size: 1.6rem;
           color: var(--text-primary);
           margin: 0;
-          letter-spacing: -0.5px;
+          letter-spacing: 0;
         }
         .logo-text span {
           color: var(--brand-red);
@@ -283,6 +301,8 @@ const Header = () => {
           -webkit-backdrop-filter: blur(4px);
           z-index: 999;
           animation: fadeIn 0.35s ease-out;
+          border: 0;
+          cursor: pointer;
         }
         .close-btn-hover {
           background: none;
@@ -349,6 +369,11 @@ const Header = () => {
                 <Shield size={16} /> Admin Panel
               </Link>
             )}
+            {user && user.role === 'super_admin' && (
+              <Link to="/vrp" className={`nav-link ${isActive('/vrp') ? 'active' : ''}`}>
+                <Compass size={16} /> VRP Dispatch
+              </Link>
+            )}
 
             {user ? (
               <>
@@ -361,7 +386,7 @@ const Header = () => {
                     {cart?.itemCount > 0 && <span className="cart-badge">{cart.itemCount}</span>}
                   </Link>
                 )}
-                <button onClick={handleLogout} className="nav-btn-logout">Logout</button>
+                <button type="button" onClick={handleLogout} className="nav-btn-logout">Logout</button>
               </>
             ) : (
               <>
@@ -371,34 +396,50 @@ const Header = () => {
             )}
           </nav>
 
-          <button className={`hamburger ${mobileMenuOpen ? 'open' : ''}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <button
+            type="button"
+            className={`hamburger ${mobileMenuOpen ? 'open' : ''}`}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-navigation"
+          >
             <span /><span /><span />
           </button>
         </div>
       </header>
 
       {mobileMenuOpen && (
-        <div className="sidebar-backdrop" onClick={() => setMobileMenuOpen(false)} />
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          onClick={closeMobileMenu}
+          aria-label="Close navigation menu"
+        />
       )}
 
-      <div className={`mobile-menu ${mobileMenuOpen ? 'open' : ''}`}>
+      <div
+        id="mobile-navigation"
+        className={`mobile-menu ${mobileMenuOpen ? 'open' : ''}`}
+        aria-hidden={!mobileMenuOpen}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-light)' }}>
           <div className="logo-link" style={{ pointerEvents: 'none' }}>
             <div className="logo-icon"><Flame size={18} color="#fff" /></div>
             <h1 className="logo-text" style={{ fontSize: '1.3rem' }}>Zing<span>Bite</span></h1>
           </div>
-          <button onClick={() => setMobileMenuOpen(false)} className="close-btn-hover">
+          <button type="button" onClick={closeMobileMenu} className="close-btn-hover" aria-label="Close navigation menu">
             <X size={22} color="var(--text-primary)" />
           </button>
         </div>
 
         {(!user || user.role === 'customer') && (
           <>
-            <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}><Home size={16} /> Home</Link>
-            <Link to="/track-order" className={`nav-link ${isActive('/track-order') ? 'active' : ''}`}><MapPin size={16} /> Track Order</Link>
+            <Link to="/" onClick={closeMobileMenu} className={`nav-link ${isActive('/') || isActive('/home') ? 'active' : ''}`}><Home size={16} /> Home</Link>
+            <Link to="/track-order" onClick={closeMobileMenu} className={`nav-link ${isActive('/track-order') ? 'active' : ''}`}><MapPin size={16} /> Track Order</Link>
           </>
         )}
-        <Link to="/careers" className={`nav-link ${isActive('/careers') ? 'active' : ''}`}><Briefcase size={16} /> Careers</Link>
+        <Link to="/careers" onClick={closeMobileMenu} className={`nav-link ${isActive('/careers') ? 'active' : ''}`}><Briefcase size={16} /> Careers</Link>
         
         {/* Dynamic authorized mobile portal links */}
         {user && (user.role === 'delivery_partner' || user.role === 'restaurant_admin' || user.role === 'super_admin') && (
@@ -407,18 +448,23 @@ const Header = () => {
               My Portal
             </div>
             {user.role === 'delivery_partner' && (
-              <Link to="/delivery" className="nav-link" style={{ paddingLeft: '24px' }}>
+              <Link to="/delivery" onClick={closeMobileMenu} className="nav-link" style={{ paddingLeft: '24px' }}>
                 <Bike size={16} /> Delivery Portal
               </Link>
             )}
             {user.role === 'restaurant_admin' && (
-              <Link to="/restaurant-admin" className="nav-link" style={{ paddingLeft: '24px' }}>
+              <Link to="/restaurant-admin" onClick={closeMobileMenu} className="nav-link" style={{ paddingLeft: '24px' }}>
                 <Store size={16} /> Restaurant Portal
               </Link>
             )}
             {user.role === 'super_admin' && (
-              <Link to="/admin" className="nav-link" style={{ paddingLeft: '24px' }}>
+              <Link to="/admin" onClick={closeMobileMenu} className="nav-link" style={{ paddingLeft: '24px' }}>
                 <Shield size={16} /> Admin Panel
+              </Link>
+            )}
+            {user.role === 'super_admin' && (
+              <Link to="/vrp" onClick={closeMobileMenu} className="nav-link" style={{ paddingLeft: '24px' }}>
+                <Compass size={16} /> VRP Dispatch
               </Link>
             )}
             <div style={{ height: '1px', background: 'var(--border-light)', margin: '8px 0' }} />
@@ -427,22 +473,22 @@ const Header = () => {
 
         {user ? (
           <>
-            <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`}>
+            <Link to="/profile" onClick={closeMobileMenu} className={`nav-link ${isActive('/profile') ? 'active' : ''}`}>
               <User size={16} /> Profile
             </Link>
             {(!user || user.role === 'customer') && (
-              <Link to="/cart" className={`nav-link ${isActive('/cart') ? 'active' : ''}`}>
+              <Link to="/cart" onClick={closeMobileMenu} className={`nav-link ${isActive('/cart') ? 'active' : ''}`}>
                 <ShoppingCart size={16} /> Cart {cart?.itemCount > 0 && <span className="cart-badge">{cart.itemCount}</span>}
               </Link>
             )}
             <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
-              <button onClick={handleLogout} className="nav-btn-logout" style={{width:'100%'}}>Logout</button>
+              <button type="button" onClick={handleLogout} className="nav-btn-logout" style={{width:'100%'}}>Logout</button>
             </div>
           </>
         ) : (
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '20px' }}>
-            <Link to="/login" className="nav-link" style={{ justifyContent: 'center', border: '1px solid var(--border-medium)' }}>Login</Link>
-            <Link to="/register" className="nav-btn-signup" style={{textAlign:'center'}}>Sign Up</Link>
+            <Link to="/login" onClick={closeMobileMenu} className="nav-link" style={{ justifyContent: 'center', border: '1px solid var(--border-medium)' }}>Login</Link>
+            <Link to="/register" onClick={closeMobileMenu} className="nav-btn-signup" style={{textAlign:'center'}}>Sign Up</Link>
           </div>
         )}
       </div>

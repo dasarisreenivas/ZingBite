@@ -33,10 +33,7 @@ import com.google.gson.JsonParser;
 public class DeliveryServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
-    // Static map storing the current GPS route progress (0.0 to 100.0) for each active order
-    public static final java.util.Map<Integer, Double> activeGpsProgress = new java.util.concurrent.ConcurrentHashMap<>();
-    // Static map storing the current real-world GPS coordinates (lat,lng string) for each active order
-    public static final java.util.Map<Integer, String> activeGpsCoordinates = new java.util.concurrent.ConcurrentHashMap<>();
+
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -91,10 +88,21 @@ public class DeliveryServlet extends HttpServlet {
                 oJson.addProperty("customerAddress", customer != null ? customer.getAddress() : "ZingBite Hub");
                 oJson.addProperty("customerPhone", customer != null ? String.valueOf(customer.getPhoneNumber()) : "");
 
-                double restLat = GeoUtils.getRestaurantLatitude(o.getRestaurantId() != null ? o.getRestaurantId().getRestaurantId() : 0);
-                double restLon = GeoUtils.getRestaurantLongitude(o.getRestaurantId() != null ? o.getRestaurantId().getRestaurantId() : 0);
+                int rId = o.getRestaurantId() != null ? o.getRestaurantId().getRestaurantId() : 0;
+                double restLat = GeoUtils.getRestaurantLatitude(rId);
+                double restLon = GeoUtils.getRestaurantLongitude(rId);
+                double custLat = GeoUtils.getUserLatitude(o.getUserId());
+                double custLon = GeoUtils.getUserLongitude(o.getUserId());
                 double dist = GeoUtils.haversine(riderLat, riderLon, restLat, restLon);
                 oJson.addProperty("distance", Math.round(dist * 10.0) / 10.0);
+
+                // Include raw coordinates for map markers
+                oJson.addProperty("restaurantLat", restLat);
+                oJson.addProperty("restaurantLon", restLon);
+                oJson.addProperty("customerLat", custLat);
+                oJson.addProperty("customerLon", custLon);
+                oJson.addProperty("riderLat", riderLat);
+                oJson.addProperty("riderLon", riderLon);
 
                 if (o.getRiderId() == null) {
                     String status = o.getOrderStatus();
@@ -109,10 +117,39 @@ public class DeliveryServlet extends HttpServlet {
                         completedDeliveries.add(oJson);
                         totalEarnings += 45; // 45 INR per trip
                     } else {
-                        double currentGps = activeGpsProgress.containsKey(o.getOrderId()) ? activeGpsProgress.get(o.getOrderId()) : 0.0;
+                        double currentGps = o.getGpsProgress() != null ? o.getGpsProgress() : 0.0;
                         oJson.addProperty("gpsProgress", currentGps);
-                        if (activeGpsCoordinates.containsKey(o.getOrderId())) {
-                            oJson.addProperty("gpsCoordinates", activeGpsCoordinates.get(o.getOrderId()));
+                        if (o.getGpsCoordinates() != null) {
+                            oJson.addProperty("gpsCoordinates", o.getGpsCoordinates());
+                        }
+                        try {
+                            int riderId = o.getRiderId() != null ? o.getRiderId() : 0;
+                            double rLat = GeoUtils.getRiderLatitude(riderId);
+                            double rLon = GeoUtils.getRiderLongitude(riderId);
+
+                            if (o.getGpsCoordinates() != null) {
+                                String coords = o.getGpsCoordinates();
+                                String[] parts = coords.split(",");
+                                if (parts.length == 2) {
+                                    try {
+                                        rLat = Double.parseDouble(parts[0]);
+                                        rLon = Double.parseDouble(parts[1]);
+                                    } catch (Exception ex) {}
+                                }
+                            }
+
+                            java.util.Map<String, List<com.app.zingbiteutils.VRPRouteOptimizer.Node>> vrpPaths = 
+                                com.app.zingbiteutils.VRPRouteOptimizer.getVRPPathsForOrder(
+                                    rLat, rLon,
+                                    restLat, restLon,
+                                    custLat, custLon
+                                );
+
+                            Gson sseGson = new Gson();
+                            oJson.add("pathFM", sseGson.toJsonTree(vrpPaths.get("pathFM")));
+                            oJson.add("pathLM1", sseGson.toJsonTree(vrpPaths.get("pathLM1")));
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
                         }
                         activeList.add(oJson);
                     }
@@ -160,6 +197,9 @@ public class DeliveryServlet extends HttpServlet {
             responseJson.add("completed", completedDeliveries);
             responseJson.addProperty("totalEarnings", totalEarnings);
             responseJson.addProperty("completedCount", completedDeliveries.size());
+            // Include rider's current coordinates so the frontend knows the rider position
+            responseJson.addProperty("riderLat", riderLat);
+            responseJson.addProperty("riderLon", riderLon);
 
             resp.getWriter().write(responseJson.toString());
 
@@ -195,6 +235,40 @@ public class DeliveryServlet extends HttpServlet {
             BufferedReader reader = req.getReader();
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
             String action = requestBody.has("action") ? requestBody.get("action").getAsString() : "";
+
+            // ─── Handle updateLocation first (no orderId needed) ───
+            if ("updateLocation".equals(action)) {
+                // Rider location update from browser geolocation on portal load
+                // This updates the rider's stored position even when they have no active delivery
+                double lat = requestBody.get("latitude").getAsDouble();
+                double lng = requestBody.get("longitude").getAsDouble();
+
+                try (Session hibernateSession = DBUtils.openSession()) {
+                    Transaction txRider = hibernateSession.beginTransaction();
+                    User rider = hibernateSession.get(User.class, user.getUserID());
+                    if (rider != null) {
+                        rider.setLatitude(lat);
+                        rider.setLongitude(lng);
+                        hibernateSession.merge(rider);
+                    }
+                    txRider.commit();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+
+                // Update session object so subsequent requests in this session use the new coords
+                user.setLatitude(lat);
+                user.setLongitude(lng);
+
+                JsonObject jsonResponse = new JsonObject();
+                jsonResponse.addProperty("success", true);
+                jsonResponse.addProperty("latitude", lat);
+                jsonResponse.addProperty("longitude", lng);
+                resp.getWriter().write(jsonResponse.toString());
+                return;
+            }
+
+            // ─── All other actions require an orderId ───
             int orderId = requestBody.get("orderId").getAsInt();
 
             OrdersDAo ordersDAO = new OrdersDAOImplementation();
@@ -217,15 +291,29 @@ public class DeliveryServlet extends HttpServlet {
                 }
 
                 double progress = requestBody.get("progress").getAsDouble();
-                activeGpsProgress.put(orderId, progress);
+                order.setGpsProgress(progress);
 
                 String coords = null;
                 if (requestBody.has("latitude") && requestBody.has("longitude")) {
                     double lat = requestBody.get("latitude").getAsDouble();
                     double lng = requestBody.get("longitude").getAsDouble();
                     coords = lat + "," + lng;
-                    activeGpsCoordinates.put(orderId, coords);
+                    order.setGpsCoordinates(coords);
+                    
+                    try (Session hibernateSession = DBUtils.openSession()) {
+                        Transaction txRider = hibernateSession.beginTransaction();
+                        User rider = hibernateSession.get(User.class, user.getUserID());
+                        if (rider != null) {
+                            rider.setLatitude(lat);
+                            rider.setLongitude(lng);
+                            hibernateSession.merge(rider);
+                        }
+                        txRider.commit();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
                 }
+                ordersDAO.updateOrders(order);
 
                 // Broadcast SSE Update
                 JsonObject ssePayload = new JsonObject();
@@ -235,10 +323,13 @@ public class DeliveryServlet extends HttpServlet {
                 if (coords != null) {
                     ssePayload.addProperty("gpsCoordinates", coords);
                 }
+                populateVRPPaths(ssePayload, order);
                 com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastUpdate(orderId, ssePayload.toString());
+                broadcastTopicUpdates(order, "updateGPS");
 
                 JsonObject jsonResponse = new JsonObject();
                 jsonResponse.addProperty("success", true);
+                populateVRPPaths(jsonResponse, order);
                 resp.getWriter().write(jsonResponse.toString());
                 return;
 
@@ -296,7 +387,9 @@ public class DeliveryServlet extends HttpServlet {
                 JsonObject ssePayload = new JsonObject();
                 ssePayload.addProperty("orderId", orderId);
                 ssePayload.addProperty("status", nextStatus);
+                populateVRPPaths(ssePayload, order);
                 com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastUpdate(orderId, ssePayload.toString());
+                broadcastTopicUpdates(order, "acceptOrder");
 
                 resp.getWriter().write(jsonResponse.toString());
 
@@ -314,8 +407,9 @@ public class DeliveryServlet extends HttpServlet {
                 ordersDAO.updateOrders(order);
 
                 if ("Delivered".equalsIgnoreCase(status)) {
-                    activeGpsProgress.put(orderId, 100.0);
-                    activeGpsCoordinates.remove(orderId);
+                    order.setGpsProgress(100.0);
+                    order.setGpsCoordinates(null);
+                    ordersDAO.updateOrders(order);
 
                     // Send delivery confirmation email
                     try (Session hibernateSession = DBUtils.openSession()) {
@@ -358,11 +452,13 @@ public class DeliveryServlet extends HttpServlet {
                 JsonObject ssePayload = new JsonObject();
                 ssePayload.addProperty("orderId", orderId);
                 ssePayload.addProperty("status", status);
-                ssePayload.addProperty("gpsProgress", activeGpsProgress.containsKey(orderId) ? activeGpsProgress.get(orderId) : 0.0);
-                if (activeGpsCoordinates.containsKey(orderId)) {
-                    ssePayload.addProperty("gpsCoordinates", activeGpsCoordinates.get(orderId));
+                ssePayload.addProperty("gpsProgress", order.getGpsProgress() != null ? order.getGpsProgress() : 0.0);
+                if (order.getGpsCoordinates() != null) {
+                    ssePayload.addProperty("gpsCoordinates", order.getGpsCoordinates());
                 }
+                populateVRPPaths(ssePayload, order);
                 com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastUpdate(orderId, ssePayload.toString());
+                broadcastTopicUpdates(order, "status_update");
 
                 resp.getWriter().write(jsonResponse.toString());
             }
@@ -371,6 +467,85 @@ public class DeliveryServlet extends HttpServlet {
             e.printStackTrace();
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to update delivery order\"}");
+        }
+    }
+
+    private void populateVRPPaths(JsonObject ssePayload, Orders order) {
+        try {
+            int orderId = order.getOrderId();
+            int restId = order.getRestaurantId() != null ? order.getRestaurantId().getRestaurantId() : 0;
+            double restLat = GeoUtils.getRestaurantLatitude(restId);
+            double restLon = GeoUtils.getRestaurantLongitude(restId);
+            double custLat = GeoUtils.getUserLatitude(order.getUserId());
+            double custLon = GeoUtils.getUserLongitude(order.getUserId());
+
+            int riderId = order.getRiderId() != null ? order.getRiderId() : 0;
+            double rLat = GeoUtils.getRiderLatitude(riderId);
+            double rLon = GeoUtils.getRiderLongitude(riderId);
+
+            if (order.getGpsCoordinates() != null) {
+                String coords = order.getGpsCoordinates();
+                String[] parts = coords.split(",");
+                if (parts.length == 2) {
+                    try {
+                        rLat = Double.parseDouble(parts[0]);
+                        rLon = Double.parseDouble(parts[1]);
+                    } catch (Exception ex) {}
+                }
+            }
+
+            java.util.Map<String, List<com.app.zingbiteutils.VRPRouteOptimizer.Node>> vrpPaths = 
+                com.app.zingbiteutils.VRPRouteOptimizer.getVRPPathsForOrder(
+                    rLat, rLon,
+                    restLat, restLon,
+                    custLat, custLon
+                );
+
+            Gson sseGson = new Gson();
+            ssePayload.add("pathFM", sseGson.toJsonTree(vrpPaths.get("pathFM")));
+            ssePayload.add("pathLM1", sseGson.toJsonTree(vrpPaths.get("pathLM1")));
+
+            // Include raw coordinates so the frontend can place/update map markers
+            ssePayload.addProperty("restaurantLat", restLat);
+            ssePayload.addProperty("restaurantLon", restLon);
+            ssePayload.addProperty("customerLat", custLat);
+            ssePayload.addProperty("customerLon", custLon);
+            ssePayload.addProperty("riderLat", rLat);
+            ssePayload.addProperty("riderLon", rLon);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void broadcastTopicUpdates(Orders order, String eventType) {
+        try {
+            JsonObject msg = new JsonObject();
+            msg.addProperty("event", eventType);
+            msg.addProperty("orderId", order.getOrderId());
+            msg.addProperty("status", order.getOrderStatus());
+            if (order.getGpsProgress() != null) {
+                msg.addProperty("gpsProgress", order.getGpsProgress());
+            }
+
+            // Broadcast to the customer
+            com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:user_orders:" + order.getUserId(), msg.toString());
+
+            // Broadcast to the restaurant
+            if (order.getRestaurantId() != null) {
+                com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:restaurant_orders:" + order.getRestaurantId().getRestaurantId(), msg.toString());
+            }
+
+            // Broadcast to the rider specifically
+            if (order.getRiderId() != null) {
+                com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:rider_orders:" + order.getRiderId(), msg.toString());
+            }
+
+            // Broadcast globally to all riders (for available runs list updates)
+            if ("acceptOrder".equals(eventType) || "status_update".equals(eventType)) {
+                com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:rider_orders", msg.toString());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }

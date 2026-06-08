@@ -108,6 +108,23 @@
 <!-- Razorpay Payment Script -->
 <script>
 document.getElementById('proceed-pay').onclick = function(e) {
+    // Validate delivery location is set
+    var lat = document.getElementById('address-lat').value;
+    var lng = document.getElementById('address-lng').value;
+    var addr = document.getElementById('address-text').value || document.getElementById('delivery-address').value;
+
+    if (!lat || !lng) {
+        e.preventDefault();
+        var hint = document.querySelector('.map-hint');
+        if (hint) {
+            hint.textContent = 'Please select your delivery location on the map before paying.';
+            hint.style.color = '#F7374F';
+            hint.style.fontWeight = '600';
+        }
+        document.getElementById('checkout-map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return false;
+    }
+
     var options = {
         "key": "rzp_test_RU5HIdwTwlQNOw", //Razorpay Test Key
         "amount": "<%= totalPaise %>", // amount in paise
@@ -115,8 +132,11 @@ document.getElementById('proceed-pay').onclick = function(e) {
         "name": "ZingBite",
         "description": "Order Payment",
         "handler": function (response){
-            // On successful payment, redirect to servlet to save info
-            window.location.href = "paymentSuccess?paymentId=" + response.razorpay_payment_id;
+            // On successful payment, redirect with coordinates
+            window.location.href = "paymentSuccess?paymentId=" + response.razorpay_payment_id
+                + "&lat=" + encodeURIComponent(lat)
+                + "&lng=" + encodeURIComponent(lng)
+                + "&address=" + encodeURIComponent(addr);
         },
         "method": {
             "upi": true

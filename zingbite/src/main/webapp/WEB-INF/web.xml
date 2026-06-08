@@ -16,4 +16,36 @@
       <location>/index.html</location>
   </error-page>
 
+  <!-- Static Asset Caching Filter -->
+  <filter>
+      <filter-name>CacheControlFilter</filter-name>
+      <filter-class>com.app.zingbiteutils.CacheControlFilter</filter-class>
+      <async-supported>true</async-supported>
+  </filter>
+  <filter-mapping>
+      <filter-name>CacheControlFilter</filter-name>
+      <url-pattern>/assets/*</url-pattern>
+  </filter-mapping>
+  <filter-mapping>
+      <filter-name>CacheControlFilter</filter-name>
+      <url-pattern>/css/*</url-pattern>
+  </filter-mapping>
+  <filter-mapping>
+      <filter-name>CacheControlFilter</filter-name>
+      <url-pattern>/script/*</url-pattern>
+  </filter-mapping>
+  <filter-mapping>
+      <filter-name>CacheControlFilter</filter-name>
+      <url-pattern>/videos/*</url-pattern>
+  </filter-mapping>
+  <filter-mapping>
+      <filter-name>CacheControlFilter</filter-name>
+      <url-pattern>/favicon.svg</url-pattern>
+  </filter-mapping>
+  <filter-mapping>
+      <filter-name>CacheControlFilter</filter-name>
+      <url-pattern>/icons.svg</url-pattern>
+  </filter-mapping>
+
 </web-app>
+<!-- Reload context trigger -->

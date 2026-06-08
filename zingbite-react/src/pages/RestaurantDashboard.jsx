@@ -63,12 +63,37 @@ const RestaurantDashboard = () => {
       return;
     }
     fetchRestaurantData(false);
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+
+    const eventSource = new EventSource('/api/stream?topic=restaurant_orders');
+    eventSource.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        console.log("[ZingBite SSE] Received real-time restaurant dashboard update:", payload);
+        
+        // Play notification sound on new order
+        if (payload && (payload.event === 'new_order' || payload.event === 'new_request')) {
+          try {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
+            audio.volume = 0.5;
+            audio.play();
+          } catch (audioErr) {
+            console.log("Audio play blocked by browser autoplay policy:", audioErr);
+          }
+        }
+        
         fetchRestaurantData(true);
+      } catch (err) {
+        console.error("[ZingBite SSE] Error on message:", err);
       }
-    }, 10000);
-    return () => clearInterval(interval);
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("[ZingBite SSE] EventSource connection error:", err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, [user, authLoading]);
 
   const handleOnboardSubmit = async (e) => {
