@@ -9,6 +9,8 @@ import {
   MapPin, Phone, IndianRupee, Loader, AlertCircle, FileText, CheckCircle, LogOut 
 } from 'lucide-react';
 
+const RESTAURANT_DASHBOARD_PAGE_SIZE = 6;
+
 const RestaurantDashboard = () => {
   const { user, logout, loading: authLoading } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -35,6 +37,8 @@ const RestaurantDashboard = () => {
   // Search and filter states
   const [menuSearch, setMenuSearch] = useState('');
   const [orderFilter, setOrderFilter] = useState('All');
+  const [visibleMenuCount, setVisibleMenuCount] = useState(RESTAURANT_DASHBOARD_PAGE_SIZE);
+  const [visibleOrderCount, setVisibleOrderCount] = useState(RESTAURANT_DASHBOARD_PAGE_SIZE);
 
   const fetchRestaurantData = async (isBackground = false) => {
     try {
@@ -64,7 +68,8 @@ const RestaurantDashboard = () => {
     }
     fetchRestaurantData(false);
 
-    const eventSource = new EventSource('/api/stream?topic=restaurant_orders');
+    const ssePath = window.location.pathname.startsWith('/zingbite') ? '/zingbite/api/stream?topic=restaurant_orders' : '/api/stream?topic=restaurant_orders';
+    const eventSource = new EventSource(ssePath);
     eventSource.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
@@ -95,6 +100,14 @@ const RestaurantDashboard = () => {
       eventSource.close();
     };
   }, [user, authLoading]);
+
+  useEffect(() => {
+    setVisibleMenuCount(RESTAURANT_DASHBOARD_PAGE_SIZE);
+  }, [menuSearch, activeTab]);
+
+  useEffect(() => {
+    setVisibleOrderCount(RESTAURANT_DASHBOARD_PAGE_SIZE);
+  }, [orderFilter, activeTab]);
 
   const handleOnboardSubmit = async (e) => {
     e.preventDefault();
@@ -185,30 +198,27 @@ const RestaurantDashboard = () => {
   const renderOrderStepper = (o) => {
     const getStatusStep = (status) => {
       switch (status) {
-        case 'Placed':
-        case 'Accepted':
-          return 0;
-        case 'Preparing':
-          return 1;
-        case 'Waiting to Dispatch':
-          return 2;
-        case 'Out for Delivery':
-          return 3;
-        case 'Delivered':
-          return 5;
-        default:
-          return 0;
+        case 'PLACED': return 0;
+        case 'ACCEPTED': return 1;
+        case 'PREPARING': return 2;
+        case 'READY_FOR_PICKUP': return 3;
+        case 'PICKED_UP': return 4;
+        case 'OUT_FOR_DELIVERY': return 5;
+        case 'DELIVERED': return 6;
+        default: return 0;
       }
     };
 
     const currentStep = getStatusStep(o.status);
 
     const steps = [
-      { key: 0, label: 'Placed', statusName: 'Accepted' },
-      { key: 1, label: 'Preparing', statusName: 'Preparing', actionLabel: 'Start Cooking' },
-      { key: 2, label: 'Food Ready', statusName: 'Waiting to Dispatch', actionLabel: 'Mark Ready' },
-      { key: 3, label: 'Dispatched', statusName: 'Out for Delivery', actionLabel: 'Dispatch' },
-      { key: 4, label: 'Delivered', statusName: 'Delivered' }
+      { key: 0, label: 'Placed', statusName: 'ACCEPTED', actionLabel: 'Accept Order' },
+      { key: 1, label: 'Accepted', statusName: 'PREPARING', actionLabel: 'Start Cooking' },
+      { key: 2, label: 'Preparing', statusName: 'READY_FOR_PICKUP', actionLabel: 'Mark Ready' },
+      { key: 3, label: 'Ready for Pickup', statusName: 'PICKED_UP' },
+      { key: 4, label: 'Picked Up', statusName: 'OUT_FOR_DELIVERY' },
+      { key: 5, label: 'Out for Delivery', statusName: 'DELIVERED' },
+      { key: 6, label: 'Delivered', statusName: 'DELIVERED' }
     ];
 
     return (
@@ -218,9 +228,7 @@ const RestaurantDashboard = () => {
             const isCompleted = currentStep > idx;
             const isActive = currentStep === idx;
             const isPending = currentStep < idx;
-            const isActionable = (idx === 1 && currentStep === 0) || 
-                                 (idx === 2 && currentStep === 1) || 
-                                 (idx === 3 && currentStep === 2);
+            const isActionable = step.actionLabel && currentStep === idx;
 
             let nodeClass = 'stepper-node';
             if (isCompleted) nodeClass += ' completed';
@@ -244,8 +252,9 @@ const RestaurantDashboard = () => {
                       {actionLoading === o.orderId ? (
                         <Loader className="spin" size={14} />
                       ) : (
+                        idx === 0 ? <ChevronRight size={14} /> :
                         idx === 1 ? <Utensils size={14} /> : 
-                        idx === 2 ? <CheckCircle2 size={14} /> : 
+                        idx === 2 ? <CheckCircle2 size={14} /> :
                         <ChevronRight size={14} />
                       )}
                       <span className="stepper-btn-label">{step.actionLabel}</span>
@@ -505,6 +514,10 @@ const RestaurantDashboard = () => {
     if (orderFilter === 'All') return true;
     return (order.status || '').toLowerCase() === orderFilter.toLowerCase();
   });
+  const visibleMenuItems = filteredMenu.slice(0, visibleMenuCount);
+  const visibleOrders = filteredOrders.slice(0, visibleOrderCount);
+  const hasMoreMenuItems = visibleMenuCount < filteredMenu.length;
+  const hasMoreOrders = visibleOrderCount < filteredOrders.length;
 
   return (
     <>
@@ -1537,7 +1550,7 @@ const RestaurantDashboard = () => {
               </div>
             ) : (
               <div className="menu-grid">
-                {filteredMenu.map((item, idx) => (
+                {visibleMenuItems.map((item, idx) => (
                   <div 
                     key={item.menuId} 
                     className="menu-item-card animate-card"
@@ -1587,6 +1600,17 @@ const RestaurantDashboard = () => {
                     </div>
                   </div>
                 ))}
+                {hasMoreMenuItems && (
+                  <div className="load-more-wrap" style={{ gridColumn: '1 / -1', margin: '4px auto 0' }}>
+                    <button
+                      type="button"
+                      className="load-more-btn"
+                      onClick={() => setVisibleMenuCount(count => count + RESTAURANT_DASHBOARD_PAGE_SIZE)}
+                    >
+                      Load more menu items ({filteredMenu.length - visibleMenuCount} left) <ChevronRight className="load-more-icon" size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1613,7 +1637,7 @@ const RestaurantDashboard = () => {
                 </div>
               ) : (
                 <div className="order-list">
-                  {filteredOrders.map((o) => (
+                  {visibleOrders.map((o) => (
                     <div key={o.orderId} className={`order-card status-${(o.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
                       <div className="order-info-section">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -1664,6 +1688,17 @@ const RestaurantDashboard = () => {
                       {renderOrderStepper(o)}
                     </div>
                   ))}
+                  {hasMoreOrders && (
+                    <div className="load-more-wrap" style={{ margin: '4px auto 0' }}>
+                      <button
+                        type="button"
+                        className="load-more-btn"
+                        onClick={() => setVisibleOrderCount(count => count + RESTAURANT_DASHBOARD_PAGE_SIZE)}
+                      >
+                        Load more orders ({filteredOrders.length - visibleOrderCount} left) <ChevronRight className="load-more-icon" size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

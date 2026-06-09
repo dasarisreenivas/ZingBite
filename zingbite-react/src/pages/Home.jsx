@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowRight, Flame, Search, ShieldCheck, Star, Truck, UtensilsCrossed, Zap } from 'lucide-react';
+import { trackEvent } from '../utils/analytics';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?q=80&w=2200&auto=format&fit=crop';
 const RESTAURANT_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop';
+const RESTAURANT_PAGE_SIZE = 8;
 
 const getDeliveryMinutes = (value) => {
   const match = String(value ?? '').match(/\d+/);
@@ -22,6 +24,16 @@ const formatRating = (value) => {
   return Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : 'New';
 };
 
+// Simple client-side cache for Stale-While-Revalidate
+let homeCache = {
+  restaurants: null,
+  suggestion: null,
+  resultCount: 0,
+  isSearch: false,
+  timestamp: 0,
+  key: ''
+};
+
 const Home = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,21 +42,85 @@ const Home = () => {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedCuisine, setSelectedCuisine] = useState('All');
   const [sortBy, setSortBy] = useState('default');
+  const [visibleRestaurantCount, setVisibleRestaurantCount] = useState(RESTAURANT_PAGE_SIZE);
+  const [suggestion, setSuggestion] = useState(null);
+  const [resultCount, setResultCount] = useState(0);
+  const [isSearch, setIsSearch] = useState(false);
+  const [coords, setCoords] = useState(null);
   const heroRef = useRef(null);
+  const lastLoggedSearchQueryRef = useRef('');
 
   const fetchRestaurants = async () => {
-    setLoading(true);
-    setError('');
-    
+    const cacheKey = JSON.stringify({ q: debouncedSearchQuery.trim(), lat: coords?.lat, lng: coords?.lng });
+    const hasCache = homeCache.restaurants !== null && homeCache.key === cacheKey;
+    const isStale = hasCache && (Date.now() - homeCache.timestamp > 15000); // 15 seconds TTL
+
+    if (hasCache) {
+      setRestaurants(homeCache.restaurants);
+      setSuggestion(homeCache.suggestion);
+      setResultCount(homeCache.resultCount);
+      setIsSearch(homeCache.isSearch);
+      setLoading(false);
+      setError('');
+      if (!isStale) {
+        // Cache is fresh, skip background revalidation
+        return;
+      }
+    } else {
+      setLoading(true);
+      setError('');
+    }
+
     try {
-      const response = await axios.get('/api/home');
-      setRestaurants(Array.isArray(response.data) ? response.data : []);
+      const params = new URLSearchParams();
+      if (debouncedSearchQuery.trim()) {
+        params.append('q', debouncedSearchQuery.trim());
+      }
+      if (coords) {
+        params.append('lat', coords.lat);
+        params.append('lng', coords.lng);
+      }
+      const queryString = params.toString();
+      const url = queryString ? `/api/home?${queryString}` : '/api/home';
+      const response = await axios.get(url);
+      
+      let resData, sugData, countData, searchData;
+      if (response.data && typeof response.data === 'object' && !Array.isArray(response.data)) {
+        resData = response.data.restaurants || [];
+        sugData = response.data.suggestion || null;
+        countData = response.data.resultCount || 0;
+        searchData = response.data.isSearch || false;
+      } else {
+        resData = Array.isArray(response.data) ? response.data : [];
+        sugData = null;
+        countData = response.data ? response.data.length : 0;
+        searchData = false;
+      }
+
+      setRestaurants(resData);
+      setSuggestion(sugData);
+      setResultCount(countData);
+      setIsSearch(searchData);
+
+      // Update cache
+      homeCache = {
+        restaurants: resData,
+        suggestion: sugData,
+        resultCount: countData,
+        isSearch: searchData,
+        timestamp: Date.now(),
+        key: cacheKey
+      };
       setError('');
     } catch (err) {
       console.error(err);
-      setError('We could not load restaurants right now. Please try again.');
+      if (!hasCache) {
+        setError('We could not load restaurants right now. Please try again.');
+      }
     } finally {
-      setLoading(false);
+      if (!hasCache) {
+        setLoading(false);
+      }
     }
   };
 
@@ -52,52 +128,53 @@ const Home = () => {
     fetchRestaurants();
   };
 
+  // Get user geolocation on mount
   useEffect(() => {
-    let isMounted = true;
-    
-    const loadInitialRestaurants = async () => {
-      try {
-        const response = await axios.get('/api/home');
-        if (!isMounted) return;
-        setRestaurants(Array.isArray(response.data) ? response.data : []);
-        setError('');
-      } catch (err) {
-        console.error(err);
-        if (isMounted) {
-          setError('We could not load restaurants right now. Please try again.');
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadInitialRestaurants();
-    return () => {
-      isMounted = false;
-    };
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCoords({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.warn("Geolocation permission denied or failed, falling back.", error);
+        },
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+      );
+    }
   }, []);
+
+  useEffect(() => {
+    fetchRestaurants();
+  }, [debouncedSearchQuery, coords]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-    }, 300);
+    }, 400);
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
+  useEffect(() => {
+    const trimmed = debouncedSearchQuery.trim();
+    if (trimmed && trimmed !== lastLoggedSearchQueryRef.current) {
+      trackEvent('SEARCH', { query: trimmed });
+      lastLoggedSearchQueryRef.current = trimmed;
+    }
+  }, [debouncedSearchQuery]);
+
+  useEffect(() => {
+    setVisibleRestaurantCount(RESTAURANT_PAGE_SIZE);
+  }, [debouncedSearchQuery, selectedCuisine, sortBy, coords]);
+
   const filteredAndSortedRestaurants = restaurants
     .filter(r => {
-      const name = r.restaurantName ? r.restaurantName.toLowerCase() : '';
       const cuisine = r.cusineType ? r.cusineType.toLowerCase() : '';
-      
-      const matchesSearch = name.includes(debouncedSearchQuery.toLowerCase()) || 
-                            cuisine.includes(debouncedSearchQuery.toLowerCase());
-                            
       const matchesCuisine = selectedCuisine === 'All' || 
                              cuisine.includes(selectedCuisine.toLowerCase());
-                             
-      return matchesSearch && matchesCuisine;
+      return matchesCuisine;
     })
     .sort((a, b) => {
       if (sortBy === 'rating') {
@@ -106,9 +183,11 @@ const Home = () => {
       if (sortBy === 'time') {
         return getDeliveryMinutes(a.deliveryTime) - getDeliveryMinutes(b.deliveryTime);
       }
-      return 0; // default
+      return 0; // default (server relevance / DB order)
     });
-
+  const visibleRestaurants = filteredAndSortedRestaurants.slice(0, visibleRestaurantCount);
+  const hasMoreRestaurants = visibleRestaurantCount < filteredAndSortedRestaurants.length;
+  const remainingRestaurants = filteredAndSortedRestaurants.length - visibleRestaurantCount;
   return (
     <>
       <style>{`
@@ -130,8 +209,9 @@ const Home = () => {
           content: '';
           position: absolute;
           inset: 0;
-          background: linear-gradient(180deg, rgba(0,0,0,0) 65%, rgba(255,255,255,0.96) 100%);
+          background: linear-gradient(180deg, rgba(0,0,0,0) 64%, rgba(247,55,79,0.1) 100%);
           pointer-events: none;
+          z-index: 1;
         }
         .hero-content {
           max-width: 680px;
@@ -238,9 +318,9 @@ const Home = () => {
           text-align: center;
           padding: 56px 24px;
           color: var(--text-secondary);
-          border: 1px dashed var(--border-medium);
+          border: 1px dashed rgba(247,55,79,0.18);
           border-radius: var(--radius-lg);
-          background: #fff;
+          background: rgba(255,255,255,0.96);
         }
         .home-status-card strong {
           display: block;
@@ -293,7 +373,8 @@ const Home = () => {
         .rest-card {
           border-radius: var(--radius-lg);
           overflow: hidden;
-          background: #fff;
+          background: rgba(255,255,255,0.96);
+          border: 1px solid rgba(247,55,79,0.08);
           text-decoration: none;
           color: inherit;
           transition: all 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -405,16 +486,22 @@ const Home = () => {
           margin: 24px auto 12px;
           gap: 16px;
         }
+        .search-container {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          width: 100%;
+          max-width: 400px;
+        }
         .search-box {
           display: flex;
           align-items: center;
           gap: 10px;
           background: var(--bg-surface);
-          border: 1px solid var(--border-medium);
+          border: 1px solid rgba(247,55,79,0.12);
           padding: 8px 16px;
           border-radius: 30px;
           width: 100%;
-          max-width: 400px;
           transition: all 0.3s;
         }
         .search-box:focus-within {
@@ -430,6 +517,27 @@ const Home = () => {
           font-size: 0.95rem;
           color: var(--text-primary);
         }
+        .suggestion-box {
+          font-size: 0.85rem;
+          color: var(--text-secondary);
+          padding-left: 12px;
+          animation: fadeIn 0.3s ease-out;
+        }
+        .suggestion-btn {
+          background: none;
+          border: none;
+          color: var(--brand-red);
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: underline;
+          padding: 0;
+          font-family: inherit;
+          font-size: inherit;
+          transition: color var(--transition-fast);
+        }
+        .suggestion-btn:hover {
+          color: var(--brand-red-hover);
+        }
         .sort-box {
           display: flex;
           align-items: center;
@@ -443,7 +551,7 @@ const Home = () => {
         .sort-box select {
           padding: 8px 16px;
           border-radius: 30px;
-          border: 1px solid var(--border-medium);
+          border: 1px solid rgba(247,55,79,0.12);
           background: #fff;
           font-size: 0.9rem;
           font-family: inherit;
@@ -463,8 +571,8 @@ const Home = () => {
         }
         .cuisine-chip {
           padding: 8px 18px;
-          background: #fff;
-          border: 1px solid var(--border-medium);
+          background: rgba(255,255,255,0.94);
+          border: 1px solid rgba(247,55,79,0.12);
           border-radius: 30px;
           font-size: 0.85rem;
           font-weight: 500;
@@ -494,7 +602,7 @@ const Home = () => {
             align-items: stretch;
             gap: 12px;
           }
-          .search-box {
+          .search-container {
             max-width: 100%;
           }
           .sort-box {
@@ -533,17 +641,30 @@ const Home = () => {
             </div>
           </div>
         </section>
-
         <div className="control-bar">
-          <div className="search-box">
-            <Search size={18} color="var(--text-secondary)" />
-            <input 
-              type="text" 
-              placeholder="Search for restaurants or cuisines..." 
-              aria-label="Search restaurants or cuisines"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
+          <div className="search-container">
+            <div className="search-box">
+              <Search size={18} color="var(--text-secondary)" />
+              <input 
+                type="text" 
+                placeholder="Search for restaurants or cuisines..." 
+                aria-label="Search restaurants or cuisines"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+            {suggestion && (
+              <div className="suggestion-box">
+                Did you mean:{' '}
+                <button 
+                  type="button" 
+                  className="suggestion-btn"
+                  onClick={() => setSearchQuery(suggestion)}
+                >
+                  {suggestion}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="sort-box">
@@ -569,8 +690,16 @@ const Home = () => {
         </div>
 
         <div id="restaurants" className="section-title-row">
-          <h2>Restaurants near you</h2>
-          {!loading && !error && <span className="section-count">{filteredAndSortedRestaurants.length} restaurants</span>}
+          <h2>
+            {isSearch && debouncedSearchQuery.trim()
+              ? `Search Results for "${debouncedSearchQuery}"` 
+              : 'Restaurants near you'}
+          </h2>
+          {!loading && !error && (
+            <span className="section-count">
+              {filteredAndSortedRestaurants.length} {filteredAndSortedRestaurants.length === 1 ? 'restaurant' : 'restaurants'}
+            </span>
+          )}
         </div>
 
         <section className="restaurant-grid stagger-children">
@@ -586,7 +715,7 @@ const Home = () => {
               <button type="button" className="retry-btn" onClick={retryRestaurants}>Retry</button>
             </div>
           ) : filteredAndSortedRestaurants.length > 0 ? (
-            filteredAndSortedRestaurants.map((r) => (
+            visibleRestaurants.map((r) => (
               <Link
                 to={`/menu?restaurantId=${r.restaurantId}&restaurantName=${encodeURIComponent(r.restaurantName)}`}
                 key={r.restaurantId}
@@ -626,6 +755,18 @@ const Home = () => {
             </div>
           )}
         </section>
+
+        {hasMoreRestaurants && (
+          <div className="load-more-wrap">
+            <button
+              type="button"
+              className="load-more-btn"
+              onClick={() => setVisibleRestaurantCount(count => count + RESTAURANT_PAGE_SIZE)}
+            >
+              Load more restaurants ({remainingRestaurants} left) <ArrowRight className="load-more-icon" size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

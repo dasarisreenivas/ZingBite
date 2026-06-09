@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useModal } from '../context/ModalContext';
 import axios from 'axios';
 import { MapPin, CreditCard, Smartphone, Banknote } from 'lucide-react';
+import { trackEvent } from '../utils/analytics';
 
 const Checkout = () => {
   const { cart, clearCart } = useCart();
@@ -13,6 +14,8 @@ const Checkout = () => {
   const { showAlert } = useModal();
   const [addressChoice, setAddressChoice] = useState('profile');
   const [manualAddress, setManualAddress] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   // Leaflet Map states & refs
   const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
@@ -170,62 +173,120 @@ const Checkout = () => {
   };
 
   const handlePay = async () => {
+    if (paying || verifying) return;
+    
     const isLoaded = await loadRazorpay();
     if (!isLoaded) {
       showAlert("Failed to load Razorpay payment gateway.", "error");
       return;
     }
 
-    const options = {
-      key: "rzp_test_RU5HIdwTwlQNOw",
-      amount: Math.round(cart.total * 100),
-      currency: "INR",
-      name: "ZingBite",
-      description: "Order Payment",
-      handler: async function (response) {
-        try {
-          const itemsList = cart.items ? (Array.isArray(cart.items) ? cart.items : Object.values(cart.items)) : [];
-          const formattedItems = itemsList.map(item => ({
-            id: item.itemId,
-            qty: item.quantity,
-            price: item.price
-          }));
+    setPaying(true);
 
-          const finalAddress = addressChoice === 'profile' ? (user?.address || '') : manualAddress;
-          if (addressChoice === 'manual' && finalAddress) {
-            const upRes = await axios.post('/api/profile', {
-              action: 'update',
-              username: user.userName || user.username || 'User',
-              mobile: String(user.phoneNumber || user.mobile || ''),
-              address: finalAddress
+    try {
+      const itemsList = cart.items ? (Array.isArray(cart.items) ? cart.items : Object.values(cart.items)) : [];
+      const formattedItems = itemsList.map(item => ({
+        id: item.itemId,
+        qty: item.quantity,
+        price: item.price
+      }));
+
+      const finalAddress = addressChoice === 'profile' ? (user?.address || '') : manualAddress;
+      
+      // Update manual address if chosen
+      if (addressChoice === 'manual' && finalAddress) {
+        const upRes = await axios.post('/api/profile', {
+          action: 'update',
+          username: user.userName || user.username || 'User',
+          mobile: String(user.phoneNumber || user.mobile || ''),
+          address: finalAddress
+        });
+        if (upRes.data.success && typeof updateUser === 'function') {
+          updateUser(upRes.data.user);
+        }
+      }
+
+      // Step 1: Pre-reserve the order in PENDING_PAYMENT state
+      const res = await axios.post('/api/profile', {
+        action: 'createOrder',
+        total: cart.total,
+        paymentMethod: 'Razorpay',
+        items: formattedItems
+      });
+
+      if (!res.data.success) {
+        showAlert(res.data.error || "Failed to reserve order.", "error");
+        setPaying(false);
+        return;
+      }
+
+      const orderId = res.data.orderId;
+
+      // Step 2: Launch the Payment Gateway Interface
+      const options = {
+        key: "rzp_test_RU5HIdwTwlQNOw",
+        amount: Math.round(cart.total * 100),
+        currency: "INR",
+        name: "ZingBite",
+        description: "Order Payment",
+        handler: async function (response) {
+          setVerifying(true);
+          try {
+            // Step 3: Transactional Server-Side Verification
+            const verifyRes = await axios.post('/api/payment/verify', {
+              orderId: orderId,
+              transactionId: response.razorpay_payment_id,
+              paymentMethod: 'Razorpay'
             });
-            if (upRes.data.success && typeof updateUser === 'function') {
-              updateUser(upRes.data.user);
+
+            if (verifyRes.data.success) {
+              trackEvent('ORDER_PLACED', { orderId, amount: cart.total });
+              clearCart();
+              navigate(`/track-order?orderId=${orderId}`);
+            } else {
+              showAlert(verifyRes.data.error || "Payment verification failed.", "error");
+            }
+          } catch (err) {
+            console.error("Payment verification timeout/drop:", err);
+            // In case of transient server verification network drops, redirect to track-order page anyway.
+            // The user cart is cleared, and they see the tracking screen showing the order verification loader,
+            // while the background reconciler checks the gateway status and self-corrects the order.
+            trackEvent('ORDER_PLACED', { orderId, amount: cart.total });
+            clearCart();
+            navigate(`/track-order?orderId=${orderId}`);
+          } finally {
+            setVerifying(false);
+          }
+        },
+        modal: {
+          ondismiss: async function () {
+            console.log("Payment gateway dismissed. Cancelling reserved order.");
+            try {
+              // Notify server of cancellation immediately to release locks/inventories
+              await axios.post('/api/payment/verify', {
+                orderId: orderId,
+                transactionId: 'pay_abandoned_' + orderId,
+                paymentMethod: 'Razorpay'
+              });
+            } catch (e) {
+              console.error("Failed to notify server of cancellation:", e);
             }
           }
-
-          const res = await axios.post('/api/profile', {
-            action: 'createOrder',
-            total: cart.total,
-            paymentMethod: 'Razorpay',
-            items: formattedItems
-          });
-          const orderId = res.data.orderId || 'ZB-latest';
-          clearCart();
-          navigate(`/track-order?orderId=${orderId}`);
-        } catch (err) {
-          console.error("Failed to save order to database:", err);
-          clearCart();
-          navigate('/track-order');
+        },
+        theme: {
+          color: "#F7374F"
         }
-      },
-      theme: {
-        color: "#F7374F"
-      }
-    };
-    
-    const rzp = new window.Razorpay(options);
-    rzp.open();
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+
+    } catch (err) {
+      console.error("Failed to initialize checkout transaction:", err);
+      showAlert("An error occurred during checkout setup. Please try again.", "error");
+    } finally {
+      setPaying(false);
+    }
   };
 
   return (
@@ -360,6 +421,15 @@ const Checkout = () => {
             gap: 20px;
           }
         }
+
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
       `}</style>
 
       <div className="checkout-layout fade-in">
@@ -468,9 +538,54 @@ const Checkout = () => {
             </div>
           </div>
 
-          <button onClick={handlePay} className="pay-action-btn">PROCEED TO PAY (&#8377;{cart.total.toFixed(2)})</button>
+          <button 
+            onClick={handlePay} 
+            className="pay-action-btn"
+            disabled={paying || verifying}
+          >
+            {paying ? 'PROCEEDING TO PAY...' : `PROCEED TO PAY (\u20B9${cart.total.toFixed(2)})`}
+          </button>
         </div>
       </div>
+
+      {verifying && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(10, 10, 15, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          color: '#fff'
+        }}>
+          <div style={{
+            background: 'rgba(20, 20, 30, 0.95)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            padding: '40px 30px',
+            borderRadius: '16px',
+            textAlign: 'center',
+            maxWidth: '400px',
+            width: '100%',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.37)'
+          }}>
+            <div className="spin" style={{
+              width: '48px',
+              height: '48px',
+              border: '4px solid rgba(247, 55, 79, 0.1)',
+              borderTopColor: '#f7374f',
+              borderRadius: '50%',
+              margin: '0 auto 24px'
+            }} />
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '12px', fontFamily: 'Outfit, sans-serif' }}>Verifying Payment</h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.6', margin: 0 }}>
+              We are transactionally securing your order with the bank gateway. Please do not refresh, close this page, or press back.
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 };

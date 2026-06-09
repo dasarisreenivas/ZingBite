@@ -9,6 +9,8 @@ import {
   CheckCircle, ShoppingBag, Edit, Calendar, IndianRupee, Loader, ArrowRight
 } from 'lucide-react';
 
+const ORDERS_PAGE_SIZE = 5;
+
 const Profile = () => {
   const { user, logout, updateUser, loading: authLoading } = useContext(AuthContext);
   const { addToCart } = useCart();
@@ -42,6 +44,7 @@ const Profile = () => {
 
   const [pastOrders, setPastOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [visibleOrderCount, setVisibleOrderCount] = useState(ORDERS_PAGE_SIZE);
 
   // Leaflet Map states & refs
   const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
@@ -212,7 +215,8 @@ const Profile = () => {
     };
     if (user) {
       fetchPastOrders(false);
-      const eventSource = new EventSource('/api/stream?topic=user_orders');
+      const ssePath = window.location.pathname.startsWith('/zingbite') ? '/zingbite/api/stream?topic=user_orders' : '/api/stream?topic=user_orders';
+      const eventSource = new EventSource(ssePath);
       eventSource.onmessage = (event) => {
         try {
           console.log("[ZingBite SSE] Received real-time user profile orders update");
@@ -284,6 +288,9 @@ const Profile = () => {
       setReordering(false);
     }
   };
+
+  const visiblePastOrders = pastOrders.slice(0, visibleOrderCount);
+  const hasMorePastOrders = visibleOrderCount < pastOrders.length;
 
   if (authLoading) {
     return (
@@ -992,51 +999,64 @@ const Profile = () => {
                     <p style={{ fontSize: '0.9rem', marginTop: '4px' }}>Hungry? Place an order to see it here!</p>
                   </div>
                 ) : (
-                  pastOrders.map((o) => (
-                    <div key={o.id} className="order-card">
-                      <div className="order-header-info">
-                        <div className="order-shop">
-                          <h4>{o.restaurantName}</h4>
-                          <span><Calendar size={12} /> {o.date} &bull; ID: {o.id}</span>
-                        </div>
-                        <div className="order-amount-status">
-                          <div className="order-status-badge">
-                            <CheckCircle size={12} /> {o.status}
+                  <>
+                    {visiblePastOrders.map((o) => (
+                      <div key={o.id} className="order-card">
+                        <div className="order-header-info">
+                          <div className="order-shop">
+                            <h4>{o.restaurantName}</h4>
+                            <span><Calendar size={12} /> {o.date} &bull; ID: {o.id}</span>
+                          </div>
+                          <div className="order-amount-status">
+                            <div className="order-status-badge">
+                              <CheckCircle size={12} /> {o.status}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="order-items-list">
-                        {o.items.map((item, i) => (
-                          <div key={i}>{item.name} &times; {item.qty}</div>
-                        ))}
-                      </div>
+                        <div className="order-items-list">
+                          {o.items.map((item, i) => (
+                            <div key={i}>{item.name} &times; {item.qty}</div>
+                          ))}
+                        </div>
 
-                      <div className="order-actions">
-                        <span className="order-total-lbl">Total Paid: &#8377;{o.total.toFixed(2)}</span>
-                        {o.status !== 'Delivered' ? (
-                          <button 
-                            onClick={() => navigate(`/track-order?orderId=${o.id}`)}
-                            className="track-live-btn"
-                          >
-                            <MapPin size={14} /> Track Live
-                          </button>
-                        ) : (
-                          <button 
-                            disabled={reordering}
-                            onClick={() => handleReorder(o.items)}
-                            className="reorder-btn"
-                          >
-                            {reordering ? (
-                              <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Adding...</>
-                            ) : (
-                              <><ShoppingBag size={14} /> Reorder Items</>
-                            )}
-                          </button>
-                        )}
+                        <div className="order-actions">
+                          <span className="order-total-lbl">Total Paid: &#8377;{o.total.toFixed(2)}</span>
+                          {o.status !== 'Delivered' && o.status !== 'DELIVERED' ? (
+                            <button 
+                              onClick={() => navigate(`/track-order?orderId=${o.id}`)}
+                              className="track-live-btn"
+                            >
+                              <MapPin size={14} /> Track Live
+                            </button>
+                          ) : (
+                            <button 
+                              disabled={reordering}
+                              onClick={() => handleReorder(o.items)}
+                              className="reorder-btn"
+                            >
+                              {reordering ? (
+                                <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Adding...</>
+                              ) : (
+                                <><ShoppingBag size={14} /> Reorder Items</>
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                    {hasMorePastOrders && (
+                      <div className="load-more-wrap" style={{ margin: '4px auto 0' }}>
+                        <button
+                          type="button"
+                          className="load-more-btn"
+                          onClick={() => setVisibleOrderCount(count => count + ORDERS_PAGE_SIZE)}
+                        >
+                          Load more orders ({pastOrders.length - visibleOrderCount} left) <ArrowRight className="load-more-icon" size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

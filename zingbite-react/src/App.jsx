@@ -16,6 +16,9 @@ import Info from './pages/Info';
 import Profile from './pages/Profile';
 import { Loader } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { trackPageView } from './utils/analytics';
 
 const OrderTracking = React.lazy(() => import('./pages/OrderTracking'));
 const DeliveryDashboard = React.lazy(() => import('./pages/DeliveryDashboard'));
@@ -24,12 +27,21 @@ const CareerPortal = React.lazy(() => import('./pages/CareerPortal'));
 const SuperAdminDashboard = React.lazy(() => import('./pages/SuperAdminDashboard'));
 const VRPDashboard = React.lazy(() => import('./pages/VRPDashboard'));
 
+function PageViewTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
+  return null;
+}
+
 function App() {
   return (
     <ModalProvider>
       <AuthProvider>
         <CartProvider>
           <Router basename="/zingbite">
+            <PageViewTracker />
             <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
               <Header />
               <main style={{ flex: 1, minHeight: '75vh', display: 'flex', flexDirection: 'column' }}>

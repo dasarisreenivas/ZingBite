@@ -6,9 +6,11 @@ import { useModal } from '../context/ModalContext';
 import { 
   Users, Store, ShoppingBag, IndianRupee, Briefcase, 
   FileText, Plus, CheckCircle, XCircle, AlertTriangle, 
-  Loader, Shield, UserCheck, Check, X, FileCheck2, LogOut, MessageSquare
+  Loader, Shield, UserCheck, Check, X, FileCheck2, LogOut, MessageSquare, ChevronRight
 } from 'lucide-react';
 import ChatWidget from '../components/ChatWidget';
+
+const ADMIN_LIST_PAGE_SIZE = 6;
 
 const SuperAdminDashboard = () => {
   const { user, logout, loading: authLoading } = useContext(AuthContext);
@@ -31,12 +33,32 @@ const SuperAdminDashboard = () => {
   // Action triggers
   const [actionLoading, setActionLoading] = useState(null);
   const [activeChatAppId, setActiveChatAppId] = useState(null);
+  const [visiblePendingCount, setVisiblePendingCount] = useState(ADMIN_LIST_PAGE_SIZE);
+  const [visibleReviewedCount, setVisibleReviewedCount] = useState(ADMIN_LIST_PAGE_SIZE);
+  const [visibleUserCount, setVisibleUserCount] = useState(ADMIN_LIST_PAGE_SIZE);
+  const [visibleRiderAppCount, setVisibleRiderAppCount] = useState(ADMIN_LIST_PAGE_SIZE);
+  const [visibleGeneralAppCount, setVisibleGeneralAppCount] = useState(ADMIN_LIST_PAGE_SIZE);
 
-  // Forms state
   const [restaurantForm, setRestaurantForm] = useState({ name: '', cuisine: '', address: '', deliveryTime: '', imagePath: '' });
   const [jobForm, setJobForm] = useState({ title: '', department: '', location: '', description: '' });
   const [submittingRest, setSubmittingRest] = useState(false);
   const [submittingJob, setSubmittingJob] = useState(false);
+
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [showForms, setShowForms] = useState(false); // Toggle to expand direct creation forms
+
+  const fetchAnalyticsData = async () => {
+    try {
+      setAnalyticsLoading(true);
+      const res = await axios.get('/api/analytics');
+      setAnalytics(res.data);
+    } catch (err) {
+      console.error("Failed to fetch analytics", err);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
 
   const fetchAdminData = async (isBackground = false) => {
     try {
@@ -61,7 +83,8 @@ const SuperAdminDashboard = () => {
     }
     fetchAdminData(false);
 
-    const eventSource = new EventSource('/api/stream?topic=admin_requests');
+    const ssePath = window.location.pathname.startsWith('/zingbite') ? '/zingbite/api/stream?topic=admin_requests' : '/api/stream?topic=admin_requests';
+    const eventSource = new EventSource(ssePath);
     eventSource.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
@@ -90,6 +113,12 @@ const SuperAdminDashboard = () => {
       eventSource.close();
     };
   }, [user, authLoading]);
+
+  useEffect(() => {
+    if (activeTab === 'metrics') {
+      fetchAnalyticsData();
+    }
+  }, [activeTab]);
 
   const handleChangeRole = async (targetUserId, newRole) => {
     setActionLoading(`role-${targetUserId}`);
@@ -229,6 +258,16 @@ const SuperAdminDashboard = () => {
   const reviewedRequests = (data.restaurantRequests || []).filter(r => r.status !== 'Pending');
   const riderApps = (data.applications || []).filter(app => app.jobTitle === 'Delivery Rider');
   const generalApps = (data.applications || []).filter(app => app.jobTitle !== 'Delivery Rider');
+  const visiblePendingRequests = pendingRequests.slice(0, visiblePendingCount);
+  const visibleReviewedRequests = reviewedRequests.slice(0, visibleReviewedCount);
+  const visibleUsers = (data.users || []).slice(0, visibleUserCount);
+  const visibleRiderApps = riderApps.slice(0, visibleRiderAppCount);
+  const visibleGeneralApps = generalApps.slice(0, visibleGeneralAppCount);
+  const hasMorePendingRequests = visiblePendingCount < pendingRequests.length;
+  const hasMoreReviewedRequests = visibleReviewedCount < reviewedRequests.length;
+  const hasMoreUsers = visibleUserCount < (data.users || []).length;
+  const hasMoreRiderApps = visibleRiderAppCount < riderApps.length;
+  const hasMoreGeneralApps = visibleGeneralAppCount < generalApps.length;
 
   return (
     <>
@@ -460,6 +499,101 @@ const SuperAdminDashboard = () => {
           color: var(--danger);
           background: rgba(226, 55, 68, 0.04);
         }
+        
+        /* Glassmorphic Analytics Dashboard Styles */
+        .analytics-dashboard {
+          display: grid;
+          grid-template-columns: 3fr 2fr;
+          gap: 24px;
+          margin-bottom: 32px;
+          width: 100%;
+        }
+        @media (max-width: 992px) {
+          .analytics-dashboard {
+            grid-template-columns: 1fr;
+          }
+        }
+        .analytics-card {
+          background: rgba(255, 255, 255, 0.45);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.25);
+          box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+          border-radius: var(--radius-md);
+          padding: 24px;
+          color: var(--text-primary);
+        }
+        .funnel-container {
+          display: flex;
+          flex-direction: column;
+          gap: 22px;
+          margin-top: 18px;
+        }
+        .funnel-step {
+          position: relative;
+        }
+        .funnel-step-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+          font-weight: 700;
+          font-size: 0.9rem;
+        }
+        .funnel-step-bar-outer {
+          height: 14px;
+          background: rgba(0, 0, 0, 0.05);
+          border-radius: 999px;
+          overflow: hidden;
+          position: relative;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .funnel-step-bar-inner {
+          height: 100%;
+          border-radius: 999px;
+          background: linear-gradient(90deg, var(--brand-red) 0%, #ff6b8b 100%);
+          box-shadow: 0 0 10px rgba(247, 55, 79, 0.3);
+          transition: width 1.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .funnel-conversion-badge {
+          background: rgba(247, 55, 79, 0.08);
+          color: var(--brand-red);
+          font-size: 0.75rem;
+          padding: 2px 8px;
+          border-radius: 999px;
+          font-weight: 800;
+          border: 1px solid rgba(247, 55, 79, 0.15);
+        }
+        .popular-searches-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-top: 16px;
+        }
+        .search-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 10px 14px;
+          background: rgba(255, 255, 255, 0.7);
+          border-radius: 12px;
+          border: 1px solid var(--border-light);
+          transition: all 0.2s ease;
+        }
+        .search-item:hover {
+          transform: translateX(4px);
+          border-color: rgba(247, 55, 79, 0.2);
+          background: rgba(255, 255, 255, 0.9);
+        }
+        .search-tag {
+          font-family: monospace;
+          background: rgba(0, 0, 0, 0.05);
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 0.85rem;
+          color: var(--text-primary);
+          font-weight: 600;
+        }
       `}</style>
 
       <div className="admin-container fade-in">
@@ -536,122 +670,237 @@ const SuperAdminDashboard = () => {
 
         {/* Tab Layouts */}
         {activeTab === 'metrics' && (
-          <div className="management-grid">
-            {/* Add Restaurant Form */}
-            <div className="form-card">
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Store size={20} style={{ color: 'var(--brand-red)' }} /> Register New Restaurant (Direct)
-              </h2>
-              <form onSubmit={handleAddRestaurant}>
-                <div className="form-group">
-                  <label>Restaurant Name *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="e.g. Royal Biryani House"
-                    value={restaurantForm.name}
-                    onChange={(e) => setRestaurantForm(prev => ({ ...prev, name: e.target.value }))}
-                  />
+          <div>
+            {analyticsLoading || !analytics ? (
+              <div className="analytics-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', marginBottom: '32px' }}>
+                <Loader size={36} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
+                <p style={{ marginTop: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Assembling telemetry pipeline...</p>
+              </div>
+            ) : (
+              <div className="analytics-dashboard">
+                {/* Funnel Telemetry Card */}
+                <div className="analytics-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                      <Store size={20} style={{ color: 'var(--brand-red)' }} /> Platform Conversion Funnel
+                    </h2>
+                    <button 
+                      onClick={fetchAnalyticsData} 
+                      className="portal-logout-btn" 
+                      style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: '8px' }}
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  
+                  <div className="funnel-container">
+                    {/* Step 1 */}
+                    <div className="funnel-step">
+                      <div className="funnel-step-header">
+                        <span>1. Discovery (Page Views)</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 800 }}>{analytics.pageViews}</span>
+                          <span className="funnel-conversion-badge">Baseline</span>
+                        </div>
+                      </div>
+                      <div className="funnel-step-bar-outer">
+                        <div className="funnel-step-bar-inner" style={{ width: '100%' }}></div>
+                      </div>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="funnel-step">
+                      <div className="funnel-step-header">
+                        <span>2. Intent (Cart Additions)</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 800 }}>{analytics.cartAdditions}</span>
+                          <span className="funnel-conversion-badge">{analytics.conversionRates.pageToCart}%</span>
+                        </div>
+                      </div>
+                      <div className="funnel-step-bar-outer">
+                        <div className="funnel-step-bar-inner" style={{ width: `${Math.min(analytics.conversionRates.pageToCart, 100)}%` }}></div>
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="funnel-step">
+                      <div className="funnel-step-header">
+                        <span>3. Conversion (Completed Orders)</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 800 }}>{analytics.ordersPlaced}</span>
+                          <span className="funnel-conversion-badge">{analytics.conversionRates.overall}%</span>
+                        </div>
+                      </div>
+                      <div className="funnel-step-bar-outer">
+                        <div className="funnel-step-bar-inner" style={{ width: `${Math.min(analytics.conversionRates.overall, 100)}%` }}></div>
+                      </div>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '6px 0 0 0', textAlign: 'right' }}>
+                        Cart-to-Order Conversion Rate: <strong>{analytics.conversionRates.cartToOrder}%</strong>
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Cuisine Type *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="e.g. North Indian, Mughlai"
-                    value={restaurantForm.cuisine}
-                    onChange={(e) => setRestaurantForm(prev => ({ ...prev, cuisine: e.target.value }))}
-                  />
+
+                {/* Popular Searches Card */}
+                <div className="analytics-card">
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Users size={20} style={{ color: 'var(--brand-red)' }} /> Popular Searches
+                  </h2>
+                  
+                  {analytics.popularSearches && analytics.popularSearches.length > 0 ? (
+                    <div className="popular-searches-list">
+                      {analytics.popularSearches.map((item, idx) => (
+                        <div key={idx} className="search-item">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 800 }}>#{idx + 1}</span>
+                            <span className="search-tag">{item.query}</span>
+                          </div>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--brand-red)', background: 'rgba(247, 55, 79, 0.05)', padding: '2px 8px', borderRadius: '6px' }}>
+                            {item.count} query{item.count > 1 ? 'ies' : 'y'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--text-secondary)' }}>
+                      No search query data recorded.
+                    </div>
+                  )}
                 </div>
-                <div className="form-group">
-                  <label>Full Address *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="Street, City, State"
-                    value={restaurantForm.address}
-                    onChange={(e) => setRestaurantForm(prev => ({ ...prev, address: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Delivery Time (e.g., "35 mins")</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. 30 mins"
-                    value={restaurantForm.deliveryTime}
-                    onChange={(e) => setRestaurantForm(prev => ({ ...prev, deliveryTime: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Cover Image URL</label>
-                  <input 
-                    type="url" 
-                    placeholder="https://images.unsplash.com/..."
-                    value={restaurantForm.imagePath}
-                    onChange={(e) => setRestaurantForm(prev => ({ ...prev, imagePath: e.target.value }))}
-                  />
-                </div>
-                <button type="submit" disabled={submittingRest} className="btn-primary" style={{ width: '100%' }}>
-                  {submittingRest ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Add Restaurant'}
-                </button>
-              </form>
+              </div>
+            )}
+
+            {/* Toggle button to show manual registration forms */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px', marginBottom: '24px' }}>
+              <button 
+                onClick={() => setShowForms(!showForms)} 
+                className="portal-logout-btn"
+                style={{ padding: '10px 24px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px', background: showForms ? 'rgba(247, 55, 79, 0.04)' : 'transparent', color: showForms ? 'var(--brand-red)' : 'var(--text-secondary)' }}
+              >
+                {showForms ? <X size={16} /> : <Plus size={16} />} 
+                {showForms ? 'Hide Creation Portal' : 'Show Direct Creation Portal (Manual Restaurant/Jobs)'}
+              </button>
             </div>
 
-            {/* Add Job Form */}
-            <div className="form-card">
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Briefcase size={20} style={{ color: 'var(--brand-red)' }} /> Publish New Job Opening
-              </h2>
-              <form onSubmit={handleAddJob}>
-                <div className="form-group">
-                  <label>Job Title *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="e.g. Operations Manager"
-                    value={jobForm.title}
-                    onChange={(e) => setJobForm(prev => ({ ...prev, title: e.target.value }))}
-                  />
+            {showForms && (
+              <div className="management-grid" style={{ animation: 'fadeIn 0.3s ease-out both' }}>
+                {/* Add Restaurant Form */}
+                <div className="form-card">
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Store size={20} style={{ color: 'var(--brand-red)' }} /> Register New Restaurant (Direct)
+                  </h2>
+                  <form onSubmit={handleAddRestaurant}>
+                    <div className="form-group">
+                      <label>Restaurant Name *</label>
+                      <input 
+                        type="text" 
+                        required 
+                        placeholder="e.g. Royal Biryani House"
+                        value={restaurantForm.name}
+                        onChange={(e) => setRestaurantForm(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Cuisine Type *</label>
+                      <input 
+                        type="text" 
+                        required 
+                        placeholder="e.g. North Indian, Mughlai"
+                        value={restaurantForm.cuisine}
+                        onChange={(e) => setRestaurantForm(prev => ({ ...prev, cuisine: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Full Address *</label>
+                      <input 
+                        type="text" 
+                        required 
+                        placeholder="Street, City, State"
+                        value={restaurantForm.address}
+                        onChange={(e) => setRestaurantForm(prev => ({ ...prev, address: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Delivery Time (e.g., "35 mins")</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 30 mins"
+                        value={restaurantForm.deliveryTime}
+                        onChange={(e) => setRestaurantForm(prev => ({ ...prev, deliveryTime: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Cover Image URL</label>
+                      <input 
+                        type="url" 
+                        placeholder="https://images.unsplash.com/..."
+                        value={restaurantForm.imagePath}
+                        onChange={(e) => setRestaurantForm(prev => ({ ...prev, imagePath: e.target.value }))}
+                      />
+                    </div>
+                    <button type="submit" disabled={submittingRest} className="btn-primary" style={{ width: '100%' }}>
+                      {submittingRest ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Add Restaurant'}
+                    </button>
+                  </form>
                 </div>
-                <div className="form-group">
-                  <label>Department *</label>
-                  <select 
-                    required 
-                    value={jobForm.department}
-                    onChange={(e) => setJobForm(prev => ({ ...prev, department: e.target.value }))}
-                  >
-                    <option value="">Select Department</option>
-                    <option value="Engineering">Engineering</option>
-                    <option value="Operations">Operations</option>
-                    <option value="Culinary">Culinary</option>
-                    <option value="Marketing">Marketing</option>
-                  </select>
+
+                {/* Add Job Form */}
+                <div className="form-card">
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Briefcase size={20} style={{ color: 'var(--brand-red)' }} /> Publish New Job Opening
+                  </h2>
+                  <form onSubmit={handleAddJob}>
+                    <div className="form-group">
+                      <label>Job Title *</label>
+                      <input 
+                        type="text" 
+                        required 
+                        placeholder="e.g. Operations Manager"
+                        value={jobForm.title}
+                        onChange={(e) => setJobForm(prev => ({ ...prev, title: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Department *</label>
+                      <select 
+                        required 
+                        value={jobForm.department}
+                        onChange={(e) => setJobForm(prev => ({ ...prev, department: e.target.value }))}
+                      >
+                        <option value="">Select Department</option>
+                        <option value="Engineering">Engineering</option>
+                        <option value="Operations">Operations</option>
+                        <option value="Culinary">Culinary</option>
+                        <option value="Marketing">Marketing</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Location *</label>
+                      <input 
+                        type="text" 
+                        required 
+                        placeholder="e.g. Bangalore, KA (or Remote)"
+                        value={jobForm.location}
+                        onChange={(e) => setJobForm(prev => ({ ...prev, location: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Job Description *</label>
+                      <textarea 
+                        required 
+                        rows="4" 
+                        placeholder="Outline job responsibilities, skills needed, compensation details..."
+                        value={jobForm.description}
+                        onChange={(e) => setJobForm(prev => ({ ...prev, description: e.target.value }))}
+                      />
+                    </div>
+                    <button type="submit" disabled={submittingJob} className="btn-primary" style={{ width: '100%' }}>
+                      {submittingJob ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Publish Job Listing'}
+                    </button>
+                  </form>
                 </div>
-                <div className="form-group">
-                  <label>Location *</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="e.g. Bangalore, KA (or Remote)"
-                    value={jobForm.location}
-                    onChange={(e) => setJobForm(prev => ({ ...prev, location: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Job Description *</label>
-                  <textarea 
-                    required 
-                    rows="4" 
-                    placeholder="Outline job responsibilities, skills needed, compensation details..."
-                    value={jobForm.description}
-                    onChange={(e) => setJobForm(prev => ({ ...prev, description: e.target.value }))}
-                  />
-                </div>
-                <button type="submit" disabled={submittingJob} className="btn-primary" style={{ width: '100%' }}>
-                  {submittingJob ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Publish Job Listing'}
-                </button>
-              </form>
-            </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -665,7 +914,7 @@ const SuperAdminDashboard = () => {
               </div>
             ) : (
               <div style={{ marginBottom: '32px' }}>
-                {pendingRequests.map(req => (
+                {visiblePendingRequests.map(req => (
                   <div key={req.id} className="request-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                       <div>
@@ -713,6 +962,17 @@ const SuperAdminDashboard = () => {
                     </div>
                   </div>
                 ))}
+                {hasMorePendingRequests && (
+                  <div className="load-more-wrap" style={{ margin: '8px auto 0' }}>
+                    <button
+                      type="button"
+                      className="load-more-btn"
+                      onClick={() => setVisiblePendingCount(count => count + ADMIN_LIST_PAGE_SIZE)}
+                    >
+                      Load more pending requests ({pendingRequests.length - visiblePendingCount} left) <ChevronRight className="load-more-icon" size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -723,7 +983,7 @@ const SuperAdminDashboard = () => {
               </div>
             ) : (
               <div>
-                {reviewedRequests.map(req => (
+                {visibleReviewedRequests.map(req => (
                   <div key={req.id} className="request-card" style={{ opacity: 0.8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
@@ -736,6 +996,17 @@ const SuperAdminDashboard = () => {
                     </div>
                   </div>
                 ))}
+                {hasMoreReviewedRequests && (
+                  <div className="load-more-wrap" style={{ margin: '8px auto 0' }}>
+                    <button
+                      type="button"
+                      className="load-more-btn"
+                      onClick={() => setVisibleReviewedCount(count => count + ADMIN_LIST_PAGE_SIZE)}
+                    >
+                      Load more reviewed requests ({reviewedRequests.length - visibleReviewedCount} left) <ChevronRight className="load-more-icon" size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -754,7 +1025,7 @@ const SuperAdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {data.users.map((u) => (
+                {visibleUsers.map((u) => (
                   <tr key={u.userID}>
                     <td style={{ fontWeight: 700 }}>#{u.userID}</td>
                     <td>{u.userName}</td>
@@ -782,6 +1053,17 @@ const SuperAdminDashboard = () => {
                 ))}
               </tbody>
             </table>
+            {hasMoreUsers && (
+              <div className="load-more-wrap" style={{ margin: '16px auto' }}>
+                <button
+                  type="button"
+                  className="load-more-btn"
+                  onClick={() => setVisibleUserCount(count => count + ADMIN_LIST_PAGE_SIZE)}
+                >
+                  Load more users ({(data.users || []).length - visibleUserCount} left) <ChevronRight className="load-more-icon" size={16} />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -810,7 +1092,7 @@ const SuperAdminDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {riderApps.map((app) => (
+                    {visibleRiderApps.map((app) => (
                       <tr key={app.id}>
                         <td style={{ fontWeight: 700 }}>{app.candidateName}</td>
                         <td>
@@ -906,6 +1188,17 @@ const SuperAdminDashboard = () => {
                   </tbody>
                 </table>
               )}
+              {hasMoreRiderApps && (
+                <div className="load-more-wrap" style={{ margin: '16px auto' }}>
+                  <button
+                    type="button"
+                    className="load-more-btn"
+                    onClick={() => setVisibleRiderAppCount(count => count + ADMIN_LIST_PAGE_SIZE)}
+                  >
+                    Load more rider applications ({riderApps.length - visibleRiderAppCount} left) <ChevronRight className="load-more-icon" size={16} />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* 2. General Career Applications */}
@@ -931,7 +1224,7 @@ const SuperAdminDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {generalApps.map((app) => (
+                    {visibleGeneralApps.map((app) => (
                       <tr key={app.id}>
                         <td style={{ fontWeight: 700 }}>{app.candidateName}</td>
                         <td>{app.jobTitle}</td>
@@ -992,6 +1285,17 @@ const SuperAdminDashboard = () => {
                     ))}
                   </tbody>
                 </table>
+              )}
+              {hasMoreGeneralApps && (
+                <div className="load-more-wrap" style={{ margin: '16px auto' }}>
+                  <button
+                    type="button"
+                    className="load-more-btn"
+                    onClick={() => setVisibleGeneralAppCount(count => count + ADMIN_LIST_PAGE_SIZE)}
+                  >
+                    Load more applications ({generalApps.length - visibleGeneralAppCount} left) <ChevronRight className="load-more-icon" size={16} />
+                  </button>
+                </div>
               )}
             </div>
           </div>

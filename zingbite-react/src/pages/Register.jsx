@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AlertTriangle, Loader, ChevronDown, MapPin } from 'lucide-react';
@@ -131,7 +131,7 @@ const Register = () => {
         .register-hero-overlay {
           position: absolute;
           inset: 0;
-          background: linear-gradient(135deg, rgba(247,55,79,0.7) 0%, rgba(0,0,0,0.5) 100%);
+          background: linear-gradient(135deg, rgba(247,55,79,0.24) 0%, rgba(0,0,0,0.62) 100%);
           display: flex;
           flex-direction: column;
           justify-content: center;
@@ -158,12 +158,16 @@ const Register = () => {
           align-items: center;
           justify-content: center;
           padding: 40px 20px;
-          background: #fff;
+          background: linear-gradient(180deg, rgba(247,55,79,0.035) 0%, #fff 42%);
         }
         .register-form-container {
           width: 100%;
           max-width: 400px;
-          padding-right: 8px;
+          background: rgba(255,255,255,0.96);
+          border: 1px solid rgba(247,55,79,0.1);
+          border-radius: var(--radius-lg);
+          padding: 28px;
+          box-shadow: 0 18px 50px rgba(28,28,28,0.08);
           animation: fadeInScale 0.5s ease-out both;
         }
         @keyframes fadeInScale {

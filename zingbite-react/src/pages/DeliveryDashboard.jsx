@@ -3,8 +3,10 @@ import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../context/ModalContext';
-import { Bike, CheckCircle2, Navigation, IndianRupee, Loader, AlertTriangle, MapPin, ClipboardCheck, LogOut, MessageSquare } from 'lucide-react';
+import { Bike, CheckCircle2, Navigation, IndianRupee, Loader, AlertTriangle, MapPin, ClipboardCheck, LogOut, MessageSquare, ChevronRight } from 'lucide-react';
 import ChatWidget from '../components/ChatWidget';
+
+const DELIVERY_LIST_PAGE_SIZE = 4;
 
 const interpolatePolyline = (points, progressPercent) => {
   if (!points || points.length === 0) return null;
@@ -156,7 +158,7 @@ const ActiveDeliveryMap = ({ order }) => {
   if (!isRealGPS && order) {
     const progress = order.gpsProgress || 0;
     let pathPoints = [];
-    if (order.status === 'Out for Delivery') {
+    if (order.status === 'OUT_FOR_DELIVERY' || order.status === 'Out for Delivery') {
       if (order.pathLM1 && order.pathLM1.length > 0) {
         pathPoints = order.pathLM1.map(n => [n.latitude, n.longitude]);
       }
@@ -336,6 +338,9 @@ const DeliveryDashboard = () => {
   const [simulators, setSimulators] = useState({});
   const [watchers, setWatchers] = useState({});
   const [activeChatOrderId, setActiveChatOrderId] = useState(null);
+  const [visibleAvailableCount, setVisibleAvailableCount] = useState(DELIVERY_LIST_PAGE_SIZE);
+  const [visibleActiveCount, setVisibleActiveCount] = useState(DELIVERY_LIST_PAGE_SIZE);
+  const [visibleCompletedCount, setVisibleCompletedCount] = useState(DELIVERY_LIST_PAGE_SIZE);
 
   const restaurantLat = 12.9716;
   const restaurantLng = 77.5946;
@@ -494,7 +499,8 @@ const DeliveryDashboard = () => {
     }
     fetchDeliveryData(false);
 
-    const eventSource = new EventSource('/api/stream?topic=rider_orders');
+    const ssePath = window.location.pathname.startsWith('/zingbite') ? '/zingbite/api/stream?topic=rider_orders' : '/api/stream?topic=rider_orders';
+    const eventSource = new EventSource(ssePath);
     eventSource.onmessage = (event) => {
       try {
         console.log("[ZingBite SSE] Received real-time rider dashboard update");
@@ -543,22 +549,27 @@ const DeliveryDashboard = () => {
     navigate('/login?redirect=/delivery');
   };
 
+  const availableRuns = data?.available || [];
+  const activeRuns = data?.active || [];
+  const completedRuns = data?.completed || [];
+  const visibleAvailableRuns = availableRuns.slice(0, visibleAvailableCount);
+  const visibleActiveRuns = activeRuns.slice(0, visibleActiveCount);
+  const visibleCompletedRuns = completedRuns.slice(0, visibleCompletedCount);
+  const hasMoreAvailableRuns = visibleAvailableCount < availableRuns.length;
+  const hasMoreActiveRuns = visibleActiveCount < activeRuns.length;
+  const hasMoreCompletedRuns = visibleCompletedCount < completedRuns.length;
+
   const renderRiderStepper = (o) => {
     const getStatusStep = (status) => {
       switch (status) {
-        case 'Placed':
-        case 'Accepted':
-          return 0;
-        case 'Preparing':
-          return 1;
-        case 'Waiting to Dispatch':
-          return 2;
-        case 'Out for Delivery':
-          return 3;
-        case 'Delivered':
-          return 4;
-        default:
-          return 0;
+        case 'PLACED': return 0;
+        case 'ACCEPTED': return 0;
+        case 'PREPARING': return 1;
+        case 'READY_FOR_PICKUP': return 2;
+        case 'PICKED_UP': return 3;
+        case 'OUT_FOR_DELIVERY': return 4;
+        case 'DELIVERED': return 5;
+        default: return 0;
       }
     };
 
@@ -567,9 +578,10 @@ const DeliveryDashboard = () => {
     const steps = [
       { key: 0, label: 'Claimed' },
       { key: 1, label: 'Cooking' },
-      { key: 2, label: 'Ready' },
-      { key: 3, label: 'In Transit', targetStatus: 'Delivered', actionLabel: 'Deliver' },
-      { key: 4, label: 'Delivered' }
+      { key: 2, label: 'Ready for Pickup', targetStatus: 'PICKED_UP', actionLabel: 'Pick Up' },
+      { key: 3, label: 'Picked Up', targetStatus: 'OUT_FOR_DELIVERY', actionLabel: 'Start Route' },
+      { key: 4, label: 'In Transit', targetStatus: 'DELIVERED', actionLabel: 'Deliver' },
+      { key: 5, label: 'Delivered' }
     ];
 
     return (
@@ -579,7 +591,7 @@ const DeliveryDashboard = () => {
             const isCompleted = currentStep > idx;
             const isActive = currentStep === idx;
             const isPending = currentStep < idx;
-            const isActionable = idx === 3 && currentStep === 3;
+            const isActionable = step.actionLabel && currentStep === idx;
 
             let nodeClass = 'stepper-node';
             if (isCompleted) nodeClass += ' completed';
@@ -596,7 +608,7 @@ const DeliveryDashboard = () => {
                   {isActionable ? (
                     <button
                       disabled={actionLoading === o.orderId}
-                      onClick={() => handleUpdateStatus(o.orderId, 'Delivered')}
+                      onClick={() => handleUpdateStatus(o.orderId, step.targetStatus)}
                       className="stepper-btn-node"
                       title={step.actionLabel}
                     >
@@ -631,12 +643,17 @@ const DeliveryDashboard = () => {
         )}
         {currentStep === 2 && (
           <div style={{ padding: '8px 12px', background: 'rgba(255,206,86,0.04)', border: '1px solid rgba(255,206,86,0.1)', borderRadius: '6px', marginTop: '16px', fontSize: '0.78rem', color: '#e09f00', fontWeight: 600, textAlign: 'center' }}>
-            Food is ready! Waiting for dispatch...
+            Food is ready! Click "Pick Up" above when you collect the order from the restaurant.
           </div>
         )}
         {currentStep === 3 && (
+          <div style={{ padding: '8px 12px', background: 'rgba(153,102,255,0.04)', border: '1px solid rgba(153,102,255,0.1)', borderRadius: '6px', marginTop: '16px', fontSize: '0.78rem', color: '#9966ff', fontWeight: 600, textAlign: 'center' }}>
+            Order picked up! Click "Start Route" to begin transit.
+          </div>
+        )}
+        {currentStep === 4 && (
           <div style={{ padding: '8px 12px', background: 'rgba(75,192,192,0.04)', border: '1px solid rgba(75,192,192,0.1)', borderRadius: '6px', marginTop: '16px', fontSize: '0.78rem', color: '#4bc0c0', fontWeight: 600, textAlign: 'center' }}>
-            In transit! Click "Deliver" above to complete.
+            In transit! Click "Deliver" above once the package reaches the customer.
           </div>
         )}
       </div>
@@ -993,21 +1010,21 @@ const DeliveryDashboard = () => {
             <div className="stat-icon red"><Bike size={24} /></div>
             <div>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Active Runs</span>
-              <div className="stat-number">{(data?.active || []).length}</div>
+              <div className="stat-number">{activeRuns.length}</div>
             </div>
           </div>
         </div>
 
         {/* Available Runs (Claim Feed) */}
-        <h2 className="section-title">Available Delivery Runs ({(data?.available || []).length})</h2>
-        {(data?.available || []).length === 0 ? (
+        <h2 className="section-title">Available Delivery Runs ({availableRuns.length})</h2>
+        {availableRuns.length === 0 ? (
           <div className="empty-state">
             <AlertTriangle size={32} style={{ margin: '0 auto 12px', color: 'var(--text-muted)' }} />
             <p>No available delivery runs at the moment. Waiting for new customer orders...</p>
           </div>
         ) : (
           <div className="orders-grid">
-            {(data?.available || []).map((o) => (
+            {visibleAvailableRuns.map((o) => (
               <div key={o.orderId} className="delivery-card">
                 <div>
                   <div className="delivery-card-header">
@@ -1040,18 +1057,29 @@ const DeliveryDashboard = () => {
                 </button>
               </div>
             ))}
+            {hasMoreAvailableRuns && (
+              <div className="load-more-wrap" style={{ gridColumn: '1 / -1', margin: '4px auto 0' }}>
+                <button
+                  type="button"
+                  className="load-more-btn"
+                  onClick={() => setVisibleAvailableCount(count => count + DELIVERY_LIST_PAGE_SIZE)}
+                >
+                  Load more available runs ({availableRuns.length - visibleAvailableCount} left) <ChevronRight className="load-more-icon" size={16} />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* Active Deliveries */}
-        <h2 className="section-title">My Active Tasks ({(data?.active || []).length})</h2>
-        {(data?.active || []).length === 0 ? (
+        <h2 className="section-title">My Active Tasks ({activeRuns.length})</h2>
+        {activeRuns.length === 0 ? (
           <div className="empty-state" style={{ marginBottom: '32px' }}>
             <p>No active delivery runs claimed. Accept a run from the feed above!</p>
           </div>
         ) : (
           <div className="orders-grid">
-            {(data?.active || []).map((o) => (
+            {visibleActiveRuns.map((o) => (
               <div key={o.orderId} className="delivery-card">
                 <div>
                   <div className="delivery-card-header">
@@ -1097,7 +1125,7 @@ const DeliveryDashboard = () => {
                 {/* Route map visible to delivery partner for all active statuses */}
                 <ActiveDeliveryMap order={o} />
 
-                {o.status === 'Out for Delivery' && (
+                {(o.status === 'OUT_FOR_DELIVERY' || o.status === 'Out for Delivery') && (
                   <div style={{ marginTop: '20px', padding: '16px', background: '#fcfaff', border: '1px solid #dcd3ff', borderRadius: '8px' }}>
                     <h5 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#9966ff', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', margin: '0 0 8px 0' }}>
                       <Bike size={16} /> Live GPS Telemetry & Geolocation
@@ -1175,18 +1203,29 @@ const DeliveryDashboard = () => {
                 )}
               </div>
             ))}
+            {hasMoreActiveRuns && (
+              <div className="load-more-wrap" style={{ gridColumn: '1 / -1', margin: '4px auto 0' }}>
+                <button
+                  type="button"
+                  className="load-more-btn"
+                  onClick={() => setVisibleActiveCount(count => count + DELIVERY_LIST_PAGE_SIZE)}
+                >
+                  Load more active tasks ({activeRuns.length - visibleActiveCount} left) <ChevronRight className="load-more-icon" size={16} />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* Completed Deliveries */}
         <h2 className="section-title">Trip Log (Completed)</h2>
-        {(data?.completed || []).length === 0 ? (
+        {completedRuns.length === 0 ? (
           <div className="empty-state">
             <p>Your completed delivery logs will show up here.</p>
           </div>
         ) : (
           <div className="orders-grid">
-            {(data?.completed || []).map((o) => (
+            {visibleCompletedRuns.map((o) => (
               <div key={o.orderId} className="delivery-card" style={{ opacity: 0.8 }}>
                 <div>
                   <div className="delivery-card-header">
@@ -1201,6 +1240,17 @@ const DeliveryDashboard = () => {
                 </div>
               </div>
             ))}
+            {hasMoreCompletedRuns && (
+              <div className="load-more-wrap" style={{ gridColumn: '1 / -1', margin: '4px auto 0' }}>
+                <button
+                  type="button"
+                  className="load-more-btn"
+                  onClick={() => setVisibleCompletedCount(count => count + DELIVERY_LIST_PAGE_SIZE)}
+                >
+                  Load more completed trips ({completedRuns.length - visibleCompletedCount} left) <ChevronRight className="load-more-icon" size={16} />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1212,7 +1262,7 @@ const DeliveryDashboard = () => {
           targetId={activeChatOrderId}
           userId={user?.userID || user?.userId}
           userName={user?.userName || user?.username}
-          receiverId={(data?.active || []).find(a => a.orderId === activeChatOrderId)?.customerId || 0}
+          receiverId={activeRuns.find(a => a.orderId === activeChatOrderId)?.customerId || 0}
           initialOpen={true}
           onClose={() => setActiveChatOrderId(null)}
         />

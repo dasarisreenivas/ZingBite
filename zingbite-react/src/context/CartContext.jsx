@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { trackEvent } from '../utils/analytics';
 
 export const CartContext = createContext();
 
@@ -59,7 +60,7 @@ export const CartProvider = ({ children }) => {
     let shipping = cart.shipping || 0;
     let tax = cart.tax || 0;
     let discount = 0;
-
+ 
     if (coupon) {
       if (coupon.type === 'percent') {
         discount = (subtotal * coupon.value) / 100;
@@ -94,6 +95,7 @@ export const CartProvider = ({ children }) => {
         return false;
       }
       setCart(res.data);
+      trackEvent('ADD_TO_CART', { itemId, quantity });
       return true;
     } catch (err) {
       console.error(err);
@@ -103,9 +105,18 @@ export const CartProvider = ({ children }) => {
 
   const updateQuantity = async (itemId, quantity) => {
     if (quantity <= 0) return removeFromCart(itemId);
+    
+    const items = cart?.items ? (Array.isArray(cart.items) ? cart.items : Object.values(cart.items)) : [];
+    const existing = items.find(i => i.itemId === itemId || i.menuId === itemId);
+    const currentQty = existing ? existing.quantity : 0;
+    const isAdd = quantity > currentQty;
+
     try {
       const res = await axios.post('/api/cart', { action: 'updateQuantity', itemId, quantity });
       setCart(res.data);
+      if (isAdd) {
+        trackEvent('ADD_TO_CART', { itemId, quantity: quantity - currentQty });
+      }
     } catch (err) {
       console.error(err);
     }
@@ -125,6 +136,7 @@ export const CartProvider = ({ children }) => {
       const res = await axios.post('/api/cart', { action: 'clearAndAdd', itemId, quantity });
       setCart(res.data);
       setConflictPopup(null);
+      trackEvent('ADD_TO_CART', { itemId, quantity });
     } catch (err) {
       console.error(err);
     }

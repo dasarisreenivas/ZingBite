@@ -41,6 +41,15 @@ public class Restaurant implements Serializable{
 	@Column(name = "longitude")
 	private Double longitude;
 	
+	@Column(name = "ISOPEN", nullable = false, columnDefinition = "boolean default true")
+	private boolean isOpen = true;
+
+	@Column(name = "TOTALORDERS", nullable = false, columnDefinition = "int default 0")
+	private int totalOrders = 0;
+
+	@Column(name = "TOTALIMPRESSIONS", nullable = false, columnDefinition = "int default 0")
+	private int totalImpressions = 0;
+	
 	public Restaurant() {
 		super();
 	}
@@ -160,13 +169,36 @@ public class Restaurant implements Serializable{
 		this.longitude = longitude;
 	}
 
+	public boolean isOpen() {
+		return isOpen;
+	}
+
+	public void setOpen(boolean isOpen) {
+		this.isOpen = isOpen;
+	}
+
+	public int getTotalOrders() {
+		return totalOrders;
+	}
+
+	public void setTotalOrders(int totalOrders) {
+		this.totalOrders = totalOrders;
+	}
+
+	public int getTotalImpressions() {
+		return totalImpressions;
+	}
+
+	public void setTotalImpressions(int totalImpressions) {
+		this.totalImpressions = totalImpressions;
+	}
+
 	@Override
 	public String toString() {
 		return "Restaurant [restaurantId=" + restaurantId + ", restaurantName=" + restaurantName + ", deliveryTime="
 				+ deliveryTime + ", cusineType=" + cusineType + ", address=" + address + ", rating=" + rating
 				+ ", isActive=" + isActive + ", adminId=" + adminId + ", imagePath=" + imagePath 
-				+ ", latitude=" + latitude + ", longitude=" + longitude + "]";
+				+ ", latitude=" + latitude + ", longitude=" + longitude + ", isOpen=" + isOpen
+				+ ", totalOrders=" + totalOrders + ", totalImpressions=" + totalImpressions + "]";
 	}
-	
-	
 }

@@ -22,6 +22,7 @@ import com.app.zingbitemodels.Job;
 import com.app.zingbitemodels.Application;
 import com.app.zingbitemodels.EmailNotification;
 import com.app.zingbiteutils.DBUtils;
+import com.app.zingbiteutils.LRUCache;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -30,6 +31,9 @@ import com.google.gson.JsonParser;
 @WebServlet("/api/careers")
 public class CareersServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
+
+    // Global jobs list cache: 5 minutes fresh (TTL), 15 minutes stale (SWR)
+    public static final LRUCache<String, List<Job>> jobsCache = new LRUCache<>(1, 5 * 60 * 1000, 15 * 60 * 1000);
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -44,31 +48,37 @@ public class CareersServlet extends HttpServlet {
         Gson gson = new Gson();
 
         if ("jobs".equals(action)) {
-            try (Session hibernateSession = DBUtils.openSession()) {
-                String hql = "from Job order by id desc";
-                Query<Job> query = hibernateSession.createQuery(hql, Job.class);
-                List<Job> jobsList = query.list();
+            try {
+                List<Job> jobsList = jobsCache.get("all", key -> {
+                    System.out.println("[CareersServlet] Cache miss/revalidate: Loading jobs from DB");
+                    try (Session hibernateSession = DBUtils.openSession()) {
+                        String hql = "from Job order by id desc";
+                        Query<Job> query = hibernateSession.createQuery(hql, Job.class);
+                        List<Job> list = query.list();
 
-                // Auto-populate default job listings for demo if empty
-                if (jobsList.isEmpty()) {
-                    Transaction tx = null;
-                    try {
-                        tx = hibernateSession.beginTransaction();
-                        Job j1 = new Job("Delivery Rider", "Operations", "Anantapur, AP", "Deliver orders safely and swiftly to customer locations. Flexible hours, attractive incentives, and instant payout.", "June 01, 2026");
-                        Job j2 = new Job("Kitchen Supervisor", "Culinary", "Bangalore, KA", "Supervise preparing food orders, maintain kitchen safety hygiene standards, and manage supply items.", "May 30, 2026");
-                        Job j3 = new Job("Frontend React Developer", "Engineering", "Remote", "Build high-performance web components, optimize webapp loading times, and design clean aesthetics.", "May 28, 2026");
-                        
-                        hibernateSession.persist(j1);
-                        hibernateSession.persist(j2);
-                        hibernateSession.persist(j3);
-                        tx.commit();
-                        
-                        jobsList = hibernateSession.createQuery("from Job order by id desc", Job.class).list();
-                    } catch (Exception ex) {
-                        if (tx != null) tx.rollback();
-                        ex.printStackTrace();
+                        // Auto-populate default job listings for demo if empty
+                        if (list.isEmpty()) {
+                            Transaction tx = null;
+                            try {
+                                tx = hibernateSession.beginTransaction();
+                                Job j1 = new Job("Delivery Rider", "Operations", "Anantapur, AP", "Deliver orders safely and swiftly to customer locations. Flexible hours, attractive incentives, and instant payout.", "June 01, 2026");
+                                Job j2 = new Job("Kitchen Supervisor", "Culinary", "Bangalore, KA", "Supervise preparing food orders, maintain kitchen safety hygiene standards, and manage supply items.", "May 30, 2026");
+                                Job j3 = new Job("Frontend React Developer", "Engineering", "Remote", "Build high-performance web components, optimize webapp loading times, and design clean aesthetics.", "May 28, 2026");
+                                
+                                hibernateSession.persist(j1);
+                                hibernateSession.persist(j2);
+                                hibernateSession.persist(j3);
+                                tx.commit();
+                                
+                                list = hibernateSession.createQuery("from Job order by id desc", Job.class).list();
+                            } catch (Exception ex) {
+                                if (tx != null) tx.rollback();
+                                ex.printStackTrace();
+                            }
+                        }
+                        return list;
                     }
-                }
+                });
 
                 resp.getWriter().write(gson.toJson(jobsList));
             } catch (Exception e) {

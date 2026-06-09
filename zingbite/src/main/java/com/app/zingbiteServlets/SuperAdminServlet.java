@@ -21,6 +21,7 @@ import com.app.zingbitemodels.User;
 import com.app.zingbitemodels.Restaurant;
 import com.app.zingbitemodels.RestaurantRequest;
 import com.app.zingbitemodels.Orders;
+import com.app.zingbitemodels.OrderStatus;
 import com.app.zingbitemodels.Job;
 import com.app.zingbitemodels.Application;
 import com.app.zingbitemodels.EmailNotification;
@@ -66,8 +67,12 @@ public class SuperAdminServlet extends HttpServlet {
             // Global counts
             long userCount = hibernateSession.createQuery("select count(u) from User u", Long.class).uniqueResult();
             long restaurantCount = hibernateSession.createQuery("select count(r) from Restaurant r", Long.class).uniqueResult();
-            long orderCount = hibernateSession.createQuery("select count(o) from Orders o", Long.class).uniqueResult();
-            Double totalRevenue = hibernateSession.createQuery("select sum(o.totalAmount) from Orders o", Double.class).uniqueResult();
+            long orderCount = hibernateSession.createQuery("select count(o) from Orders o where o.orderStatus != :pendingStatus", Long.class)
+                    .setParameter("pendingStatus", OrderStatus.PENDING_PAYMENT)
+                    .uniqueResult();
+            Double totalRevenue = hibernateSession.createQuery("select sum(o.totalAmount) from Orders o where o.orderStatus != :pendingStatus", Double.class)
+                    .setParameter("pendingStatus", OrderStatus.PENDING_PAYMENT)
+                    .uniqueResult();
             if (totalRevenue == null) totalRevenue = 0.0;
 
             // Fetch users
@@ -170,6 +175,7 @@ public class SuperAdminServlet extends HttpServlet {
                             }
 
                             hibernateSession.persist(r);
+                            HomeServlet.restaurantCache.clear();
 
                             // Force Admin User role to restaurant_admin
                             User adminUser = hibernateSession.get(User.class, rr.getAdminId());
@@ -247,6 +253,7 @@ public class SuperAdminServlet extends HttpServlet {
                     tx = hibernateSession.beginTransaction();
                     hibernateSession.persist(restaurant);
                     tx.commit();
+                    HomeServlet.restaurantCache.clear();
                     resp.getWriter().write("{\"success\":true}");
                 } catch (Exception e) {
                     if (tx != null) tx.rollback();
@@ -265,6 +272,7 @@ public class SuperAdminServlet extends HttpServlet {
                     tx = hibernateSession.beginTransaction();
                     hibernateSession.persist(job);
                     tx.commit();
+                    CareersServlet.jobsCache.clear();
                     resp.getWriter().write("{\"success\":true}");
                 } catch (Exception e) {
                     if (tx != null) tx.rollback();

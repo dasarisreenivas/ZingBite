@@ -958,13 +958,13 @@ const InfoPage = () => {
         }
         .info-sidebar {
           width: 260px;
-          background: #fff;
-          border: 1px solid var(--border-medium);
+          background: rgba(255,255,255,0.96);
+          border: 1px solid rgba(247,55,79,0.1);
           border-radius: var(--radius-md);
           padding: 16px;
           position: sticky;
           top: 90px;
-          box-shadow: var(--shadow-sm);
+          box-shadow: 0 12px 34px rgba(28,28,28,0.06);
         }
         .info-group-title {
           font-size: 0.78rem;
@@ -1014,7 +1014,7 @@ const InfoPage = () => {
           padding: 14px;
           font-family: inherit;
           font-size: 1rem;
-          border: 1px solid var(--border-medium);
+          border: 1px solid rgba(247,55,79,0.12);
           border-radius: var(--radius-sm);
           background: #fff;
           color: var(--text-primary);
@@ -1024,11 +1024,11 @@ const InfoPage = () => {
 
         .info-main-content {
           flex: 1;
-          background: #fff;
-          border: 1px solid var(--border-medium);
+          background: rgba(255,255,255,0.96);
+          border: 1px solid rgba(247,55,79,0.1);
           border-radius: var(--radius-md);
           padding: 32px;
-          box-shadow: var(--shadow-sm);
+          box-shadow: 0 12px 34px rgba(28,28,28,0.06);
           min-height: 500px;
         }
 
@@ -1050,6 +1050,7 @@ const InfoPage = () => {
           padding: 24px;
           border-radius: var(--radius-md);
           margin-bottom: 24px;
+          border: 1px solid rgba(247,55,79,0.1);
         }
         .hero-badge {
           display: inline-block;
@@ -1073,9 +1074,10 @@ const InfoPage = () => {
           margin-bottom: 32px;
         }
         .grid-card {
-          border: 1px solid var(--border-medium);
+          border: 1px solid rgba(247,55,79,0.1);
           padding: 20px;
           border-radius: var(--radius-md);
+          background: rgba(255,255,255,0.9);
         }
         .grid-card h3 {
           font-size: 1.25rem;
@@ -1095,10 +1097,11 @@ const InfoPage = () => {
           gap: 16px;
         }
         .stat-box {
-          background: var(--bg-surface);
+          background: rgba(247,55,79,0.04);
           padding: 16px;
           text-align: center;
           border-radius: var(--radius-sm);
+          border: 1px solid rgba(247,55,79,0.08);
         }
         .stat-box h4 {
           font-size: 1.8rem;
@@ -1122,9 +1125,9 @@ const InfoPage = () => {
           justify-content: space-between;
           align-items: center;
           padding: 20px;
-          border: 1px solid var(--border-medium);
+          border: 1px solid rgba(247,55,79,0.1);
           border-radius: var(--radius-md);
-          background: #fff;
+          background: rgba(255,255,255,0.94);
           transition: border-color 0.2s;
         }
         .job-card:hover {
@@ -1171,8 +1174,9 @@ const InfoPage = () => {
         .team-card {
           text-align: center;
           padding: 24px 16px;
-          border: 1px solid var(--border-medium);
+          border: 1px solid rgba(247,55,79,0.1);
           border-radius: var(--radius-md);
+          background: rgba(255,255,255,0.94);
         }
         .team-avatar {
           width: 60px;
@@ -1245,10 +1249,10 @@ const InfoPage = () => {
           gap: 12px;
         }
         .faq-item {
-          border: 1px solid var(--border-medium);
+          border: 1px solid rgba(247,55,79,0.1);
           border-radius: var(--radius-sm);
           overflow: hidden;
-          background: #fff;
+          background: rgba(255,255,255,0.94);
         }
         .faq-question {
           width: 100%;
@@ -1266,7 +1270,7 @@ const InfoPage = () => {
           transition: background 0.2s;
         }
         .faq-question:hover {
-          background: var(--bg-surface);
+          background: rgba(247,55,79,0.04);
         }
         .faq-chevron {
           transition: transform 0.25s ease;
@@ -1280,7 +1284,7 @@ const InfoPage = () => {
           max-height: 0;
           overflow: hidden;
           transition: max-height 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
-          background: var(--bg-surface);
+          background: rgba(247,55,79,0.035);
         }
         .faq-item.open .faq-answer {
           max-height: 200px;
@@ -1352,7 +1356,7 @@ const InfoPage = () => {
         .form-group textarea {
           width: 100%;
           padding: 12px;
-          border: 1px solid var(--border-medium);
+          border: 1px solid rgba(247,55,79,0.12);
           border-radius: var(--radius-sm);
           font-family: inherit;
           font-size: 0.95rem;
@@ -1388,7 +1392,7 @@ const InfoPage = () => {
           flex-direction: column;
           align-items: center;
           gap: 12px;
-          border: 1px solid var(--border-medium);
+          border: 1px solid rgba(96, 178, 70, 0.18);
           border-radius: var(--radius-md);
           background: rgba(96, 178, 70, 0.03);
         }

@@ -16,6 +16,9 @@ import com.app.zingbitemodels.RestaurantRequest;
 import com.app.zingbitemodels.EmailNotification;
 import com.app.zingbitemodels.ChatMessage;
 import com.app.zingbitemodels.ContactMessage;
+import com.app.zingbitemodels.OrderStatusConverter;
+import com.app.zingbitemodels.Payment;
+import com.app.zingbitemodels.AnalyticsEvent;
 
 public class DBUtils {
 
@@ -35,7 +38,10 @@ public class DBUtils {
 									.addAnnotatedClass(RestaurantRequest.class)
 									.addAnnotatedClass(EmailNotification.class)
 									.addAnnotatedClass(ChatMessage.class)
-									.addAnnotatedClass(ContactMessage.class);
+									.addAnnotatedClass(ContactMessage.class)
+									.addAnnotatedClass(OrderStatusConverter.class)
+									.addAnnotatedClass(Payment.class)
+									.addAnnotatedClass(AnalyticsEvent.class);
 			sf =config.buildSessionFactory();
 			System.out.println("session factory created successfully");
 

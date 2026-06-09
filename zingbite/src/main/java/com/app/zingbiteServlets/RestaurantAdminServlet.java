@@ -27,6 +27,7 @@ import com.app.zingbitemodels.RestaurantRequest;
 import com.app.zingbitemodels.Menu;
 import com.app.zingbitemodels.Orders;
 import com.app.zingbitemodels.OrderHistory;
+import com.app.zingbitemodels.OrderStatus;
 import com.app.zingbiteutils.DBUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -91,8 +92,9 @@ public class RestaurantAdminServlet extends HttpServlet {
             List<Menu> menuList = mQuery.list();
 
             // Fetch orders
-            String oHql = "from Orders order by orderId desc";
+            String oHql = "from Orders where orderStatus != :pendingStatus order by orderId desc";
             Query<Orders> oQuery = hibernateSession.createQuery(oHql, Orders.class);
+            oQuery.setParameter("pendingStatus", OrderStatus.PENDING_PAYMENT);
             List<Orders> allOrders = oQuery.list();
             
             JsonArray matchingOrders = new JsonArray();
@@ -103,7 +105,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                     JsonObject oJson = new JsonObject();
                     oJson.addProperty("orderId", o.getOrderId());
                     oJson.addProperty("formattedId", "ZB-" + o.getOrderId());
-                    oJson.addProperty("status", o.getOrderStatus() != null ? o.getOrderStatus() : "Preparing");
+                    oJson.addProperty("status", o.getOrderStatus() != null ? o.getOrderStatus().name() : "PREPARING");
                     oJson.addProperty("total", o.getTotalAmount());
                     oJson.addProperty("time", o.getOrderTime() != null ? o.getOrderTime() : "Today");
                     
@@ -227,6 +229,7 @@ public class RestaurantAdminServlet extends HttpServlet {
 
                         // Invalidate LRU Cache
                         MenuServlet.menuCache.remove(restaurant.getRestaurantId());
+                        HomeServlet.menuSearchCache.clear();
 
                         resp.getWriter().write("{\"success\":true}");
                         // Broadcast menu update
@@ -273,6 +276,7 @@ public class RestaurantAdminServlet extends HttpServlet {
 
                         // Invalidate LRU Cache
                         MenuServlet.menuCache.remove(restaurantId);
+                        HomeServlet.menuSearchCache.clear();
 
                         resp.getWriter().write("{\"success\":true}");
                     } catch (Exception e) {
@@ -300,7 +304,14 @@ public class RestaurantAdminServlet extends HttpServlet {
                         return;
                     }
 
-                    order.setOrderStatus(status);
+                    OrderStatus targetStatus = OrderStatus.parse(status);
+                    OrderStatus currentStatus = order.getOrderStatus() != null ? order.getOrderStatus() : OrderStatus.PLACED;
+                    if (!currentStatus.canTransitionTo(targetStatus)) {
+                        resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        resp.getWriter().write("{\"error\":\"Invalid status transition from " + currentStatus + " to " + targetStatus + "\"}");
+                        return;
+                    }
+                    order.setOrderStatus(targetStatus);
                     ordersDAO.updateOrders(order);
 
                     // Send stage status update email to the customer

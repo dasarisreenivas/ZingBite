@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { Globe, MessageCircle, Camera, Briefcase, Heart } from 'lucide-react';
 
@@ -7,7 +6,9 @@ const Footer = () => {
     <>
       <style>{`
         .site-footer {
-          background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+          background:
+            radial-gradient(circle at 20% 0%, rgba(247,55,79,0.18), transparent 34%),
+            linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
           color: #fff;
           padding: 60px 20px 30px;
           margin-top: auto;

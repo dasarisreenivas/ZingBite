@@ -21,6 +21,7 @@ import com.app.zingbitedaoimpl.OrdersDAOImplementation;
 import com.app.zingbitemodels.User;
 import com.app.zingbitemodels.Orders;
 import com.app.zingbitemodels.OrderHistory;
+import com.app.zingbitemodels.OrderStatus;
 import com.app.zingbiteutils.DBUtils;
 import com.app.zingbiteutils.GeoUtils;
 import com.app.zingbiteutils.RouteOptimizer;
@@ -68,8 +69,9 @@ public class DeliveryServlet extends HttpServlet {
         List<JsonObject> activeList = new ArrayList<>();
 
         try (Session hibernateSession = DBUtils.openSession()) {
-            String hql = "from Orders order by orderId desc";
+            String hql = "from Orders where orderStatus != :pendingStatus order by orderId desc";
             Query<Orders> query = hibernateSession.createQuery(hql, Orders.class);
+            query.setParameter("pendingStatus", OrderStatus.PENDING_PAYMENT);
             List<Orders> ordersList = query.list();
 
             for (Orders o : ordersList) {
@@ -78,7 +80,7 @@ public class DeliveryServlet extends HttpServlet {
                 oJson.addProperty("formattedId", "ZB-" + o.getOrderId());
                 oJson.addProperty("restaurantName", o.getRestaurantId() != null ? o.getRestaurantId().getRestaurantName() : "ZingBite Hotspot");
                 oJson.addProperty("total", o.getTotalAmount());
-                oJson.addProperty("status", o.getOrderStatus() != null ? o.getOrderStatus() : "Placed");
+                oJson.addProperty("status", o.getOrderStatus() != null ? o.getOrderStatus().name() : "PLACED");
                 oJson.addProperty("payment", o.getPaymentMethod() != null ? o.getPaymentMethod() : "UPI");
 
                 // Get customer address & name
@@ -105,15 +107,15 @@ public class DeliveryServlet extends HttpServlet {
                 oJson.addProperty("riderLon", riderLon);
 
                 if (o.getRiderId() == null) {
-                    String status = o.getOrderStatus();
-                    if ("Placed".equalsIgnoreCase(status) || 
-                        "Preparing".equalsIgnoreCase(status) || 
-                        "Waiting to Dispatch".equalsIgnoreCase(status) ||
-                        "Out for Delivery".equalsIgnoreCase(status)) {
+                    OrderStatus status = o.getOrderStatus();
+                    if (status == OrderStatus.PLACED || 
+                        status == OrderStatus.PREPARING || 
+                        status == OrderStatus.READY_FOR_PICKUP ||
+                        status == OrderStatus.OUT_FOR_DELIVERY) {
                         availableList.add(oJson);
                     }
                 } else if (o.getRiderId() == user.getUserID()) {
-                    if ("Delivered".equalsIgnoreCase(o.getOrderStatus())) {
+                    if (o.getOrderStatus() == OrderStatus.DELIVERED) {
                         completedDeliveries.add(oJson);
                         totalEarnings += 45; // 45 INR per trip
                     } else {
@@ -318,7 +320,7 @@ public class DeliveryServlet extends HttpServlet {
                 // Broadcast SSE Update
                 JsonObject ssePayload = new JsonObject();
                 ssePayload.addProperty("orderId", orderId);
-                ssePayload.addProperty("status", order.getOrderStatus());
+                ssePayload.addProperty("status", order.getOrderStatus() != null ? order.getOrderStatus().name() : "PLACED");
                 ssePayload.addProperty("gpsProgress", progress);
                 if (coords != null) {
                     ssePayload.addProperty("gpsCoordinates", coords);
@@ -340,10 +342,18 @@ public class DeliveryServlet extends HttpServlet {
                     return;
                 }
                 order.setRiderId(user.getUserID());
-                String nextStatus = order.getOrderStatus();
-                if ("Placed".equalsIgnoreCase(nextStatus)) {
-                    nextStatus = "Accepted";
-                    order.setOrderStatus(nextStatus);
+                OrderStatus currentStatus = order.getOrderStatus() != null ? order.getOrderStatus() : OrderStatus.PLACED;
+                String nextStatus = currentStatus.name();
+                if (currentStatus == OrderStatus.PLACED) {
+                    OrderStatus targetStatus = OrderStatus.ACCEPTED;
+                    if (currentStatus.canTransitionTo(targetStatus)) {
+                        order.setOrderStatus(targetStatus);
+                        nextStatus = targetStatus.name();
+                    } else {
+                        resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        resp.getWriter().write("{\"error\":\"Invalid status transition from " + currentStatus + " to " + targetStatus + "\"}");
+                        return;
+                    }
                 }
                 ordersDAO.updateOrders(order);
 
@@ -403,10 +413,17 @@ public class DeliveryServlet extends HttpServlet {
 
                 // Default update status
                 String status = requestBody.get("status").getAsString();
-                order.setOrderStatus(status);
+                OrderStatus targetStatus = OrderStatus.parse(status);
+                OrderStatus currentStatus = order.getOrderStatus() != null ? order.getOrderStatus() : OrderStatus.PLACED;
+                if (!currentStatus.canTransitionTo(targetStatus)) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"Invalid status transition from " + currentStatus + " to " + targetStatus + "\"}");
+                    return;
+                }
+                order.setOrderStatus(targetStatus);
                 ordersDAO.updateOrders(order);
 
-                if ("Delivered".equalsIgnoreCase(status)) {
+                if (targetStatus == OrderStatus.DELIVERED) {
                     order.setGpsProgress(100.0);
                     order.setGpsCoordinates(null);
                     ordersDAO.updateOrders(order);
@@ -522,7 +539,7 @@ public class DeliveryServlet extends HttpServlet {
             JsonObject msg = new JsonObject();
             msg.addProperty("event", eventType);
             msg.addProperty("orderId", order.getOrderId());
-            msg.addProperty("status", order.getOrderStatus());
+            msg.addProperty("status", order.getOrderStatus() != null ? order.getOrderStatus().name() : "PLACED");
             if (order.getGpsProgress() != null) {
                 msg.addProperty("gpsProgress", order.getGpsProgress());
             }

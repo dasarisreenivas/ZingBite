@@ -18,6 +18,23 @@ public class AppContextListener implements ServletContextListener {
         try {
             DBUtils.getSessionFactory();
             System.out.println("[AppContextListener] SessionFactory pre-initialized successfully!");
+            
+            // Pre-initialize RecommendationEngine asynchronously to warm the cache
+            new Thread(() -> {
+                try {
+                    System.out.println("[AppContextListener] Warming up RecommendationEngine similarity matrix...");
+                    RecommendationEngine.initialize();
+                    System.out.println("[AppContextListener] RecommendationEngine similarity matrix warmed up!");
+                } catch (Exception e) {
+                    System.err.println("[AppContextListener] Failed to warm up RecommendationEngine similarity matrix: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }, "RecommendationEngine-Warmup").start();
+
+            // Start background payment reconciliation scheduler
+            System.out.println("[AppContextListener] Starting background PaymentReconciliation scheduler...");
+            PaymentService.getInstance().startReconciliationScheduler();
+
         } catch (Exception e) {
             System.err.println("[AppContextListener] Failed to pre-initialize SessionFactory: " + e.getMessage());
             e.printStackTrace();
@@ -66,6 +83,22 @@ public class AppContextListener implements ServletContextListener {
             EmailService.shutdown();
         } catch (Exception e) {
             System.err.println("[AppContextListener] Error shutting down EmailService: " + e.getMessage());
+        }
+
+        // 5. Shutdown PaymentReconciliation scheduler
+        System.out.println("[AppContextListener] Shutting down background PaymentReconciliation scheduler...");
+        try {
+            PaymentService.getInstance().stopReconciliationScheduler();
+        } catch (Exception e) {
+            System.err.println("[AppContextListener] Error shutting down PaymentService scheduler: " + e.getMessage());
+        }
+
+        // 6. Shutdown AnalyticsQueueManager batch telemetry thread
+        System.out.println("[AppContextListener] Shutting down AnalyticsQueueManager telemetry processor...");
+        try {
+            AnalyticsQueueManager.getInstance().shutdown();
+        } catch (Exception e) {
+            System.err.println("[AppContextListener] Error shutting down AnalyticsQueueManager: " + e.getMessage());
         }
 
         System.out.println("[AppContextListener] Web application shutdown completed.");

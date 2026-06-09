@@ -8,55 +8,26 @@ import {
   Map, HelpCircle, AlertCircle
 } from 'lucide-react';
 
+// Anchor Coordinates mapping (shared with backend)
+const RIDER_LAT = 12.9580;
+const RIDER_LON = 77.5890;
+const REST_LAT = 12.9716;
+const REST_LON = 77.5946;
+const CUST_A_LAT = 12.9821;
+const CUST_A_LON = 77.6085;
+const CUST_B_LAT = 12.9645;
+const CUST_B_LON = 77.6142;
+const VRP_LOG_PAGE_SIZE = 12;
+
 const VRPDashboard = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-
-  if (!user || user.role !== 'super_admin') {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        flex: 1, 
-        minHeight: 'calc(100vh - 72px)', 
-        background: '#0d0d15', 
-        color: '#fff',
-        padding: '20px',
-        textAlign: 'center'
-      }}>
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          padding: '40px',
-          borderRadius: '16px',
-          backdropFilter: 'blur(16px)',
-          maxWidth: '480px',
-          width: '100%',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.24)'
-        }}>
-          <AlertTriangle size={64} style={{ color: '#ef4444', marginBottom: '20px', marginLeft: 'auto', marginRight: 'auto' }} />
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '12px' }}>Access Restricted</h2>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '24px', lineHeight: '1.5' }}>
-            The Vehicle Routing Problem (VRP) Control Room is strictly reserved for system engineers and administrators.
-          </p>
-          <button 
-            onClick={() => navigate('/')} 
-            className="btn-toggle active"
-            style={{ padding: '10px 24px', fontSize: '0.9rem', width: '100%', cursor: 'pointer' }}
-          >
-            Return to Dashboard
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
+  const [visibleLogCount, setVisibleLogCount] = useState(VRP_LOG_PAGE_SIZE);
 
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -66,6 +37,10 @@ const VRPDashboard = () => {
 
   // Fetch VRP state from backend
   const fetchVRPState = async () => {
+    if (!user || user.role !== 'super_admin') {
+      setLoading(false);
+      return;
+    }
     try {
       const res = await axios.get('/api/delivery/vrp');
       setData(res.data);
@@ -78,7 +53,7 @@ const VRPDashboard = () => {
 
   useEffect(() => {
     fetchVRPState();
-  }, []);
+  }, [user]);
 
   // Load Leaflet dynamically if not loaded
   useEffect(() => {
@@ -172,11 +147,10 @@ const VRPDashboard = () => {
     if (data.nodes) {
       data.nodes.forEach(node => {
         let iconHtml = '📍';
-        let labelColor = '#3b82f6';
-        if (node.id === 0) { iconHtml = '🛵'; labelColor = '#06b6d4'; } // Rider
-        else if (node.id === 1) { iconHtml = '🍳'; labelColor = '#ffc000'; } // Restaurant
-        else if (node.id === 2) { iconHtml = '🏠'; labelColor = '#a855f7'; } // Customer A
-        else if (node.id === 3) { iconHtml = '🏢'; labelColor = '#ec4899'; } // Customer B
+        if (node.id === 0) { iconHtml = '🛵'; } // Rider
+        else if (node.id === 1) { iconHtml = '🍳'; } // Restaurant
+        else if (node.id === 2) { iconHtml = '🏠'; } // Customer A
+        else if (node.id === 3) { iconHtml = '🏢'; } // Customer B
 
         const nodeIcon = L.divIcon({
           html: `<div style="font-size: 20px; line-height: 20px; text-align: center;">${iconHtml}</div>`,
@@ -244,6 +218,47 @@ const VRPDashboard = () => {
     }
   };
 
+  if (!user || user.role !== 'super_admin') {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        flex: 1, 
+        minHeight: 'calc(100vh - 72px)', 
+        background: '#0d0d15', 
+        color: '#fff',
+        padding: '20px',
+        textAlign: 'center'
+      }}>
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.03)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          padding: '40px',
+          borderRadius: '16px',
+          backdropFilter: 'blur(16px)',
+          maxWidth: '480px',
+          width: '100%',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.24)'
+        }}>
+          <AlertTriangle size={64} style={{ color: '#ef4444', marginBottom: '20px', marginLeft: 'auto', marginRight: 'auto' }} />
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '12px' }}>Access Restricted</h2>
+          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '24px', lineHeight: '1.5' }}>
+            The Vehicle Routing Problem (VRP) Control Room is strictly reserved for system engineers and administrators.
+          </p>
+          <button 
+            onClick={() => navigate('/')} 
+            className="btn-toggle active"
+            style={{ padding: '10px 24px', fontSize: '0.9rem', width: '100%', cursor: 'pointer' }}
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', flex: 1, minHeight: '500px', background: '#0a0a0f', color: '#fff' }}>
@@ -253,15 +268,31 @@ const VRPDashboard = () => {
     );
   }
 
-  // Anchor Coordinates mapping (shared with backend)
-  const RIDER_LAT = 12.9580;
-  const RIDER_LON = 77.5890;
-  const REST_LAT = 12.9716;
-  const REST_LON = 77.5946;
-  const CUST_A_LAT = 12.9821;
-  const CUST_A_LON = 77.6085;
-  const CUST_B_LAT = 12.9645;
-  const CUST_B_LON = 77.6142;
+  if (!data) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', flex: 1, minHeight: '500px', background: '#0a0a0f', color: '#fff', padding: '20px', textAlign: 'center' }}>
+        <AlertCircle size={48} style={{ color: '#ef4444', marginBottom: '16px' }} />
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '8px' }}>VRP data unavailable</h2>
+        <p style={{ color: '#94a3b8', maxWidth: '480px', marginBottom: '20px' }}>
+          The optimization engine did not return a valid state. Try refreshing the dispatch model.
+        </p>
+        <button
+          type="button"
+          onClick={fetchVRPState}
+          className="btn-toggle active"
+          style={{ padding: '10px 24px', cursor: 'pointer' }}
+        >
+          Retry VRP Load
+        </button>
+      </div>
+    );
+  }
+
+  const logs = data.logs || [];
+  const visibleLogs = logs.slice(0, visibleLogCount);
+  const hasMoreLogs = visibleLogCount < logs.length;
+
+  // Anchor Coordinates mapping is declared globally above the component
 
   return (
     <>
@@ -464,18 +495,101 @@ const VRPDashboard = () => {
               )}
             </div>
 
+            {/* VRPTW Cost Matrix & Time Windows Results */}
+            <div className="panel-card" style={{ marginBottom: '24px' }}>
+              <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Activity size={16} /> VRPTW Optimization Engine Results
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+                <div>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#38bdf8', fontWeight: 600 }}>Customer Time Windows</h4>
+                  {data.timeWindows && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {Object.entries(data.timeWindows).map(([cust, tw]) => {
+                        const isA = cust.includes("A");
+                        const icon = isA ? '🏠' : '🏢';
+                        return (
+                          <div key={cust} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', padding: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{icon} {cust}</span>
+                              <span style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                textTransform: 'uppercase',
+                                background: tw.violated ? 'rgba(239, 68, 68, 0.15)' : 'rgba(52, 211, 153, 0.15)',
+                                border: tw.violated ? '1px solid #ef4444' : '1px solid #34d399',
+                                color: tw.violated ? '#f87171' : '#34d399'
+                              }}>
+                                {tw.violated ? 'Late Violation' : 'On Time'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.78rem', color: '#94a3b8' }}>
+                              <div>Target Window: <strong style={{ color: '#f1f5f9' }}>[{tw.earliest.toFixed(1)}, {tw.latest.toFixed(1)}] min</strong></div>
+                              <div>Arrival Time: <strong style={{ color: tw.violated ? '#f87171' : '#34d399' }}>{tw.arrival.toFixed(1)} min</strong></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#38bdf8', fontWeight: 600 }}>Precomputed Cost Matrix (km)</h4>
+                  {data.costMatrix && (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', color: '#cbd5e1' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                          <th style={{ padding: '6px', textAlign: 'left', color: '#94a3b8' }}>From \ To</th>
+                          <th style={{ padding: '6px', textAlign: 'center' }}>🛵 R</th>
+                          <th style={{ padding: '6px', textAlign: 'center' }}>🍳 K</th>
+                          <th style={{ padding: '6px', textAlign: 'center' }}>🏠 A</th>
+                          <th style={{ padding: '6px', textAlign: 'center' }}>🏢 B</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {['🛵 Rider (0)', '🍳 Kitchen (1)', '🏠 Cust A (2)', '🏢 Cust B (3)'].map((label, rIdx) => (
+                          <tr key={rIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: rIdx % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent' }}>
+                            <td style={{ padding: '8px 6px', fontWeight: 600, color: '#94a3b8' }}>{label}</td>
+                            {data.costMatrix[rIdx] && data.costMatrix[rIdx].map((val, cIdx) => (
+                              <td key={cIdx} style={{ padding: '8px 6px', textAlign: 'center', fontFamily: 'monospace', color: rIdx === cIdx ? '#38bdf8' : '#cbd5e1' }}>
+                                {val.toFixed(2)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Pathfinding Logs terminal console */}
             <div className="panel-card" style={{ marginBottom: 0 }}>
               <div className="panel-title">
                 <Activity size={16} /> VRP Step-by-Step Path Relaxation Console
               </div>
               <div className="log-terminal">
-                {data.logs && data.logs.map((log, idx) => (
+                {visibleLogs.map((log, idx) => (
                   <div key={idx} style={{ color: log.startsWith("===") ? '#38bdf8' : (log.startsWith("  - Skip") ? '#f87171' : '#34d399') }}>
                     {log}
                   </div>
                 ))}
               </div>
+              {hasMoreLogs && (
+                <div className="load-more-wrap" style={{ margin: '16px auto 0' }}>
+                  <button
+                    type="button"
+                    className="load-more-btn"
+                    onClick={() => setVisibleLogCount(count => count + VRP_LOG_PAGE_SIZE)}
+                    style={{ background: 'rgba(15, 23, 42, 0.92)', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
+                  >
+                    Load more logs ({logs.length - visibleLogCount} left) <ChevronRight className="load-more-icon" size={16} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

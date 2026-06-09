@@ -1,6 +1,18 @@
 import { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Flame, Home, ShoppingCart, User, X, Briefcase, Shield, Bike, Store, MapPin, Compass } from 'lucide-react';
+import {
+  Bike,
+  Briefcase,
+  Compass,
+  Flame,
+  Home,
+  MapPin,
+  Shield,
+  ShoppingCart,
+  Store,
+  User,
+  X
+} from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
@@ -62,6 +74,9 @@ const Header = () => {
   };
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
+  const closeMenus = () => {
+    setMobileMenuOpen(false);
+  };
 
   const getHomeLink = () => {
     if (!user) return '/';
@@ -100,6 +115,7 @@ const Header = () => {
           margin: 0 auto;
           height: 72px;
           transition: height 0.3s ease;
+          gap: 18px;
         }
         .header.scrolled .header-inner {
           height: 64px;
@@ -109,6 +125,7 @@ const Header = () => {
           display: flex;
           align-items: center;
           gap: 6px;
+          flex-shrink: 0;
           transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .logo-link:hover {
@@ -143,20 +160,27 @@ const Header = () => {
         .nav-desktop {
           display: flex;
           align-items: center;
-          gap: 8px;
+          justify-content: flex-end;
+          gap: 6px;
+          min-width: 0;
+          flex: 1;
+          flex-wrap: nowrap;
         }
         .nav-link {
           position: relative;
           color: var(--text-secondary);
           font-weight: 500;
-          font-size: 0.95rem;
+          font-size: 0.9rem;
           text-decoration: none;
-          padding: 8px 16px;
+          padding: 8px 12px;
           border-radius: var(--radius-sm);
           transition: all 0.25s ease;
           display: flex;
           align-items: center;
           gap: 6px;
+          white-space: nowrap;
+          flex-shrink: 0;
+          overflow: hidden;
         }
         .nav-link:hover {
           color: var(--text-primary);
@@ -196,6 +220,8 @@ const Header = () => {
           padding: 8px 18px;
           border-radius: 20px;
           transition: all 0.25s ease;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .nav-btn-logout:hover {
           border-color: var(--danger);
@@ -212,6 +238,8 @@ const Header = () => {
           text-decoration: none;
           transition: all 0.25s ease;
           box-shadow: 0 2px 8px rgba(247, 55, 79, 0.25);
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .nav-btn-signup:hover {
           background: var(--brand-red-hover);
@@ -270,7 +298,7 @@ const Header = () => {
           top: 0;
           right: 0;
           bottom: 0;
-          width: 285px;
+          width: 310px;
           max-width: 85%;
           height: 100vh;
           background: rgba(255, 255, 255, 0.98);
@@ -292,6 +320,8 @@ const Header = () => {
         .mobile-menu .nav-link {
           padding: 14px 16px;
           font-size: 1rem;
+          white-space: normal;
+          overflow: visible;
         }
         .sidebar-backdrop {
           position: fixed;
@@ -326,62 +356,66 @@ const Header = () => {
           .nav-desktop { display: none; }
           .hamburger { display: block; }
         }
+        @media (max-width: 1120px) {
+          .header-inner { width: 96%; }
+          .nav-link { padding: 8px 9px; font-size: 0.84rem; }
+          .nav-btn-logout { padding: 8px 13px; }
+          .nav-btn-signup { padding: 9px 16px; }
+        }
       `}</style>
 
       <header className={`header ${scrolled ? 'scrolled' : ''}`}>
         <div className="header-inner">
-          <Link to={getHomeLink()} className="logo-link">
+          <Link to={getHomeLink()} onClick={closeMenus} className="logo-link">
             <div className="logo-icon"><Flame size={18} color="#fff" /></div>
             <h1 className="logo-text">Zing<span>Bite</span></h1>
           </Link>
           
-          <nav className="nav-desktop">
+          <nav className="nav-desktop" aria-label="Primary navigation">
             {/* Show Home link only for customers/guests */}
             {(!user || user.role === 'customer') && (
-              <Link to="/" className={`nav-link ${isActive('/') || isActive('/home') ? 'active' : ''}`}>
+              <Link to="/" onClick={closeMenus} className={`nav-link ${isActive('/') || isActive('/home') ? 'active' : ''}`}>
                 <Home size={16} /> Home
               </Link>
             )}
             
             {(!user || user.role === 'customer') && (
-              <Link to="/track-order" className={`nav-link ${isActive('/track-order') ? 'active' : ''}`}>
+              <Link to="/track-order" onClick={closeMenus} className={`nav-link ${isActive('/track-order') ? 'active' : ''}`}>
                 <MapPin size={16} /> Track Order
               </Link>
             )}
-            
-            <Link to="/careers" className={`nav-link ${isActive('/careers') ? 'active' : ''}`}>
+            <Link to="/careers" onClick={closeMenus} className={`nav-link ${isActive('/careers') ? 'active' : ''}`}>
               <Briefcase size={16} /> Careers
             </Link>
-
             {/* Dynamic authorized portal link based on user role */}
             {user && user.role === 'delivery_partner' && (
-              <Link to="/delivery" className={`nav-link ${isActive('/delivery') ? 'active' : ''}`}>
+              <Link to="/delivery" onClick={closeMenus} className={`nav-link ${isActive('/delivery') ? 'active' : ''}`}>
                 <Bike size={16} /> Delivery Portal
               </Link>
             )}
             {user && user.role === 'restaurant_admin' && (
-              <Link to="/restaurant-admin" className={`nav-link ${isActive('/restaurant-admin') ? 'active' : ''}`}>
+              <Link to="/restaurant-admin" onClick={closeMenus} className={`nav-link ${isActive('/restaurant-admin') ? 'active' : ''}`}>
                 <Store size={16} /> Restaurant Portal
               </Link>
             )}
             {user && user.role === 'super_admin' && (
-              <Link to="/admin" className={`nav-link ${isActive('/admin') ? 'active' : ''}`}>
+              <Link to="/admin" onClick={closeMenus} className={`nav-link ${isActive('/admin') ? 'active' : ''}`}>
                 <Shield size={16} /> Admin Panel
               </Link>
             )}
             {user && user.role === 'super_admin' && (
-              <Link to="/vrp" className={`nav-link ${isActive('/vrp') ? 'active' : ''}`}>
+              <Link to="/vrp" onClick={closeMenus} className={`nav-link ${isActive('/vrp') ? 'active' : ''}`}>
                 <Compass size={16} /> VRP Dispatch
               </Link>
             )}
 
             {user ? (
               <>
-                <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`}>
+                <Link to="/profile" onClick={closeMenus} className={`nav-link ${isActive('/profile') ? 'active' : ''}`}>
                   <User size={16} /> Profile
                 </Link>
                 {(!user || user.role === 'customer') && (
-                  <Link to="/cart" className={`nav-link ${isActive('/cart') ? 'active' : ''}`}>
+                  <Link to="/cart" onClick={closeMenus} className={`nav-link ${isActive('/cart') ? 'active' : ''}`}>
                     <ShoppingCart size={16} /> Cart
                     {cart?.itemCount > 0 && <span className="cart-badge">{cart.itemCount}</span>}
                   </Link>
@@ -390,8 +424,8 @@ const Header = () => {
               </>
             ) : (
               <>
-                <Link to="/login" className={`nav-link ${isActive('/login') ? 'active' : ''}`}>Login</Link>
-                <Link to="/register" className="nav-btn-signup">Sign Up</Link>
+                <Link to="/login" onClick={closeMenus} className={`nav-link ${isActive('/login') ? 'active' : ''}`}>Login</Link>
+                <Link to="/register" onClick={closeMenus} className="nav-btn-signup">Sign Up</Link>
               </>
             )}
           </nav>

@@ -80,9 +80,9 @@ const Cart = () => {
 
         .cart-items-box {
           padding: 24px;
-          border: 1px solid var(--border-medium);
-          background-color: #fff;
-          box-shadow: var(--shadow-sm);
+          border: 1px solid rgba(247,55,79,0.1);
+          background-color: rgba(255,255,255,0.96);
+          box-shadow: 0 12px 34px rgba(28,28,28,0.07);
           border-radius: var(--radius-md);
         }
 
@@ -108,10 +108,10 @@ const Cart = () => {
         .item-count-badge {
           font-size: 0.85rem;
           color: var(--text-secondary);
-          background: var(--bg-surface);
+          background: rgba(247,55,79,0.055);
           padding: 4px 10px;
           border-radius: 12px;
-          border: 1px solid var(--border-medium);
+          border: 1px solid rgba(247,55,79,0.1);
           font-weight: 600;
         }
 
@@ -238,9 +238,9 @@ const Cart = () => {
           position: sticky;
           top: 96px;
           padding: 24px;
-          border: 1px solid var(--border-medium);
-          background-color: #fff;
-          box-shadow: var(--shadow-sm);
+          border: 1px solid rgba(247,55,79,0.1);
+          background-color: rgba(255,255,255,0.96);
+          box-shadow: 0 12px 34px rgba(28,28,28,0.07);
           border-radius: var(--radius-md);
         }
 
@@ -317,8 +317,8 @@ const Cart = () => {
 
         .coupon-chip-btn {
           padding: 4px 10px;
-          background: var(--bg-surface);
-          border: 1px solid var(--border-medium);
+          background: rgba(247,55,79,0.045);
+          border: 1px solid rgba(247,55,79,0.12);
           border-radius: 30px;
           font-size: 0.7rem;
           color: var(--text-secondary);

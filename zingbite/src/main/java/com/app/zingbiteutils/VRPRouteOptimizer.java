@@ -10,12 +10,23 @@ public class VRPRouteOptimizer {
         public String label;
         public double latitude;
         public double longitude;
+        public double earliestTime = 0.0; // in minutes
+        public double latestTime = Double.MAX_VALUE; // in minutes
 
         public Node(int id, String label, double latitude, double longitude) {
             this.id = id;
             this.label = label;
             this.latitude = latitude;
             this.longitude = longitude;
+        }
+
+        public Node(int id, String label, double latitude, double longitude, double earliestTime, double latestTime) {
+            this.id = id;
+            this.label = label;
+            this.latitude = latitude;
+            this.longitude = longitude;
+            this.earliestTime = earliestTime;
+            this.latestTime = latestTime;
         }
     }
 
@@ -73,10 +84,14 @@ public class VRPRouteOptimizer {
         nodes.add(new Node(0, "Rider Start Position", riderLat, riderLon));
         // Node 1: Restaurant
         nodes.add(new Node(1, "ZingBite Kitchen", restLat, restLon));
-        // Node 2: Customer A Dropoff
+        // Node 2: Customer A Dropoff (Time window [0, 30] minutes)
         nodes.add(new Node(2, "Customer A Delivery Point", custALat, custALon));
-        // Node 3: Customer B Dropoff
+        nodes.get(2).earliestTime = 0.0;
+        nodes.get(2).latestTime = 30.0;
+        // Node 3: Customer B Dropoff (Time window [10, 45] minutes)
         nodes.add(new Node(3, "Customer B Delivery Point", custBLat, custBLon));
+        nodes.get(3).earliestTime = 10.0;
+        nodes.get(3).latestTime = 45.0;
 
         // Generate 11 intermediate nodes between these key locations
         Random rand = new Random(42); // Seeded for consistent relative layout
@@ -262,9 +277,11 @@ public class VRPRouteOptimizer {
     }
 
     /**
+    /**
      * Multi-Order Batching Logic
      * Dynamically clusters adjacent orders and sequences them to minimize total path delay.
      * Enforces LIFO constraints for hot, perishable dishes (delivering the last-picked item first).
+     * Incorporates 3-opt heuristic optimization with time windows and travel cost.
      */
     public List<Integer> sequenceBatches(List<Integer> dropNodeIds) {
         if (dropNodeIds == null || dropNodeIds.isEmpty()) return new ArrayList<>();
@@ -277,10 +294,16 @@ public class VRPRouteOptimizer {
             return lifoSequence;
         }
 
-        // Default: Distance-based TSP optimization (Nearest Neighbor)
+        // Default: 3-opt local search heuristic sequence optimization
+        List<Integer> currentSequence = nearestNeighbor(dropNodeIds);
+        List<Integer> optimized = threeOpt(currentSequence);
+        return optimized;
+    }
+
+    private List<Integer> nearestNeighbor(List<Integer> dropNodeIds) {
         List<Integer> optimized = new ArrayList<>();
         List<Integer> unvisited = new ArrayList<>(dropNodeIds);
-        int currentId = 1; // Start sequencing from ZingBite Kitchen (Node 1)
+        int currentId = 1; // Start from ZingBite Kitchen (Node 1)
 
         while (!unvisited.isEmpty()) {
             int nearestId = -1;
@@ -300,6 +323,181 @@ public class VRPRouteOptimizer {
             }
         }
         return optimized;
+    }
+
+    private List<Integer> threeOpt(List<Integer> sequence) {
+        List<Integer> route = new ArrayList<>();
+        route.add(1); // Kitchen
+        route.addAll(sequence);
+
+        int size = route.size();
+        if (size < 4) {
+            // Evaluates all permutations directly for small sequence size to guarantee global optimum
+            return permuteOptimize(sequence);
+        }
+
+        boolean improved = true;
+        double bestCost = evaluateRouteCost(route);
+
+        while (improved) {
+            improved = false;
+            for (int i = 1; i < size - 2; i++) {
+                for (int j = i + 1; j < size - 1; j++) {
+                    for (int k = j + 1; k < size; k++) {
+                        List<List<Integer>> candidates = generate3OptCandidates(route, i, j, k);
+                        for (List<Integer> candidate : candidates) {
+                            double cost = evaluateRouteCost(candidate);
+                            if (cost < bestCost - 1e-4) {
+                                bestCost = cost;
+                                route = candidate;
+                                improved = true;
+                                break;
+                            }
+                        }
+                        if (improved) break;
+                    }
+                    if (improved) break;
+                }
+                if (improved) break;
+            }
+        }
+
+        List<Integer> result = new ArrayList<>(route);
+        result.remove(0); // Remove start Kitchen node
+        return result;
+    }
+
+    private List<List<Integer>> generate3OptCandidates(List<Integer> route, int i, int j, int k) {
+        List<List<Integer>> candidates = new ArrayList<>();
+        List<Integer> A = route.subList(0, i);
+        List<Integer> B = route.subList(i, j);
+        List<Integer> C = route.subList(j, k);
+        List<Integer> D = route.subList(k, route.size());
+
+        List<Integer> B_rev = reverseList(B);
+        List<Integer> C_rev = reverseList(C);
+
+        candidates.add(combineSegments(A, B, C_rev, D));
+        candidates.add(combineSegments(A, B_rev, C, D));
+        candidates.add(combineSegments(A, B_rev, C_rev, D));
+        candidates.add(combineSegments(A, C, B, D));
+        candidates.add(combineSegments(A, C, B_rev, D));
+        candidates.add(combineSegments(A, C_rev, B, D));
+        candidates.add(combineSegments(A, C_rev, B_rev, D));
+
+        return candidates;
+    }
+
+    private List<Integer> reverseList(List<Integer> list) {
+        List<Integer> rev = new ArrayList<>(list);
+        Collections.reverse(rev);
+        return rev;
+    }
+
+    private List<Integer> combineSegments(List<Integer> s1, List<Integer> s2, List<Integer> s3, List<Integer> s4) {
+        List<Integer> result = new ArrayList<>();
+        result.addAll(s1);
+        result.addAll(s2);
+        result.addAll(s3);
+        result.addAll(s4);
+        return result;
+    }
+
+    private List<Integer> permuteOptimize(List<Integer> sequence) {
+        List<List<Integer>> permutations = new ArrayList<>();
+        permute(sequence, 0, permutations);
+
+        List<Integer> bestSeq = sequence;
+        double bestCost = Double.MAX_VALUE;
+
+        for (List<Integer> perm : permutations) {
+            List<Integer> route = new ArrayList<>();
+            route.add(1); // Kitchen
+            route.addAll(perm);
+            double cost = evaluateRouteCost(route);
+            if (cost < bestCost) {
+                bestCost = cost;
+                bestSeq = perm;
+            }
+        }
+        return bestSeq;
+    }
+
+    private void permute(List<Integer> arr, int k, List<List<Integer>> out) {
+        for(int i = k; i < arr.size(); i++){
+            Collections.swap(arr, i, k);
+            permute(arr, k+1, out);
+            Collections.swap(arr, k, i);
+        }
+        if (k == arr.size() - 1){
+            out.add(new ArrayList<>(arr));
+        }
+    }
+
+    public double evaluateRouteCost(List<Integer> route) {
+        if (route == null || route.size() < 2) return 0.0;
+        
+        double travelCost = 0.0;
+        double timeWindowPenalty = 0.0;
+        double currentTime = 0.0; // Starts at 0.0 minutes at Kitchen
+        double speedKmh = 25.0; // Base speed
+
+        for (int idx = 0; idx < route.size() - 1; idx++) {
+            int from = route.get(idx);
+            int to = route.get(idx + 1);
+
+            List<Node> subRoute = findRoute(from, to, useAStar);
+            double legCost = getRouteCost(subRoute);
+            travelCost += legCost;
+
+            double travelTimeMins = (legCost / speedKmh) * 60.0;
+            currentTime += travelTimeMins;
+
+            Node destNode = nodes.get(to);
+            if (currentTime < destNode.earliestTime) {
+                currentTime = destNode.earliestTime;
+            } else if (currentTime > destNode.latestTime) {
+                timeWindowPenalty += (currentTime - destNode.latestTime) * 50.0;
+            }
+        }
+        return travelCost + timeWindowPenalty;
+    }
+
+    public double getRouteCost(List<Node> route) {
+        if (route == null || route.size() < 2) return 0.0;
+        double cost = 0.0;
+        for (int i = 0; i < route.size() - 1; i++) {
+            Node n1 = route.get(i);
+            Node n2 = route.get(i + 1);
+            Edge match = null;
+            for (Edge edge : edges) {
+                if (edge.fromNodeId == n1.id && edge.toNodeId == n2.id) {
+                    match = edge;
+                    break;
+                }
+            }
+            if (match != null) {
+                cost += match.getCost();
+            } else {
+                cost += GeoUtils.haversine(n1.latitude, n1.longitude, n2.latitude, n2.longitude);
+            }
+        }
+        return cost;
+    }
+
+    public double[][] computeCostMatrix(List<Integer> nodeIds) {
+        double[][] matrix = new double[nodeIds.size()][nodeIds.size()];
+        for (int i = 0; i < nodeIds.size(); i++) {
+            for (int j = 0; j < nodeIds.size(); j++) {
+                if (i == j) {
+                    matrix[i][j] = 0.0;
+                } else {
+                    List<Node> route = findRoute(nodeIds.get(i), nodeIds.get(j), useAStar);
+                    matrix[i][j] = getRouteCost(route);
+                }
+            }
+        }
+        return matrix;
     }
 
     /**

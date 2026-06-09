@@ -1,8 +1,11 @@
 package com.app.zingbitemodels;
 
 import java.io.Serializable;
-
+import java.util.Date;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -28,8 +31,11 @@ public class Orders implements Serializable{
 	private String orderTime;
 	@Column(name ="totalAmount")
 	private float totalAmount;
+	@Convert(converter = OrderStatusConverter.class)
 	@Column(name ="orderStatus")	
-	private String orderStatus;
+	private OrderStatus orderStatus;
+	@Column(name ="statusUpdatedAt")
+	private Date statusUpdatedAt;
 	@Column(name ="paymentMethod")
 	private String paymentMethod;
 	
@@ -46,7 +52,7 @@ public class Orders implements Serializable{
 		super();
 	}
 	
-	public Orders(Restaurant restaurantId, int userId, String orderTime, float totalAmount, String orderStatus,
+	public Orders(Restaurant restaurantId, int userId, String orderTime, float totalAmount, OrderStatus orderStatus,
 			String paymentMethod) {
 		super();
 		this.restaurantId = restaurantId;
@@ -55,9 +61,10 @@ public class Orders implements Serializable{
 		this.totalAmount = totalAmount;
 		this.orderStatus = orderStatus;
 		this.paymentMethod = paymentMethod;
+		this.statusUpdatedAt = new Date();
 	}
 	
-	public Orders(int orderId, Restaurant restaurantId, int userId, String orderTime, float totalAmount, String orderStatus,
+	public Orders(int orderId, Restaurant restaurantId, int userId, String orderTime, float totalAmount, OrderStatus orderStatus,
 			String paymentMethod) {
 		super();
 		this.orderId = orderId;
@@ -67,6 +74,7 @@ public class Orders implements Serializable{
 		this.totalAmount = totalAmount;
 		this.orderStatus = orderStatus;
 		this.paymentMethod = paymentMethod;
+		this.statusUpdatedAt = new Date();
 	}
 
 	public int getOrderId() {
@@ -109,12 +117,21 @@ public class Orders implements Serializable{
 		this.totalAmount = totalAmount;
 	}
 
-	public String getOrderStatus() {
+	public OrderStatus getOrderStatus() {
 		return orderStatus;
 	}
 
-	public void setOrderStatus(String orderStatus) {
+	public void setOrderStatus(OrderStatus orderStatus) {
 		this.orderStatus = orderStatus;
+		this.statusUpdatedAt = new Date();
+	}
+
+	public Date getStatusUpdatedAt() {
+		return statusUpdatedAt;
+	}
+
+	public void setStatusUpdatedAt(Date statusUpdatedAt) {
+		this.statusUpdatedAt = statusUpdatedAt;
 	}
 
 	public String getPaymentMethod() {

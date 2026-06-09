@@ -10,6 +10,8 @@ import { AuthContext } from '../context/AuthContext';
 import { useModal } from '../context/ModalContext';
 import ChatWidget from '../components/ChatWidget';
 
+const TRACKING_ORDER_PAGE_SIZE = 5;
+
 const ActiveOrderMap = ({ orderDetail, leafletLoaded, currentLat, currentLng, isRealGPS }) => {
   const mapRef = React.useRef(null);
   const mapInstanceRef = React.useRef(null);
@@ -241,6 +243,8 @@ const OrderTracking = () => {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [searchId, setSearchId] = useState('');
   const [searchError, setSearchError] = useState('');
+  const [visibleActiveOrderCount, setVisibleActiveOrderCount] = useState(TRACKING_ORDER_PAGE_SIZE);
+  const [visibleRecentOrderCount, setVisibleRecentOrderCount] = useState(TRACKING_ORDER_PAGE_SIZE);
 
   const [orderDetail, setOrderDetail] = useState(null);
   const [animationProgress, setAnimationProgress] = useState(0);
@@ -255,9 +259,17 @@ const OrderTracking = () => {
     setMounted(true);
   }, []);
 
-  const stages = ['Placed', 'Accepted', 'Preparing', 'Waiting to Dispatch', 'Out for Delivery', 'Delivered'];
-  const currentIdx = orderDetail ? stages.indexOf(orderDetail.status || 'Placed') : 0;
-  const linePercent = orderDetail ? (currentIdx / (stages.length - 1)) * 100 : 0;
+  const stages = ['PLACED', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+  const getNormalizedStatus = (status) => {
+    let s = String(status || '').trim().toUpperCase().replace(/[\s-]/g, '_');
+    if (s === 'ORDER_PLACED') return 'PLACED';
+    if (s === 'ORDER_ACCEPTED') return 'ACCEPTED';
+    if (s === 'PREPARING_FOOD') return 'PREPARING';
+    if (s === 'WAITING_TO_DISPATCH' || s === 'FOOD_READY') return 'READY_FOR_PICKUP';
+    return s;
+  };
+  const currentIdx = orderDetail ? stages.indexOf(getNormalizedStatus(orderDetail.status) || 'PLACED') : 0;
+  const linePercent = orderDetail ? (Math.max(0, currentIdx) / (stages.length - 1)) * 100 : 0;
 
   useEffect(() => {
     if (!user) return;
@@ -288,7 +300,10 @@ const OrderTracking = () => {
     if (!orderIdParam) return;
     
     const cleanId = String(orderIdParam).replace(/^ZB-/, '').trim();
-    const eventSource = new EventSource(`/api/order/stream?orderId=${cleanId}`);
+    const ssePath = window.location.pathname.startsWith('/zingbite')
+      ? `/zingbite/api/order/stream?orderId=${cleanId}`
+      : `/api/order/stream?orderId=${cleanId}`;
+    const eventSource = new EventSource(ssePath);
 
     eventSource.onmessage = (event) => {
       try {
@@ -361,7 +376,8 @@ const OrderTracking = () => {
   useEffect(() => {
     if (!orderDetail) return;
     
-    if (orderDetail.status === 'Out for Delivery') {
+    const normalized = getNormalizedStatus(orderDetail.status);
+    if (normalized === 'OUT_FOR_DELIVERY') {
       const target = orderDetail.gpsProgress || 0;
       
       let animId;
@@ -378,7 +394,7 @@ const OrderTracking = () => {
       };
       animId = requestAnimationFrame(step);
       return () => cancelAnimationFrame(animId);
-    } else if (orderDetail.status === 'Delivered') {
+    } else if (normalized === 'DELIVERED') {
       setAnimationProgress(100);
     } else {
       setAnimationProgress(0);
@@ -406,7 +422,8 @@ const OrderTracking = () => {
   useEffect(() => {
     if (!isAutoSimulating || !orderDetail) return;
     
-    const nextIdx = (stages.indexOf(orderDetail.status || 'Placed') + 1) % stages.length;
+    const currentStatus = getNormalizedStatus(orderDetail.status) || 'PLACED';
+    const nextIdx = (stages.indexOf(currentStatus) + 1) % stages.length;
     
     const timeout = setTimeout(async () => {
       await simulateStatusChange(stages[nextIdx]);
@@ -420,7 +437,7 @@ const OrderTracking = () => {
 
   // Confetti celebration burst on Delivered status
   useEffect(() => {
-    if (orderDetail?.status === 'Delivered') {
+    if (getNormalizedStatus(orderDetail?.status) === 'DELIVERED') {
       const particles = Array.from({ length: 80 }).map((_, i) => ({
         id: i,
         left: Math.random() * 100 + 'vw',
@@ -484,7 +501,8 @@ const OrderTracking = () => {
 
   if (!isRealGPS && orderDetail) {
     let pathPoints = [];
-    if (orderDetail.status === 'Out for Delivery') {
+    const normalized = getNormalizedStatus(orderDetail.status);
+    if (normalized === 'OUT_FOR_DELIVERY') {
       if (orderDetail.pathLM1 && orderDetail.pathLM1.length > 0) {
         pathPoints = orderDetail.pathLM1.map(n => [n.latitude, n.longitude]);
       }
@@ -555,35 +573,40 @@ const OrderTracking = () => {
   let displaySubtitle = "Your food is being processed.";
   
   if (orderDetail) {
-    const status = orderDetail.status;
-    if (status === 'Placed') {
+    const status = (orderDetail.status || '').toUpperCase();
+    if (status === 'PLACED') {
       etaVal = 25;
       distanceLeftVal = "3.5 km";
       displayHeading = "Order Placed";
       displaySubtitle = "The restaurant is reviewing your order.";
-    } else if (status === 'Accepted') {
+    } else if (status === 'ACCEPTED') {
       etaVal = 22;
       distanceLeftVal = "3.5 km";
       displayHeading = "Order Confirmed";
-      displaySubtitle = "A rider has accepted and is proceeding to restaurant.";
-    } else if (status === 'Preparing') {
+      displaySubtitle = "The restaurant has accepted and will start preparing shortly.";
+    } else if (status === 'PREPARING') {
       etaVal = 18;
       distanceLeftVal = "3.5 km";
       displayHeading = "Preparing Food";
       displaySubtitle = "Our kitchen partners are cooking your hot fresh meal.";
-    } else if (status === 'Waiting to Dispatch') {
+    } else if (status === 'READY_FOR_PICKUP' || status === 'WAITING_TO_DISPATCH') {
       etaVal = 15;
       distanceLeftVal = "3.5 km";
-      displayHeading = "Food Prepared";
-      displaySubtitle = "Your food is ready and waiting for dispatch.";
-    } else if (status === 'Out for Delivery') {
+      displayHeading = "Food Ready";
+      displaySubtitle = "Your food is ready and waiting for rider pickup.";
+    } else if (status === 'PICKED_UP') {
+      etaVal = 12;
+      distanceLeftVal = "3.5 km";
+      displayHeading = "Picked Up";
+      displaySubtitle = "Rider has collected your order and is departing restaurant.";
+    } else if (status === 'OUT_FOR_DELIVERY') {
       const remaining = 1 - (animationProgress / 100);
       etaVal = Math.max(1, Math.round(10 * remaining));
       distanceLeftVal = (3.2 * remaining).toFixed(1) + " km";
       
       displayHeading = `Arriving in ${etaVal} mins`;
-      displaySubtitle = `Rider is on the way! Distance left: ${distanceLeftVal} (${isRealGPS ? 'Real GPS' : 'Projected'}: ${currentLat.toFixed(5)}° N, ${currentLng.toFixed(5)}° E)`;
-    } else if (status === 'Delivered') {
+      displaySubtitle = `Rider is on the way! Distance left: ${distanceLeftVal} (${isRealGPS ? 'Live GPS' : 'Projected'}: ${currentLat.toFixed(5)}° N, ${currentLng.toFixed(5)}° E)`;
+    } else if (status === 'DELIVERED') {
       etaVal = 0;
       distanceLeftVal = "0 km";
       displayHeading = "Order Delivered!";
@@ -621,8 +644,18 @@ const OrderTracking = () => {
     }
   };
 
-  const activeOrders = orders.filter(o => o.status !== 'Delivered');
-  const recentOrders = orders.filter(o => o.status === 'Delivered');
+  const activeOrders = orders.filter(o => {
+    const s = getNormalizedStatus(o.status);
+    return s !== 'DELIVERED' && s !== 'CANCELLED';
+  });
+  const recentOrders = orders.filter(o => {
+    const s = getNormalizedStatus(o.status);
+    return s === 'DELIVERED' || s === 'CANCELLED';
+  });
+  const visibleActiveOrders = activeOrders.slice(0, visibleActiveOrderCount);
+  const visibleRecentOrders = recentOrders.slice(0, visibleRecentOrderCount);
+  const hasMoreActiveOrders = visibleActiveOrderCount < activeOrders.length;
+  const hasMoreRecentOrders = visibleRecentOrderCount < recentOrders.length;
 
   return (
     <>
@@ -1464,7 +1497,7 @@ const OrderTracking = () => {
               </div>
             ) : (
               <div className="active-orders-grid">
-                {activeOrders.map(o => (
+                {visibleActiveOrders.map(o => (
                   <div key={o.id} className="active-order-card">
                     <div className="active-order-info">
                       <h3>{o.restaurantName || 'ZingBite Kitchen'}</h3>
@@ -1482,6 +1515,17 @@ const OrderTracking = () => {
                     </button>
                   </div>
                 ))}
+                {hasMoreActiveOrders && (
+                  <div className="load-more-wrap" style={{ margin: '0 auto 4px' }}>
+                    <button
+                      type="button"
+                      className="load-more-btn"
+                      onClick={() => setVisibleActiveOrderCount(count => count + TRACKING_ORDER_PAGE_SIZE)}
+                    >
+                      Load more active orders ({activeOrders.length - visibleActiveOrderCount} left) <ChevronRight className="load-more-icon" size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1501,7 +1545,7 @@ const OrderTracking = () => {
               </div>
             ) : (
               <div className="recent-orders-list">
-                {recentOrders.slice(0, 5).map(o => (
+                {visibleRecentOrders.map(o => (
                   <div key={o.id} className="recent-order-item">
                     <div className="recent-order-details">
                       <h4>{o.restaurantName || 'ZingBite Kitchen'}</h4>
@@ -1515,6 +1559,17 @@ const OrderTracking = () => {
                     </button>
                   </div>
                 ))}
+                {hasMoreRecentOrders && (
+                  <div className="load-more-wrap" style={{ margin: '4px auto 0' }}>
+                    <button
+                      type="button"
+                      className="load-more-btn"
+                      onClick={() => setVisibleRecentOrderCount(count => count + TRACKING_ORDER_PAGE_SIZE)}
+                    >
+                      Load more history ({recentOrders.length - visibleRecentOrderCount} left) <ChevronRight className="load-more-icon" size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1538,6 +1593,25 @@ const OrderTracking = () => {
             <button onClick={() => navigate('/')} className="btn-primary" style={{ width: 'auto', padding: '12px 24px', borderRadius: '30px', background: 'transparent', border: '1px solid var(--border-medium)', color: 'var(--text-secondary)' }}>
               GO HOME
             </button>
+          </div>
+        </div>
+      ) : getNormalizedStatus(orderDetail.status) === 'PENDING_PAYMENT' ? (
+        // Verifying Payment view
+        <div className="tracking-portal-empty fade-in" style={{ maxWidth: '500px', margin: '80px auto', padding: '40px 32px' }}>
+          <div className="spin" style={{
+            width: '48px',
+            height: '48px',
+            border: '4px solid rgba(247, 55, 79, 0.1)',
+            borderTopColor: '#f7374f',
+            borderRadius: '50%',
+            margin: '0 auto 24px'
+          }} />
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '12px', fontFamily: 'Outfit, sans-serif' }}>Verifying Your Payment</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '24px' }}>
+            We are confirming your transaction with your bank. This page will update automatically as soon as payment is confirmed. Please do not close or refresh this page.
+          </p>
+          <div style={{ background: 'rgba(247, 55, 79, 0.035)', border: '1px solid rgba(247, 55, 79, 0.1)', borderRadius: '8px', padding: '16px', fontSize: '0.82rem', color: 'var(--text-muted)', width: '100%', boxSizing: 'border-box' }}>
+            Order ID: <strong>ZB-{orderDetail.id || orderDetail.orderId}</strong> &bull; Total Amount: <strong>&#8377;{(orderDetail.total || orderDetail.totalAmount || 0).toFixed(2)}</strong>
           </div>
         </div>
       ) : (
@@ -1570,7 +1644,7 @@ const OrderTracking = () => {
     
               {/* Timeline progress steps */}
               <div className="status-timeline">
-                <div className={`timeline-step ${getStepClass('Placed')}`}>
+                <div className={`timeline-step ${getStepClass('PLACED')}`}>
                   <div className="step-left-column">
                     <div className="step-icon-circle">
                       <div className="step-dot" />
@@ -1583,7 +1657,7 @@ const OrderTracking = () => {
                   </div>
                 </div>
   
-                <div className={`timeline-step ${getStepClass('Accepted')}`}>
+                <div className={`timeline-step ${getStepClass('ACCEPTED')}`}>
                   <div className="step-left-column">
                     <div className="step-icon-circle">
                       <div className="step-dot" />
@@ -1591,12 +1665,12 @@ const OrderTracking = () => {
                     <div className="step-line-segment" />
                   </div>
                   <div className="step-details">
-                    <h4>Rider Accepted</h4>
-                    <p>A delivery partner has accepted your delivery request.</p>
+                    <h4>Order Confirmed</h4>
+                    <p>The restaurant has accepted your order.</p>
                   </div>
                 </div>
   
-                <div className={`timeline-step ${getStepClass('Preparing')}`}>
+                <div className={`timeline-step ${getStepClass('PREPARING')}`}>
                   <div className="step-left-column">
                     <div className="step-icon-circle">
                       <div className="step-dot" />
@@ -1609,7 +1683,7 @@ const OrderTracking = () => {
                   </div>
                 </div>
   
-                <div className={`timeline-step ${getStepClass('Waiting to Dispatch')}`}>
+                <div className={`timeline-step ${getStepClass('READY_FOR_PICKUP')}`}>
                   <div className="step-left-column">
                     <div className="step-icon-circle">
                       <div className="step-dot" />
@@ -1617,12 +1691,25 @@ const OrderTracking = () => {
                     <div className="step-line-segment" />
                   </div>
                   <div className="step-details">
-                    <h4>Food Ready</h4>
-                    <p>Food is packed and ready! Awaiting kitchen dispatch to rider.</p>
+                    <h4>Ready for Pickup</h4>
+                    <p>Food is packed and ready! Awaiting delivery partner pickup.</p>
+                  </div>
+                </div>
+
+                <div className={`timeline-step ${getStepClass('PICKED_UP')}`}>
+                  <div className="step-left-column">
+                    <div className="step-icon-circle">
+                      <div className="step-dot" />
+                    </div>
+                    <div className="step-line-segment" />
+                  </div>
+                  <div className="step-details">
+                    <h4>Picked Up</h4>
+                    <p>Our delivery partner has collected your package from the kitchen.</p>
                   </div>
                 </div>
   
-                <div className={`timeline-step ${getStepClass('Out for Delivery')}`}>
+                <div className={`timeline-step ${getStepClass('OUT_FOR_DELIVERY')}`}>
                   <div className="step-left-column">
                     <div className="step-icon-circle">
                       <div className="step-dot" />
@@ -1635,7 +1722,7 @@ const OrderTracking = () => {
                   </div>
                 </div>
   
-                <div className={`timeline-step ${getStepClass('Delivered')}`}>
+                <div className={`timeline-step ${getStepClass('DELIVERED')}`}>
                   <div className="step-left-column">
                     <div className="step-icon-circle">
                       <div className="step-dot" />

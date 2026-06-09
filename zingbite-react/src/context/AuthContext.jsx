@@ -1,15 +1,16 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
+
+// Configure axios defaults
+axios.defaults.withCredentials = true; // Send cookies
+axios.defaults.baseURL = typeof window !== 'undefined' ? window.location.origin + '/zingbite' : '/zingbite';
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Configure axios defaults
-  axios.defaults.withCredentials = true; // Send cookies
-  axios.defaults.baseURL = window.location.origin + '/zingbite';
 
   useEffect(() => {
     const checkLoginStatus = async () => {

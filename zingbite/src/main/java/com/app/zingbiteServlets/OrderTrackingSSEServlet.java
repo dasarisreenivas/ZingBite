@@ -77,7 +77,7 @@ public class OrderTrackingSSEServlet extends HttpServlet {
             if (order != null) {
                 JsonObject initPayload = new JsonObject();
                 initPayload.addProperty("orderId", orderId);
-                initPayload.addProperty("status", order.getOrderStatus());
+                initPayload.addProperty("status", order.getOrderStatus() != null ? order.getOrderStatus().name() : "PLACED");
                 
                 double progress = order.getGpsProgress() != null ? order.getGpsProgress() : 0.0;
                 initPayload.addProperty("gpsProgress", progress);

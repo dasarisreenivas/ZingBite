@@ -22,8 +22,8 @@ import jakarta.servlet.http.HttpServletResponse;
 public class MenuServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
-    // Cache to hold the full menu JSON string for each restaurant ID
-    public static final LRUCache<Integer, String> menuCache = new LRUCache<>(50);
+    // Cache to hold the full menu JSON string for each restaurant ID (10s TTL, 30s Stale Window)
+    public static final LRUCache<Integer, String> menuCache = new LRUCache<>(50, 10 * 1000, 30 * 1000);
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) 
@@ -42,22 +42,17 @@ public class MenuServlet extends HttpServlet {
             try {
                 int restaurantId = Integer.parseInt(restaurantIdParam);
                 List<Menu> menuList;
-                String cachedData = menuCache.get(restaurantId);
-
-                if (cachedData != null) {
-                    // Cache hit: deserialize listing
-                    java.lang.reflect.Type listType = new com.google.gson.reflect.TypeToken<List<Menu>>(){
-                        private static final long serialVersionUID = 1L;
-                    }.getType();
-                    menuList = gson.fromJson(cachedData, listType);
-                } else {
-                    // Cache miss: query DB
+                String cachedData = menuCache.get(restaurantId, id -> {
+                    System.out.println("[MenuServlet] Cache miss/revalidate: Loading menu from DB for restaurant: " + id);
                     MenuDAO menuDAO = new MenuDAOImplementation();
-                    menuList = menuDAO.getMenuRestaurantById(restaurantId);
-                    
-                    // Put in cache (serialize list to string)
-                    menuCache.put(restaurantId, gson.toJson(menuList));
-                }
+                    List<Menu> dbMenuList = menuDAO.getMenuRestaurantById(id);
+                    return gson.toJson(dbMenuList);
+                });
+
+                java.lang.reflect.Type listType = new com.google.gson.reflect.TypeToken<List<Menu>>(){
+                    private static final long serialVersionUID = 1L;
+                }.getType();
+                menuList = gson.fromJson(cachedData, listType);
 
                 // If search query is present, apply Levenshtein fuzzy search matching
                 if (searchQuery != null && !searchQuery.trim().isEmpty()) {

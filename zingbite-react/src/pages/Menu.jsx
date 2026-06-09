@@ -11,6 +11,8 @@ import {
 
 const DEFAULT_RESTAURANT_IMAGE = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop';
 const DEFAULT_DISH_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop';
+const MENU_PAGE_SIZE = 8;
+const RECOMMENDATION_PAGE_SIZE = 4;
 
 const Menu = () => {
   const navigate = useNavigate();
@@ -24,6 +26,10 @@ const Menu = () => {
   const [filterType, setFilterType] = useState('All'); // 'All' | 'Veg' | 'NonVeg'
   const [sortBy, setSortBy] = useState('Default'); // 'Default' | 'PriceLowHigh' | 'PriceHighLow'
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [recommendations, setRecommendations] = useState([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(true);
+  const [visibleMenuCount, setVisibleMenuCount] = useState(MENU_PAGE_SIZE);
+  const [visibleRecommendationCount, setVisibleRecommendationCount] = useState(RECOMMENDATION_PAGE_SIZE);
   
   const { user } = useContext(AuthContext);
   const { cart, addToCart, updateQuantity, conflictPopup, clearAndAdd, setConflictPopup } = useCart();
@@ -44,7 +50,10 @@ const Menu = () => {
     }
 
     fetchMenu(false);
-    const eventSource = new EventSource(`/api/stream?topic=menu&restaurantId=${restaurantId}`);
+    const ssePath = window.location.pathname.startsWith('/zingbite')
+      ? `/zingbite/api/stream?topic=menu&restaurantId=${restaurantId}`
+      : `/api/stream?topic=menu&restaurantId=${restaurantId}`;
+    const eventSource = new EventSource(ssePath);
     eventSource.onmessage = () => {
       try {
         console.log("[ZingBite SSE] Received real-time menu update");
@@ -62,6 +71,28 @@ const Menu = () => {
       eventSource.close();
     };
   }, [restaurantId, restaurantNameParam]);
+
+  const cartItemIds = useMemo(() => {
+    if (!cart || !cart.items) return '';
+    const itemsArray = Array.isArray(cart.items) ? cart.items : Object.values(cart.items);
+    return itemsArray.map(item => item.itemId).join(',');
+  }, [cart]);
+
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (!restaurantId) return;
+      try {
+        setRecommendationsLoading(true);
+        const res = await axios.get(`/api/recommendations?restaurantId=${restaurantId}&cartItems=${cartItemIds}`);
+        setRecommendations(res.data.recommendations || []);
+      } catch (err) {
+        console.error("[ZingBite] Error fetching recommendations:", err);
+      } finally {
+        setRecommendationsLoading(false);
+      }
+    };
+    fetchRecommendations();
+  }, [restaurantId, cartItemIds]);
 
   const getCartQuantity = (itemId) => {
     if (!cart || !cart.items) return 0;
@@ -111,6 +142,14 @@ const Menu = () => {
     return () => clearInterval(slideInterval);
   }, [slides.length]);
 
+  useEffect(() => {
+    setVisibleMenuCount(MENU_PAGE_SIZE);
+  }, [restaurantId, searchTerm, filterType, sortBy]);
+
+  useEffect(() => {
+    setVisibleRecommendationCount(RECOMMENDATION_PAGE_SIZE);
+  }, [restaurantId, cartItemIds]);
+
   // Filter list by search term and veg/non-veg type
   const visibleMenuList = restaurantId ? menuList : [];
   const isMenuLoading = Boolean(restaurantId) && loading;
@@ -130,6 +169,10 @@ const Menu = () => {
     if (sortBy === 'PriceHighLow') return b.price - a.price;
     return 0; // Default order
   });
+  const visibleMenuItems = sortedList.slice(0, visibleMenuCount);
+  const visibleRecommendations = recommendations.slice(0, visibleRecommendationCount);
+  const hasMoreMenuItems = visibleMenuCount < sortedList.length;
+  const hasMoreRecommendations = visibleRecommendationCount < recommendations.length;
 
   return (
     <>
@@ -970,7 +1013,7 @@ const Menu = () => {
               />
             ))
           ) : sortedList.length > 0 ? (
-            sortedList.map((item, idx) => {
+            visibleMenuItems.map((item, idx) => {
               const qty = getCartQuantity(item.menuId);
               const isVeg = isVegDish(item);
 
@@ -1051,6 +1094,116 @@ const Menu = () => {
             </div>
           )}
         </div>
+
+        {hasMoreMenuItems && (
+          <div className="load-more-wrap">
+            <button
+              type="button"
+              className="load-more-btn"
+              onClick={() => setVisibleMenuCount(count => count + MENU_PAGE_SIZE)}
+            >
+              Load more dishes ({sortedList.length - visibleMenuCount} left) <ArrowRight className="load-more-icon" size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Frequently Ordered Together (Recommendations) */}
+        {!recommendationsLoading && recommendations.length > 0 && (
+          <div className="recommendations-section animate-card" style={{ marginTop: '56px' }}>
+            <div className="recommendations-header" style={{ marginBottom: '24px' }}>
+              <span className="promise-subtitle">PAIRED PERFECTION</span>
+              <h2 className="promise-title" style={{ fontSize: '1.8rem', marginTop: '4px' }}>Frequently Ordered Together</h2>
+            </div>
+            <div className="menu-items-grid">
+              {visibleRecommendations.map((item, idx) => {
+                const qty = getCartQuantity(item.menuId);
+                const isVeg = isVegDish(item);
+
+                return (
+                  <div 
+                    key={`rec-${item.menuId}`} 
+                    className="menu-dish-card"
+                    style={{ 
+                      animationDelay: `${idx * 0.05}s`,
+                      borderLeft: '4px solid var(--brand-red)'
+                    }}
+                  >
+                    <div className="dish-card-info">
+                      <div>
+                        <div className="dish-card-header-tags">
+                          <div className={isVeg ? "dish-type-badge veg" : "dish-type-badge nonveg"}>
+                            <span className="dot"></span>
+                            <span>{isVeg ? 'VEG' : 'NON-VEG'}</span>
+                          </div>
+                          <span className="dish-featured-tag" style={{ color: 'var(--brand-red)', background: 'rgba(247, 55, 79, 0.05)', borderColor: 'rgba(247, 55, 79, 0.1)' }}>
+                            <ShoppingBag size={12} fill="var(--brand-red)" color="var(--brand-red)" /> Recommended
+                          </span>
+                        </div>
+                        
+                        <h3 className="dish-card-title">{item.menuName}</h3>
+                        
+                        <div className="dish-card-price-row">
+                          <span className="price-symbol">&#8377;</span>
+                          <span className="price-value">{item.price}</span>
+                        </div>
+                        
+                        <p className="dish-card-desc">{item.description}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="dish-card-media">
+                      <div className="dish-card-img-container">
+                        <img 
+                          src={item.imagePath || DEFAULT_DISH_IMAGE} 
+                          alt={item.menuName} 
+                          className="dish-card-img" 
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = DEFAULT_DISH_IMAGE;
+                          }}
+                        />
+                      </div>
+                      
+                      <div className="dish-card-action">
+                        {qty === 0 ? (
+                          <button 
+                            className="premium-add-btn"
+                            disabled={!item.isAvailable}
+                            onClick={() => handleAddClick(item.menuId)}
+                          >
+                            {item.isAvailable ? 'ADD' : 'SOLD OUT'}
+                          </button>
+                        ) : (
+                          <div className="premium-qty-stepper">
+                            <button className="premium-step-btn" onClick={() => updateQuantity(item.menuId, qty - 1)}>
+                              <Minus size={12} />
+                            </button>
+                            <span className="premium-step-val">{qty}</span>
+                            <button className="premium-step-btn" onClick={() => updateQuantity(item.menuId, qty + 1)}>
+                              <Plus size={12} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {hasMoreRecommendations && (
+                <div className="load-more-wrap" style={{ gridColumn: '1 / -1', margin: '4px auto 0' }}>
+                  <button
+                    type="button"
+                    className="load-more-btn"
+                    onClick={() => setVisibleRecommendationCount(count => count + RECOMMENDATION_PAGE_SIZE)}
+                  >
+                    Load more recommendations ({recommendations.length - visibleRecommendationCount} left) <ArrowRight className="load-more-icon" size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Trust Badges Section: About ZingBite Promise */}
         <div className="zingbite-promise-section">

@@ -103,6 +103,14 @@ public class VRPServlet extends HttpServlet {
             dropNodes.add(3); // Customer B
             List<Integer> sequence = optimizer.sequenceBatches(dropNodes);
 
+            // Precompute Cost Matrix
+            List<Integer> matrixNodes = new ArrayList<>();
+            matrixNodes.add(0); // Rider
+            matrixNodes.add(1); // Kitchen
+            matrixNodes.add(2); // Customer A
+            matrixNodes.add(3); // Customer B
+            double[][] costMatrix = optimizer.computeCostMatrix(matrixNodes);
+
             // Path 1: First Mile (FM) -> Node 0 (Rider) to Node 1 (Restaurant)
             List<Node> pathFM = optimizer.findRoute(0, 1, useAStar);
             List<String> logsFM = new ArrayList<>(optimizer.getPathfindingLogs());
@@ -117,17 +125,6 @@ public class VRPServlet extends HttpServlet {
             List<Node> pathLM2 = optimizer.findRoute(firstDropId, secondDropId, useAStar);
             List<String> logsLM2 = new ArrayList<>(optimizer.getPathfindingLogs());
 
-            // Compile all Logs
-            List<String> finalLogs = new ArrayList<>();
-            finalLogs.add("=== FIRST MILE ROUTING (RIDER -> RESTAURANT) ===");
-            finalLogs.addAll(logsFM);
-            finalLogs.add("");
-            finalLogs.add("=== LAST MILE 1 ROUTING (RESTAURANT -> CUSTOMER " + (firstDropId == 2 ? "A" : "B") + ") ===");
-            finalLogs.addAll(logsLM1);
-            finalLogs.add("");
-            finalLogs.add("=== LAST MILE 2 ROUTING (CUSTOMER " + (firstDropId == 2 ? "A" : "B") + " -> CUSTOMER " + (secondDropId == 2 ? "A" : "B") + ") ===");
-            finalLogs.addAll(logsLM2);
-
             // Calculate Distance Costs
             double distFM = getPathDistance(pathFM);
             double distLM1 = getPathDistance(pathLM1);
@@ -137,6 +134,89 @@ public class VRPServlet extends HttpServlet {
             double trafficFM = getPathTrafficFactor(pathFM, optimizer);
             double trafficLM1 = getPathTrafficFactor(pathLM1, optimizer);
             double trafficLM2 = getPathTrafficFactor(pathLM2, optimizer);
+
+            // Calculate arrival times and evaluate time window violations
+            double speedKmh = 25.0;
+            double currentTime = 0.0;
+
+            // Travel to Restaurant (Node 1)
+            double timeFM = (distFM / speedKmh) * 60.0;
+            currentTime += timeFM;
+
+            // Travel to First Drop
+            double timeLM1 = (distLM1 / speedKmh) * 60.0;
+            currentTime += timeLM1;
+            Node drop1Node = optimizer.getNodes().get(firstDropId);
+            boolean violation1 = false;
+            double arrival1 = currentTime;
+            if (arrival1 < drop1Node.earliestTime) {
+                arrival1 = drop1Node.earliestTime;
+            } else if (arrival1 > drop1Node.latestTime) {
+                violation1 = true;
+            }
+            currentTime = arrival1;
+
+            // Travel to Second Drop
+            double timeLM2 = (distLM2 / speedKmh) * 60.0;
+            currentTime += timeLM2;
+            Node drop2Node = optimizer.getNodes().get(secondDropId);
+            boolean violation2 = false;
+            double arrival2 = currentTime;
+            if (arrival2 < drop2Node.earliestTime) {
+                arrival2 = drop2Node.earliestTime;
+            } else if (arrival2 > drop2Node.latestTime) {
+                violation2 = true;
+            }
+
+            // Expose time windows data
+            JsonObject twData = new JsonObject();
+            JsonObject twA = new JsonObject();
+            twA.addProperty("earliest", optimizer.getNodes().get(2).earliestTime);
+            twA.addProperty("latest", optimizer.getNodes().get(2).latestTime);
+            twA.addProperty("arrival", firstDropId == 2 ? arrival1 : arrival2);
+            twA.addProperty("violated", firstDropId == 2 ? violation1 : violation2);
+            twData.add("Customer A", twA);
+
+            JsonObject twB = new JsonObject();
+            twB.addProperty("earliest", optimizer.getNodes().get(3).earliestTime);
+            twB.addProperty("latest", optimizer.getNodes().get(3).latestTime);
+            twB.addProperty("arrival", firstDropId == 3 ? arrival1 : arrival2);
+            twB.addProperty("violated", firstDropId == 3 ? violation1 : violation2);
+            twData.add("Customer B", twB);
+
+            // Compile all Logs for Console Output
+            List<String> finalLogs = new ArrayList<>();
+            finalLogs.add("=== VRPTW PRECOMPUTED COST MATRIX ===");
+            finalLogs.add(String.format("          Rider(0)  Kitchen(1)  CustA(2)  CustB(3)"));
+            finalLogs.add(String.format("Rider(0)   %6.2f    %6.2f    %6.2f    %6.2f", costMatrix[0][0], costMatrix[0][1], costMatrix[0][2], costMatrix[0][3]));
+            finalLogs.add(String.format("Kitchen(1) %6.2f    %6.2f    %6.2f    %6.2f", costMatrix[1][0], costMatrix[1][1], costMatrix[1][2], costMatrix[1][3]));
+            finalLogs.add(String.format("CustA(2)   %6.2f    %6.2f    %6.2f    %6.2f", costMatrix[2][0], costMatrix[2][1], costMatrix[2][2], costMatrix[2][3]));
+            finalLogs.add(String.format("CustB(3)   %6.2f    %6.2f    %6.2f    %6.2f", costMatrix[3][0], costMatrix[3][1], costMatrix[3][2], costMatrix[3][3]));
+            finalLogs.add("");
+            
+            finalLogs.add("=== 3-OPT DISPATCH SEQUENCING ===");
+            finalLogs.add("Unoptimized sequence: Customer A -> Customer B");
+            finalLogs.add("Evaluating 3-opt reconnect configurations...");
+            finalLogs.add("Optimal sequence resolved: " + (firstDropId == 2 ? "Customer A -> Customer B" : "Customer B -> Customer A"));
+            finalLogs.add("");
+
+            finalLogs.add("=== TIME WINDOWS CONSTRAINT EVALUATION ===");
+            finalLogs.add(String.format("Customer A Dropoff Window: [%.1f, %.1f] mins | Arrival: %.1f mins (%s)", 
+                twA.get("earliest").getAsDouble(), twA.get("latest").getAsDouble(), twA.get("arrival").getAsDouble(),
+                twA.get("violated").getAsBoolean() ? "LATE - TIME WINDOW VIOLATION!" : "ON TIME"));
+            finalLogs.add(String.format("Customer B Dropoff Window: [%.1f, %.1f] mins | Arrival: %.1f mins (%s)", 
+                twB.get("earliest").getAsDouble(), twB.get("latest").getAsDouble(), twB.get("arrival").getAsDouble(),
+                twB.get("violated").getAsBoolean() ? "LATE - TIME WINDOW VIOLATION!" : "ON TIME"));
+            finalLogs.add("");
+
+            finalLogs.add("=== FIRST MILE ROUTING (RIDER -> RESTAURANT) ===");
+            finalLogs.addAll(logsFM);
+            finalLogs.add("");
+            finalLogs.add("=== LAST MILE 1 ROUTING (RESTAURANT -> CUSTOMER " + (firstDropId == 2 ? "A" : "B") + ") ===");
+            finalLogs.addAll(logsLM1);
+            finalLogs.add("");
+            finalLogs.add("=== LAST MILE 2 ROUTING (CUSTOMER " + (firstDropId == 2 ? "A" : "B") + " -> CUSTOMER " + (secondDropId == 2 ? "A" : "B") + ") ===");
+            finalLogs.addAll(logsLM2);
 
             // Calculate Predictive ETAs
             // For first drop
@@ -160,6 +240,8 @@ public class VRPServlet extends HttpServlet {
             responseJson.addProperty("weather", VRPRouteOptimizer.weather);
             responseJson.addProperty("perishableLifo", VRPRouteOptimizer.perishableLifo);
             responseJson.addProperty("useAStar", useAStar);
+            responseJson.add("costMatrix", new Gson().toJsonTree(costMatrix));
+            responseJson.add("timeWindows", twData);
 
             // Nodes & Edges
             Gson gson = new Gson();

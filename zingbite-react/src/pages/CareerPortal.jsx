@@ -5,9 +5,17 @@ import { useNavigate } from 'react-router-dom';
 import { useModal } from '../context/ModalContext';
 import { 
   Briefcase, MapPin, Send, FileText, CheckCircle, 
-  Clock, IndianRupee, Loader, Calendar, Mail, Phone, User, AlertCircle, Inbox, Lock, KeyRound, MessageSquare 
+  Clock, IndianRupee, Loader, Calendar, Mail, Phone, User, AlertCircle, Inbox, Lock, KeyRound, MessageSquare, ChevronRight 
 } from 'lucide-react';
 import ChatWidget from '../components/ChatWidget';
+
+const CAREER_LIST_PAGE_SIZE = 5;
+
+// Simple client-side cache for Stale-While-Revalidate
+let careersJobsCache = {
+  jobs: null,
+  timestamp: 0
+};
 
 const CareerPortal = () => {
   const { user } = useContext(AuthContext);
@@ -22,6 +30,9 @@ const CareerPortal = () => {
   const [appsLoading, setAppsLoading] = useState(false);
   const [notesLoading, setNotesLoading] = useState(false);
   const [activeChatAppId, setActiveChatAppId] = useState(null);
+  const [visibleJobCount, setVisibleJobCount] = useState(CAREER_LIST_PAGE_SIZE);
+  const [visibleApplicationCount, setVisibleApplicationCount] = useState(CAREER_LIST_PAGE_SIZE);
+  const [visibleNotificationCount, setVisibleNotificationCount] = useState(CAREER_LIST_PAGE_SIZE);
   
   // Application form modal
   const [applyingJob, setApplyingJob] = useState(null);
@@ -35,9 +46,27 @@ const CareerPortal = () => {
   const [otpError, setOtpError] = useState('');
 
   const fetchJobs = async (isBackground = false) => {
+    const hasCache = careersJobsCache.jobs !== null;
+    const isStale = hasCache && (Date.now() - careersJobsCache.timestamp > 30000); // 30 seconds TTL
+
+    if (hasCache) {
+      setJobs(careersJobsCache.jobs);
+      if (!isBackground) setLoading(false);
+      if (!isStale) {
+        // Cache is fresh, skip revalidation
+        return;
+      }
+    } else {
+      if (!isBackground) setLoading(true);
+    }
+
     try {
       const res = await axios.get('/api/careers?action=jobs');
       setJobs(res.data);
+      careersJobsCache = {
+        jobs: res.data,
+        timestamp: Date.now()
+      };
     } catch (err) {
       console.error('Failed to load jobs:', err);
     } finally {
@@ -73,22 +102,11 @@ const CareerPortal = () => {
 
   useEffect(() => {
     fetchJobs(false);
-    const jobsTimer = setInterval(() => fetchJobs(true), 5000);
     
-    let userTimer = null;
     if (user) {
       fetchApplications(false);
       fetchNotifications(false);
-      userTimer = setInterval(() => {
-        fetchApplications(true);
-        fetchNotifications(true);
-      }, 4000);
     }
-    
-    return () => {
-      clearInterval(jobsTimer);
-      if (userTimer) clearInterval(userTimer);
-    };
   }, [user]);
 
   useEffect(() => {
@@ -101,6 +119,19 @@ const CareerPortal = () => {
       });
     }
   }, [user]);
+
+  useEffect(() => {
+    setVisibleJobCount(CAREER_LIST_PAGE_SIZE);
+    setVisibleApplicationCount(CAREER_LIST_PAGE_SIZE);
+    setVisibleNotificationCount(CAREER_LIST_PAGE_SIZE);
+  }, [activeTab]);
+
+  const visibleJobs = jobs.slice(0, visibleJobCount);
+  const visibleApplications = applications.slice(0, visibleApplicationCount);
+  const visibleNotifications = notifications.slice(0, visibleNotificationCount);
+  const hasMoreJobs = visibleJobCount < jobs.length;
+  const hasMoreApplications = visibleApplicationCount < applications.length;
+  const hasMoreNotifications = visibleNotificationCount < notifications.length;
 
   const handleApplyClick = (e) => {
     e.preventDefault();
@@ -397,7 +428,7 @@ const CareerPortal = () => {
         {/* Positions View */}
         {activeTab === 'jobs' && (
           <div className="job-grid stagger-children">
-            {jobs.map((job) => (
+            {visibleJobs.map((job) => (
               <div key={job.id} className="job-card">
                 <div className="job-info">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
@@ -427,6 +458,17 @@ const CareerPortal = () => {
                 </div>
               </div>
             ))}
+            {hasMoreJobs && (
+              <div className="load-more-wrap" style={{ margin: '4px auto 0' }}>
+                <button
+                  type="button"
+                  className="load-more-btn"
+                  onClick={() => setVisibleJobCount(count => count + CAREER_LIST_PAGE_SIZE)}
+                >
+                  Load more positions ({jobs.length - visibleJobCount} left) <ChevronRight className="load-more-icon" size={16} />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -454,7 +496,7 @@ const CareerPortal = () => {
               </div>
             ) : (
               <div className="job-grid">
-                {applications.map((app) => (
+                {visibleApplications.map((app) => (
                   <div key={app.id} className="job-card">
                     <div className="job-info">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
@@ -507,6 +549,17 @@ const CareerPortal = () => {
                     </div>
                   </div>
                 ))}
+                {hasMoreApplications && (
+                  <div className="load-more-wrap" style={{ margin: '4px auto 0' }}>
+                    <button
+                      type="button"
+                      className="load-more-btn"
+                      onClick={() => setVisibleApplicationCount(count => count + CAREER_LIST_PAGE_SIZE)}
+                    >
+                      Load more applications ({applications.length - visibleApplicationCount} left) <ChevronRight className="load-more-icon" size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -531,7 +584,7 @@ const CareerPortal = () => {
               </div>
             ) : (
               <div className="inbox-list">
-                {notifications.map((note) => (
+                {visibleNotifications.map((note) => (
                   <div key={note.id} className="email-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', marginBottom: '12px' }}>
                       <div>
@@ -545,6 +598,17 @@ const CareerPortal = () => {
                     </p>
                   </div>
                 ))}
+                {hasMoreNotifications && (
+                  <div className="load-more-wrap" style={{ margin: '4px auto 0' }}>
+                    <button
+                      type="button"
+                      className="load-more-btn"
+                      onClick={() => setVisibleNotificationCount(count => count + CAREER_LIST_PAGE_SIZE)}
+                    >
+                      Load more inbox notes ({notifications.length - visibleNotificationCount} left) <ChevronRight className="load-more-icon" size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

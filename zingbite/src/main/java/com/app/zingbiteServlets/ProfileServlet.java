@@ -29,6 +29,7 @@ import com.app.zingbitemodels.OrderItem;
 import com.app.zingbitemodels.OrderHistory;
 import com.app.zingbitemodels.Restaurant;
 import com.app.zingbitemodels.Menu;
+import com.app.zingbitemodels.OrderStatus;
 import com.app.zingbitedaoimpl.MenuDAOImplementation;
 import com.app.zingbiteutils.DBUtils;
 import com.google.gson.Gson;
@@ -92,7 +93,7 @@ public class ProfileServlet extends HttpServlet {
                     
                     String statusVal = "Delivered";
                     if (associatedOrder != null && associatedOrder.getOrderStatus() != null) {
-                        statusVal = associatedOrder.getOrderStatus();
+                        statusVal = associatedOrder.getOrderStatus().label();
                     } else if (oh.getOrderStatus() != null) {
                         statusVal = oh.getOrderStatus();
                     }
@@ -295,8 +296,9 @@ public class ProfileServlet extends HttpServlet {
                     order.setRestaurantId(restaurant);
                     order.setOrderTime(orderTime);
                     order.setTotalAmount((float) total);
-                    order.setOrderStatus("Placed");
+                    order.setOrderStatus(OrderStatus.PENDING_PAYMENT);
                     order.setPaymentMethod(paymentMethod);
+                    order.setStatusUpdatedAt(new Date());
 
                     dbSession.persist(order);
                     dbSession.flush(); // populated orderId
@@ -312,15 +314,20 @@ public class ProfileServlet extends HttpServlet {
                         dbSession.persist(orderItem);
                     }
 
-                    // Also add to OrderHistory
+                    // Also add to OrderHistory in Pending state
                     OrderHistory orderHistory = new OrderHistory();
                     orderHistory.setOrderId(orderId);
                     orderHistory.setUserID(user.getUserID());
                     orderHistory.setOrderDate(new Date());
                     orderHistory.setTotalAmount(total);
-                    orderHistory.setOrderStatus("Placed");
+                    orderHistory.setOrderStatus("Pending Payment");
 
                     dbSession.persist(orderHistory);
+
+                    // Create Payment record
+                    com.app.zingbitemodels.Payment payment = new com.app.zingbitemodels.Payment(orderId, total, paymentMethod);
+                    payment.setStatus("PENDING");
+                    dbSession.persist(payment);
 
                     tx.commit();
                 } catch (Exception e) {
@@ -331,36 +338,11 @@ public class ProfileServlet extends HttpServlet {
                 }
 
                 if (orderId > 0) {
-                    // Send order confirmation email
-                    com.app.zingbiteutils.EmailService.sendEmailAsync(
-                        user.getUserID(),
-                        user.getEmail(),
-                        "ZingBite Order Confirmation - ZB-" + orderId,
-                        com.app.zingbiteutils.EmailTemplates.orderPlaced(user.getUserName(), orderId, (float) total, orderTime)
-                    );
-
-                    // Broadcast real-time SSE event for new order
-                    try {
-                        JsonObject sseMsg = new JsonObject();
-                        sseMsg.addProperty("event", "new_order");
-                        sseMsg.addProperty("orderId", orderId);
-                        if (restaurantId != null) {
-                            sseMsg.addProperty("restaurantId", restaurantId);
-                        }
-                        com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:new_orders", sseMsg.toString());
-                        if (restaurantId != null) {
-                            com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:restaurant_orders:" + restaurantId, sseMsg.toString());
-                        }
-                        com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:rider_orders", sseMsg.toString());
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
-
                     jsonResponse.addProperty("success", true);
                     jsonResponse.addProperty("orderId", "ZB-" + orderId);
                 } else {
                     resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                    jsonResponse.addProperty("error", "Failed to create order");
+                    jsonResponse.addProperty("error", "Failed to reserve order");
                 }
                 resp.getWriter().write(jsonResponse.toString());
             } else {
