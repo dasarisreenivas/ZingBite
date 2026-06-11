@@ -44,7 +44,6 @@ function PageViewTracker() {
   return null;
 }
 
-<<<<<<< HEAD
 function PremiumAtmosphere() {
   return (
     <div className="premium-ambient-scene" aria-hidden="true">
@@ -70,17 +69,14 @@ function InteractionFX() {
       'summary',
       '[tabindex]:not([tabindex="-1"])'
     ].join(',');
-
     const handlePointerDown = (event) => {
       if (!(event.target instanceof Element)) return;
       const target = event.target.closest(interactiveSelector);
       if (!target || target.closest('.leaflet-container')) return;
       if (target.disabled || target.getAttribute('aria-disabled') === 'true') return;
-
       target.classList.remove('interaction-pressed');
       void target.offsetWidth;
       target.classList.add('interaction-pressed');
-
       const canHostRipple = !['INPUT', 'SELECT', 'TEXTAREA', 'OPTION'].includes(target.tagName);
       if (canHostRipple) {
         const rect = target.getBoundingClientRect();
@@ -97,14 +93,11 @@ function InteractionFX() {
           window.setTimeout(() => ripple.remove(), 680);
         }
       }
-
       window.setTimeout(() => target.classList.remove('interaction-pressed'), 260);
     };
-
     document.addEventListener('pointerdown', handlePointerDown, true);
     return () => document.removeEventListener('pointerdown', handlePointerDown, true);
   }, []);
-
   return null;
 }
 
@@ -113,8 +106,10 @@ function RouteMotionFrame({ children }) {
   return (
     <div className="route-motion-frame" key={`${location.pathname}${location.search}`}>
       {children}
-=======
-// Premium loading spinner
+    </div>
+  );
+}
+
 function PremiumLoader() {
   return (
     <div style={{
@@ -172,7 +167,6 @@ function PremiumLoader() {
         <Flame size={16} color="var(--brand-red)" style={{ animation: 'loaderFloat 1.5s ease-in-out infinite' }} />
         Loading...
       </div>
->>>>>>> c86c0d6 (resolve the Render Crash and forntend update)
     </div>
   );
 }
@@ -192,12 +186,7 @@ function App() {
               <Header />
               <main className="app-main">
                 <ErrorBoundary>
-<<<<<<< HEAD
-                  <React.Suspense fallback={
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px', flex: 1 }}>
-                      <Loader size={36} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
-                    </div>
-                  }>
+                  <React.Suspense fallback={<PremiumLoader />}>
                     <RouteMotionFrame>
                       <Routes>
                         <Route path="/" element={<Home />} />
@@ -210,33 +199,13 @@ function App() {
                         <Route path="/info/:sectionId" element={<Info />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/track-order" element={<OrderTracking />} />
-                        <Route path="/delivery" element={<DeliveryDashboard />} />
-                        <Route path="/restaurant-admin" element={<RestaurantDashboard />} />
+                        <Route path="/delivery" element={<ProtectedRoute allowedRoles={['delivery_partner']}><DeliveryDashboard /></ProtectedRoute>} />
+                        <Route path="/restaurant-admin" element={<ProtectedRoute allowedRoles={['restaurant_admin', 'customer']}><RestaurantDashboard /></ProtectedRoute>} />
                         <Route path="/careers" element={<CareerPortal />} />
-                        <Route path="/admin" element={<SuperAdminDashboard />} />
+                        <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
                         <Route path="/vrp" element={<VRPDashboard />} />
                       </Routes>
                     </RouteMotionFrame>
-=======
-                  <React.Suspense fallback={<PremiumLoader />}>
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/home" element={<Home />} />
-                    <Route path="/menu" element={<Menu />} />
-                    <Route path="/cart" element={<Cart />} />
-                    <Route path="/checkout" element={<Checkout />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    <Route path="/info/:sectionId" element={<Info />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/track-order" element={<OrderTracking />} />
-                    <Route path="/delivery" element={<ProtectedRoute allowedRoles={['delivery_partner']}><DeliveryDashboard /></ProtectedRoute>} />
-                    <Route path="/restaurant-admin" element={<ProtectedRoute allowedRoles={['restaurant_admin', 'customer']}><RestaurantDashboard /></ProtectedRoute>} />
-                    <Route path="/careers" element={<CareerPortal />} />
-                    <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
-                    <Route path="/vrp" element={<VRPDashboard />} />
-                  </Routes>
->>>>>>> c86c0d6 (resolve the Render Crash and forntend update)
                   </React.Suspense>
                 </ErrorBoundary>
               </main>
