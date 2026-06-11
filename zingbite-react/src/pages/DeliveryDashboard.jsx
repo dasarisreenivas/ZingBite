@@ -976,7 +976,7 @@ const DeliveryDashboard = () => {
         }
       `}</style>
 
-      <div className="delivery-container fade-in">
+      <div className="delivery-container fade-in page-enter">
         <div className="dashboard-header">
           <div>
             <h1 style={{ fontSize: '1.8rem', fontWeight: 800 }}>Delivery Partner Portal</h1>

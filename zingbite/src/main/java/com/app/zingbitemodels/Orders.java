@@ -10,7 +10,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -22,8 +23,8 @@ public class Orders implements Serializable{
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name ="orderId")
 	private int orderId;
-	@Lob
-	@Column(name ="restaurant", columnDefinition = "LONGBLOB")
+	@ManyToOne
+	@JoinColumn(name = "restaurantRefId")
 	private Restaurant restaurantId;
 	@Column(name ="userId")
 	private int userId;

@@ -16,6 +16,7 @@ import org.hibernate.Transaction;
 
 import com.app.zingbitemodels.ContactMessage;
 import com.app.zingbiteutils.DBUtils;
+import com.app.zingbiteutils.SanitizationUtils;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -34,10 +35,10 @@ public class ContactServlet extends HttpServlet {
             BufferedReader reader = req.getReader();
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
 
-            String name = requestBody.has("name") ? requestBody.get("name").getAsString() : null;
-            String email = requestBody.has("email") ? requestBody.get("email").getAsString() : null;
-            String subject = requestBody.has("subject") ? requestBody.get("subject").getAsString() : null;
-            String message = requestBody.has("message") ? requestBody.get("message").getAsString() : null;
+            String name = requestBody.has("name") ? SanitizationUtils.escapeHtml(requestBody.get("name").getAsString()) : null;
+            String email = requestBody.has("email") ? requestBody.get("email").getAsString().trim().toLowerCase() : null;
+            String subject = requestBody.has("subject") ? SanitizationUtils.escapeHtml(requestBody.get("subject").getAsString()) : null;
+            String message = requestBody.has("message") ? SanitizationUtils.escapeHtml(requestBody.get("message").getAsString()) : null;
 
             if (name == null || email == null || subject == null || message == null ||
                 name.trim().isEmpty() || email.trim().isEmpty() || subject.trim().isEmpty() || message.trim().isEmpty()) {

@@ -20,15 +20,15 @@ public class OrderHistory implements Serializable{
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "orderHistoryId")
 	private int orderHistoryId;
-	@Column(name = "")
+	@Column(name = "orderId")
 	private int orderId;
-	@Column(name = "")
+	@Column(name = "userId")
 	private int userID;
-	@Column(name = "")
+	@Column(name = "orderDate")
 	private Date orderDate;
-	@Column(name = "")
+	@Column(name = "totalAmount")
 	private double totalAmount;
-	@Column(name = "")
+	@Column(name = "orderStatus")
 	private String orderStatus;
 	
 	public OrderHistory() {

@@ -407,13 +407,34 @@ const VRPDashboard = () => {
         }
         .select-traffic {
           background: #14141e;
-          border: 1px solid rgba(255,255,255,0.1);
+          border: 1.5px solid rgba(255,255,255,0.1);
           color: #f1f5f9;
           font-size: 0.78rem;
-          padding: 4px 8px;
-          border-radius: 4px;
+          padding: 4px 28px 4px 10px;
+          border-radius: 8px;
           outline: none;
           cursor: pointer;
+          transition: all 0.2s var(--ease-premium);
+          appearance: none;
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23a0a0b0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 8px center;
+          background-size: 12px;
+        }
+        .select-traffic:hover {
+          border-color: var(--brand-red);
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23F7374F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        }
+        .select-traffic:focus {
+          border-color: var(--brand-red);
+          box-shadow: 0 0 0 3px rgba(247,55,79,0.15);
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23F7374F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        }
+        .select-traffic option {
+          background: #1e1e2e;
+          color: #f1f5f9;
         }
         .badge-surge {
           background: rgba(239, 68, 68, 0.1);
@@ -439,7 +460,7 @@ const VRPDashboard = () => {
         }
       `}</style>
 
-      <div className="vrp-container">
+      <div className="vrp-container fade-in page-enter">
         <div className="vrp-header">
           <div>
             <h1 style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>

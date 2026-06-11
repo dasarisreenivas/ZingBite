@@ -22,10 +22,10 @@ public class CreateOrderServlet extends HttpServlet {
             throws ServletException, IOException {
 
         try {
-            // ✅ Razorpay Test Keys
-            RazorpayClient client = new RazorpayClient("rzp_test_RU5HIdwTwlQNOw", "zD11WBQEbgpiX10AfUaHunTJ");
+            String razorpayKey = System.getenv().getOrDefault("RAZORPAY_KEY_ID", "rzp_test_RU5HIdwTwlQNOw");
+            String razorpaySecret = System.getenv().getOrDefault("RAZORPAY_KEY_SECRET", "zD11WBQEbgpiX10AfUaHunTJ");
+            RazorpayClient client = new RazorpayClient(razorpayKey, razorpaySecret);
 
-            // ✅ Amount from form
             int amount = Integer.parseInt(request.getParameter("amount")) * 100;
 
             JSONObject orderRequest = new JSONObject();
@@ -34,17 +34,15 @@ public class CreateOrderServlet extends HttpServlet {
             orderRequest.put("receipt", "receipt#1");
             orderRequest.put("payment_capture", true);
 
-            // ✅ Create Razorpay order
             Order order = client.orders.create(orderRequest);
 
-            // ✅ Pass order data to JSP
             request.setAttribute("orderId", order.get("id"));
             request.setAttribute("amount", amount);
             RequestDispatcher rd = request.getRequestDispatcher("checkout.jsp");
             rd.forward(request, response);
 
         } catch (Exception e) {
-            e.printStackTrace(); // 🔍 See Tomcat logs for details
+            e.printStackTrace();
             response.getWriter().write("Error creating Razorpay order: " + e.getMessage());
         }
     }

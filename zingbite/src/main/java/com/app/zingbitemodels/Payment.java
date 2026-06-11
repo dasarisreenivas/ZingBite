@@ -1,5 +1,6 @@
 package com.app.zingbitemodels;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -15,18 +16,26 @@ public class Payment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "paymentId")
     private int paymentId;
 
+    @Column(name = "orderId")
     private int orderId;
-    private String transactionId; // Reference to Razorpay or UPI token
+    @Column(name = "transactionId")
+    private String transactionId;
+    @Column(name = "amount")
     private double amount;
+    @Column(name = "paymentMethod")
     private String paymentMethod;
-    private String status; // PENDING, COMPLETED, FAILED
+    @Column(name = "status")
+    private String status;
 
     @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "createdAt")
     private Date createdAt;
 
     @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "updatedAt")
     private Date updatedAt;
 
     public Payment() {

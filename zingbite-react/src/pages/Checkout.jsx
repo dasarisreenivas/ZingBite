@@ -4,7 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../context/ModalContext';
 import axios from 'axios';
-import { MapPin, CreditCard, Smartphone, Banknote } from 'lucide-react';
+import { MapPin, CreditCard, Smartphone, Banknote, Truck, Percent, Shield, Lock } from 'lucide-react';
 import { trackEvent } from '../utils/analytics';
 
 const Checkout = () => {
@@ -15,9 +15,11 @@ const Checkout = () => {
   const [addressChoice, setAddressChoice] = useState('profile');
   const [manualAddress, setManualAddress] = useState('');
   const [verifying, setVerifying] = useState(false);
+  const [manualLat, setManualLat] = useState(null);
+  const [manualLng, setManualLng] = useState(null);
+  const [manualCity, setManualCity] = useState('');
   const [paying, setPaying] = useState(false);
 
-  // Leaflet Map states & refs
   const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -25,11 +27,7 @@ const Checkout = () => {
   const [geocoding, setGeocoding] = useState(false);
 
   useEffect(() => {
-    if (window.L) {
-      setLeafletLoaded(true);
-      return;
-    }
-
+    if (window.L) { setLeafletLoaded(true); return; }
     let link = document.querySelector('link[href*="leaflet.css"]');
     if (!link) {
       link = document.createElement('link');
@@ -37,7 +35,6 @@ const Checkout = () => {
       link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
       document.head.appendChild(link);
     }
-
     let script = document.querySelector('script[src*="leaflet.js"]');
     if (!script) {
       script = document.createElement('script');
@@ -45,10 +42,7 @@ const Checkout = () => {
       script.async = true;
       script.onload = () => {
         const interval = setInterval(() => {
-          if (window.L) {
-            setLeafletLoaded(true);
-            clearInterval(interval);
-          }
+          if (window.L) { setLeafletLoaded(true); clearInterval(interval); }
         }, 50);
       };
       document.body.appendChild(script);
@@ -62,8 +56,15 @@ const Checkout = () => {
       const data = await response.json();
       if (data && data.display_name) {
         setManualAddress(data.display_name);
+        setManualLat(lat);
+        setManualLng(lng);
+        const cityName = data?.address?.city || data?.address?.town || data?.address?.village || data?.address?.suburb || '';
+        setManualCity(cityName);
       } else {
         setManualAddress(`Latitude: ${lat.toFixed(5)}, Longitude: ${lng.toFixed(5)}`);
+        setManualLat(lat);
+        setManualLng(lng);
+        setManualCity('');
       }
     } catch (err) {
       console.error("Reverse geocoding error:", err);
@@ -82,74 +83,37 @@ const Checkout = () => {
       }
       return;
     }
-
     if (mapInstanceRef.current) return;
-
     const L = window.L;
     if (!L) return;
-
     const defaultLat = 12.9716;
     const defaultLng = 77.5946;
-
     const map = L.map(mapRef.current).setView([defaultLat, defaultLng], 14);
     mapInstanceRef.current = map;
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     const customIcon = L.divIcon({
       html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">📍</div>`,
-      className: 'custom-checkout-marker',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
+      className: 'custom-checkout-marker', iconSize: [24, 24], iconAnchor: [12, 12]
     });
-
     const marker = L.marker([defaultLat, defaultLng], { icon: customIcon, draggable: true }).addTo(map);
     markerRef.current = marker;
-
-    marker.on('dragend', () => {
-      const latLng = marker.getLatLng();
-      reverseGeocode(latLng.lat, latLng.lng);
-    });
-
-    map.on('click', (e) => {
-      marker.setLatLng(e.latlng);
-      reverseGeocode(e.latlng.lat, e.latlng.lng);
-    });
-
-    // Trigger initial reverse geocode
+    marker.on('dragend', () => { const latLng = marker.getLatLng(); reverseGeocode(latLng.lat, latLng.lng); });
+    map.on('click', (e) => { marker.setLatLng(e.latlng); reverseGeocode(e.latlng.lat, e.latlng.lng); });
     reverseGeocode(defaultLat, defaultLng);
-
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-        markerRef.current = null;
-      }
+      if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; markerRef.current = null; }
     };
   }, [leafletLoaded, addressChoice]);
 
   const detectLocation = () => {
-    if (!navigator.geolocation) {
-      showAlert("Geolocation is not supported by your browser.", "error");
-      return;
-    }
+    if (!navigator.geolocation) { showAlert("Geolocation is not supported by your browser.", "error"); return; }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.setView([latitude, longitude], 16);
-          if (markerRef.current) {
-            markerRef.current.setLatLng([latitude, longitude]);
-          }
-        }
+        if (mapInstanceRef.current) { mapInstanceRef.current.setView([latitude, longitude], 16); if (markerRef.current) markerRef.current.setLatLng([latitude, longitude]); }
         reverseGeocode(latitude, longitude);
       },
-      (err) => {
-        showAlert("Error retrieving location: " + err.message, "error");
-      }
+      (err) => { showAlert("Error retrieving location: " + err.message, "error"); }
     );
   };
 
@@ -160,10 +124,7 @@ const Checkout = () => {
 
   const loadRazorpay = async () => {
     return new Promise((resolve) => {
-      if (window.Razorpay) {
-        resolve(true);
-        return;
-      }
+      if (window.Razorpay) { resolve(true); return; }
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
       script.onload = () => resolve(true);
@@ -174,55 +135,20 @@ const Checkout = () => {
 
   const handlePay = async () => {
     if (paying || verifying) return;
-    
     const isLoaded = await loadRazorpay();
-    if (!isLoaded) {
-      showAlert("Failed to load Razorpay payment gateway.", "error");
-      return;
-    }
-
+    if (!isLoaded) { showAlert("Failed to load Razorpay payment gateway.", "error"); return; }
     setPaying(true);
-
     try {
       const itemsList = cart.items ? (Array.isArray(cart.items) ? cart.items : Object.values(cart.items)) : [];
-      const formattedItems = itemsList.map(item => ({
-        id: item.itemId,
-        qty: item.quantity,
-        price: item.price
-      }));
-
+      const formattedItems = itemsList.map(item => ({ id: item.itemId, qty: item.quantity, price: item.price }));
       const finalAddress = addressChoice === 'profile' ? (user?.address || '') : manualAddress;
-      
-      // Update manual address if chosen
       if (addressChoice === 'manual' && finalAddress) {
-        const upRes = await axios.post('/api/profile', {
-          action: 'update',
-          username: user.userName || user.username || 'User',
-          mobile: String(user.phoneNumber || user.mobile || ''),
-          address: finalAddress
-        });
-        if (upRes.data.success && typeof updateUser === 'function') {
-          updateUser(upRes.data.user);
-        }
+        const upRes = await axios.post('/api/profile', { action: 'update', username: user.userName || user.username || 'User', mobile: String(user.phoneNumber || user.mobile || ''), address: finalAddress, latitude: finalAddress === manualAddress ? manualLat : null, longitude: finalAddress === manualAddress ? manualLng : null, city: finalAddress === manualAddress ? manualCity : '' });
+        if (upRes.data.success && typeof updateUser === 'function') updateUser(upRes.data.user);
       }
-
-      // Step 1: Pre-reserve the order in PENDING_PAYMENT state
-      const res = await axios.post('/api/profile', {
-        action: 'createOrder',
-        total: cart.total,
-        paymentMethod: 'Razorpay',
-        items: formattedItems
-      });
-
-      if (!res.data.success) {
-        showAlert(res.data.error || "Failed to reserve order.", "error");
-        setPaying(false);
-        return;
-      }
-
+      const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'Razorpay', items: formattedItems });
+      if (!res.data.success) { showAlert(res.data.error || "Failed to reserve order.", "error"); setPaying(false); return; }
       const orderId = res.data.orderId;
-
-      // Step 2: Launch the Payment Gateway Interface
       const options = {
         key: "rzp_test_RU5HIdwTwlQNOw",
         amount: Math.round(cart.total * 100),
@@ -232,61 +158,30 @@ const Checkout = () => {
         handler: async function (response) {
           setVerifying(true);
           try {
-            // Step 3: Transactional Server-Side Verification
-            const verifyRes = await axios.post('/api/payment/verify', {
-              orderId: orderId,
-              transactionId: response.razorpay_payment_id,
-              paymentMethod: 'Razorpay'
-            });
-
-            if (verifyRes.data.success) {
-              trackEvent('ORDER_PLACED', { orderId, amount: cart.total });
-              clearCart();
-              navigate(`/track-order?orderId=${orderId}`);
-            } else {
-              showAlert(verifyRes.data.error || "Payment verification failed.", "error");
-            }
+            const verifyRes = await axios.post('/api/payment/verify', { orderId, transactionId: response.razorpay_payment_id, paymentMethod: 'Razorpay' });
+            if (verifyRes.data.success) { trackEvent('ORDER_PLACED', { orderId, amount: cart.total }); clearCart(); navigate(`/track-order?orderId=${orderId}`); }
+            else { showAlert(verifyRes.data.error || "Payment verification failed.", "error"); }
           } catch (err) {
             console.error("Payment verification timeout/drop:", err);
-            // In case of transient server verification network drops, redirect to track-order page anyway.
-            // The user cart is cleared, and they see the tracking screen showing the order verification loader,
-            // while the background reconciler checks the gateway status and self-corrects the order.
             trackEvent('ORDER_PLACED', { orderId, amount: cart.total });
             clearCart();
             navigate(`/track-order?orderId=${orderId}`);
-          } finally {
-            setVerifying(false);
-          }
+          } finally { setVerifying(false); }
         },
         modal: {
           ondismiss: async function () {
             console.log("Payment gateway dismissed. Cancelling reserved order.");
-            try {
-              // Notify server of cancellation immediately to release locks/inventories
-              await axios.post('/api/payment/verify', {
-                orderId: orderId,
-                transactionId: 'pay_abandoned_' + orderId,
-                paymentMethod: 'Razorpay'
-              });
-            } catch (e) {
-              console.error("Failed to notify server of cancellation:", e);
-            }
+            try { await axios.post('/api/payment/verify', { orderId, transactionId: 'pay_abandoned_' + orderId, paymentMethod: 'Razorpay' }); } catch (e) { console.error("Failed to notify server of cancellation:", e); }
           }
         },
-        theme: {
-          color: "#F7374F"
-        }
+        theme: { color: "#F7374F" }
       };
-
       const rzp = new window.Razorpay(options);
       rzp.open();
-
     } catch (err) {
       console.error("Failed to initialize checkout transaction:", err);
       showAlert("An error occurred during checkout setup. Please try again.", "error");
-    } finally {
-      setPaying(false);
-    }
+    } finally { setPaying(false); }
   };
 
   return (
@@ -294,294 +189,180 @@ const Checkout = () => {
       <style>{`
         .checkout-layout {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) 400px;
+          grid-template-columns: minmax(0, 1fr) 380px;
           width: min(1200px, calc(100% - 40px));
           margin: 24px auto 48px;
-          gap: 24px;
+          gap: 28px;
           align-items: start;
         }
-
-        .checkout-address-card {
-          background-color: #fff;
-          border: 1px solid var(--border-medium);
-          padding: 24px;
-          box-shadow: var(--shadow-sm);
-          border-radius: var(--radius-md);
+        .chk-card {
+          background: #fff;
+          border: 1px solid var(--border-light);
+          border-radius: 20px;
+          padding: 28px;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.04);
         }
-
-        .checkout-payment-card {
-          background-color: #fff;
-          border: 1px solid var(--border-medium);
-          padding: 24px;
-          box-shadow: var(--shadow-sm);
-          border-radius: var(--radius-md);
-        }
-
-        .checkout-title {
-          font-family: 'Outfit', sans-serif;
-          font-size: 1.3rem;
+        .chk-title {
+          font-size: 1.25rem;
           font-weight: 800;
-          margin: 0 0 16px;
-          padding-bottom: 12px;
-          border-bottom: 1px solid var(--border-light);
-          color: var(--text-primary);
-        }
-
-        .option-group {
+          margin: 0 0 20px;
+          padding-bottom: 14px;
+          border-bottom: 1.5px solid var(--border-light);
           display: flex;
-          flex-direction: column;
+          align-items: center;
           gap: 10px;
-          margin-bottom: 16px;
         }
-
+        .chk-title svg { color: var(--brand-red); }
+        .option-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
         .option-label {
           display: flex;
           align-items: center;
-          gap: 8px;
-          padding: 12px;
-          border: 1px solid var(--border-medium);
-          border-radius: var(--radius-sm);
+          gap: 10px;
+          padding: 14px;
+          border: 1.5px solid var(--border-medium);
+          border-radius: 14px;
           cursor: pointer;
           font-weight: 600;
           font-size: 0.95rem;
-          transition: background 0.2s;
+          transition: all 0.25s var(--ease-premium);
         }
-
-        .option-label:hover {
-          background: var(--bg-surface);
-        }
-
+        .option-label:hover { border-color: var(--brand-red); background: rgba(247,55,79,0.02); }
+        .option-label input[type="radio"] { accent-color: var(--brand-red); width: 16px; height: 16px; }
         .address-field {
           width: 100%;
-          padding: 12px;
-          border: 1px solid var(--border-medium);
-          border-radius: var(--radius-sm);
+          padding: 12px 14px;
+          border: 1.5px solid var(--border-medium);
+          border-radius: 12px;
           font-size: 0.95rem;
+          font-family: inherit;
           outline: none;
+          transition: border-color 0.25s var(--ease-premium);
         }
-
-        .address-field:focus {
-          border-color: var(--brand-red);
+        .address-field:focus { border-color: var(--brand-red); box-shadow: 0 0 0 4px rgba(247,55,79,0.06); }
+        .address-field:disabled { background: var(--bg-surface); color: var(--text-muted); cursor: not-allowed; }
+        .locate-btn {
+          align-self: flex-start;
+          padding: 9px 16px;
+          font-size: 0.82rem;
+          font-weight: 700;
+          background: var(--brand-red);
+          color: white;
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.25s var(--ease-premium);
+          box-shadow: 0 2px 8px rgba(247,55,79,0.2);
         }
-
-        .bill-summary-box {
-          background-color: var(--bg-surface);
-          padding: 16px;
-          border-radius: var(--radius-sm);
-          margin-bottom: 16px;
+        .locate-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(247,55,79,0.3); }
+        .chk-summary {
+          background: var(--bg-surface);
+          padding: 20px;
+          border-radius: 14px;
+          margin-bottom: 20px;
           border: 1px solid var(--border-light);
         }
-
-        .bill-row {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 8px;
-          color: var(--text-secondary);
-          font-size: 0.9rem;
-        }
-
-        .bill-row:last-child {
-          margin-bottom: 0;
-        }
-
-        .bill-divider {
-          border: none;
-          border-top: 1px dashed var(--text-muted);
-          margin: 12px 0;
-        }
-
-        .bill-total-row {
-          color: var(--text-primary);
-          font-size: 1.2rem;
-          font-weight: 800;
-        }
-
-        .pay-action-btn {
+        .chk-row { display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--text-secondary); font-size: 0.9rem; }
+        .chk-divider { border: none; border-top: 1.5px dashed var(--border-light); margin: 12px 0; }
+        .chk-total { font-size: 1.2rem; font-weight: 800; color: var(--text-primary); }
+        .pay-btn {
           width: 100%;
           padding: 16px;
-          background-color: var(--success);
+          background: linear-gradient(135deg, var(--success), #4a9a32);
           color: #fff;
           border: none;
-          border-radius: var(--radius-sm);
+          border-radius: 14px;
           font-size: 1.05rem;
           font-weight: 700;
           cursor: pointer;
-          transition: background 0.2s;
-          box-shadow: 0 4px 12px rgba(96, 178, 70, 0.2);
+          transition: all 0.25s var(--ease-premium);
+          box-shadow: 0 4px 16px rgba(96,178,70,0.25);
         }
-
-        .pay-action-btn:hover {
-          background-color: #50a037;
-        }
-
+        .pay-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(96,178,70,0.35); }
+        .pay-btn:disabled { opacity: 0.7; cursor: not-allowed; }
         @media (max-width: 850px) {
-          .checkout-layout {
-            grid-template-columns: 1fr;
-            margin: 16px auto 32px;
-            gap: 20px;
-          }
+          .checkout-layout { grid-template-columns: 1fr; margin: 16px auto 32px; gap: 20px; }
         }
-
-        .spin {
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
-      <div className="checkout-layout fade-in">
-        <div className="checkout-address-card">
-          <h2 className="checkout-title">
-            <MapPin size={20} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px', color: 'var(--brand-red)' }} />
-            Delivery Address
-          </h2>
-          
+      <div className="checkout-layout page-enter">
+        <div className="chk-card">
+          <h2 className="chk-title"><MapPin size={20} /> Delivery Address</h2>
           <div className="option-group">
             <label className="option-label">
-              <input 
-                type="radio" 
-                checked={addressChoice === 'profile'} 
-                onChange={() => setAddressChoice('profile')} 
-              /> Use profile address
+              <input type="radio" checked={addressChoice === 'profile'} onChange={() => setAddressChoice('profile')} /> Use saved address
             </label>
             <label className="option-label">
-              <input 
-                type="radio" 
-                checked={addressChoice === 'manual'} 
-                onChange={() => setAddressChoice('manual')} 
-              /> Enter manually
+              <input type="radio" checked={addressChoice === 'manual'} onChange={() => setAddressChoice('manual')} /> Enter new address
             </label>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <input 
-              type="text" 
-              className="address-field" 
-              placeholder="Enter your delivery address" 
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <input
+              type="text"
+              className="address-field"
+              placeholder="Enter your delivery address"
               value={addressChoice === 'profile' ? (user ? user.address : '') : manualAddress}
-              onChange={(e) => {
-                if (addressChoice === 'manual') {
-                  setManualAddress(e.target.value);
-                }
-              }}
+              onChange={(e) => { if (addressChoice === 'manual') setManualAddress(e.target.value); }}
               disabled={addressChoice === 'profile'}
             />
             {addressChoice === 'manual' && (
               <>
-                <button 
-                  type="button"
-                  onClick={detectLocation}
-                  style={{
-                    alignSelf: 'flex-start',
-                    padding: '8px 14px',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    background: 'var(--brand-red)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    marginTop: '4px'
-                  }}
-                >
-                  <MapPin size={12} /> {geocoding ? 'Detecting Location...' : 'Auto-Detect Current Location'}
+                <button type="button" onClick={detectLocation} className="locate-btn">
+                  <MapPin size={13} /> {geocoding ? 'Detecting...' : 'Auto-Detect Location'}
                 </button>
-                <div 
-                  ref={mapRef} 
-                  style={{ 
-                    height: '220px', 
-                    borderRadius: 'var(--radius-sm)', 
-                    border: '1px solid var(--border-medium)',
-                    marginTop: '8px',
-                    zIndex: 1
-                  }} 
-                />
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
-                  * Drag the red marker pin or click anywhere on the map to select your delivery coordinates.
-                </p>
+                <div ref={mapRef} style={{ height: '220px', borderRadius: '12px', border: '1px solid var(--border-medium)', zIndex: 1 }} />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Drag the marker or click on the map to set your delivery location.</p>
               </>
             )}
           </div>
         </div>
 
-        <div className="checkout-payment-card">
-          <h2 className="checkout-title">
-            <CreditCard size={20} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px', color: 'var(--brand-red)' }} />
-            Payment
-          </h2>
+        <div className="chk-card">
+          <h2 className="chk-title"><CreditCard size={20} /> Payment</h2>
           <div className="option-group">
-            <label className="option-label"><input type="radio" name="pay" defaultChecked /> <CreditCard size={16} style={{ marginRight: '6px' }} /> Credit / Debit Card</label>
-            <label className="option-label"><input type="radio" name="pay" /> <Smartphone size={16} style={{ marginRight: '6px' }} /> UPI</label>
-            <label className="option-label"><input type="radio" name="pay" /> <Banknote size={16} style={{ marginRight: '6px' }} /> Cash on Delivery</label>
+            <label className="option-label"><input type="radio" name="pay" defaultChecked /> <CreditCard size={16} /> Credit / Debit Card</label>
+            <label className="option-label"><input type="radio" name="pay" /> <Smartphone size={16} /> UPI</label>
+            <label className="option-label"><input type="radio" name="pay" /> <Banknote size={16} /> Cash on Delivery</label>
           </div>
 
-          <div className="bill-summary-box">
-            <div className="bill-row"><span>Item Total</span><span>&#8377;{cart.subtotal.toFixed(2)}</span></div>
-            <div className="bill-row"><span>Delivery Fee</span><span>&#8377;{cart.shipping.toFixed(2)}</span></div>
-            <div className="bill-row"><span>Taxes</span><span>&#8377;{cart.tax.toFixed(2)}</span></div>
+          <div className="chk-summary">
+            <div className="chk-row"><span>Item Total</span><span>&#8377;{cart.subtotal.toFixed(2)}</span></div>
+            <div className="chk-row"><span><Truck size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Delivery Fee</span><span>&#8377;{cart.shipping.toFixed(2)}</span></div>
+            <div className="chk-row"><span>Taxes</span><span>&#8377;{cart.tax.toFixed(2)}</span></div>
             {cart.discount > 0 && (
-              <div className="bill-row" style={{ color: 'var(--success)', fontWeight: 700 }}>
-                <span>Promo Discount</span>
+              <div className="chk-row" style={{ color: 'var(--success)', fontWeight: 700 }}>
+                <span><Percent size={12} style={{ marginRight: 2, verticalAlign: 'middle' }} /> Discount</span>
                 <span>-&#8377;{cart.discount.toFixed(2)}</span>
               </div>
             )}
-            <hr className="bill-divider" />
-            <div className="bill-row bill-total-row">
+            <hr className="chk-divider" />
+            <div className="chk-row chk-total">
               <strong>TO PAY</strong>
               <strong>&#8377;{cart.total.toFixed(2)}</strong>
             </div>
           </div>
 
-          <button 
-            onClick={handlePay} 
-            className="pay-action-btn"
-            disabled={paying || verifying}
-          >
-            {paying ? 'PROCEEDING TO PAY...' : `PROCEED TO PAY (\u20B9${cart.total.toFixed(2)})`}
+          <button onClick={handlePay} className="pay-btn" disabled={paying || verifying}>
+            {paying ? 'Redirecting to Payment...' : `SECURE PAY (\u20B9${cart.total.toFixed(2)})`}
           </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            <Lock size={12} /> Secured by Razorpay
+          </div>
         </div>
       </div>
 
       {verifying && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(10, 10, 15, 0.85)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 9999,
-          color: '#fff'
-        }}>
-          <div style={{
-            background: 'rgba(20, 20, 30, 0.95)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            padding: '40px 30px',
-            borderRadius: '16px',
-            textAlign: 'center',
-            maxWidth: '400px',
-            width: '100%',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.37)'
-          }}>
-            <div className="spin" style={{
-              width: '48px',
-              height: '48px',
-              border: '4px solid rgba(247, 55, 79, 0.1)',
-              borderTopColor: '#f7374f',
-              borderRadius: '50%',
-              margin: '0 auto 24px'
-            }} />
-            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '12px', fontFamily: 'Outfit, sans-serif' }}>Verifying Payment</h3>
-            <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.6', margin: 0 }}>
-              We are transactionally securing your order with the bank gateway. Please do not refresh, close this page, or press back.
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(10, 10, 15, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 9999, color: '#fff' }}>
+          <div style={{ background: 'rgba(20, 20, 30, 0.95)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '40px 30px', borderRadius: '20px', textAlign: 'center', maxWidth: '400px', width: '100%', boxShadow: '0 8px 32px rgba(0,0,0,0.37)' }}>
+            <div className="spin" style={{ width: '48px', height: '48px', border: '4px solid rgba(247, 55, 79, 0.1)', borderTopColor: '#f7374f', borderRadius: '50%', margin: '0 auto 24px' }} />
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '12px', fontFamily: 'Outfit, sans-serif' }}>Securing Your Payment</h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.6', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <Shield size={16} /> Verifying transaction with payment gateway&hellip;
             </p>
           </div>
         </div>

@@ -18,13 +18,13 @@ public class OrderItem implements Serializable{
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "orderItemId")
 	private int orderItemId;
-	@Column(name = "")
+	@Column(name = "orderId")
 	private int orderId;
-	@Column(name = "")
+	@Column(name = "menuId")
 	private int menuId;
-	@Column(name = "")
+	@Column(name = "quantity")
 	private int quantity;
-	@Column(name = "")
+	@Column(name = "subTotal")
 	private double subTotal;
 	
 	public OrderItem() {

@@ -340,6 +340,34 @@ public class SuperAdminServlet extends HttpServlet {
                     throw e;
                 }
 
+            } else if ("changeRiderStatus".equals(action)) {
+                int targetUserId = requestBody.get("userId").getAsInt();
+                String newRiderStatus = requestBody.get("riderStatus").getAsString(); // Active, Inactive, Suspended
+
+                try (Session hibernateSession = DBUtils.openSession()) {
+                    tx = hibernateSession.beginTransaction();
+                    User targetUser = hibernateSession.get(User.class, targetUserId);
+                    if (targetUser != null) {
+                        targetUser.setRiderStatus(newRiderStatus);
+                        if ("Active".equalsIgnoreCase(newRiderStatus)) {
+                            targetUser.setRole("delivery_partner");
+                        } else if ("Inactive".equalsIgnoreCase(newRiderStatus) || "Suspended".equalsIgnoreCase(newRiderStatus)) {
+                            if ("delivery_partner".equals(targetUser.getRole())) {
+                                targetUser.setRole("customer");
+                            }
+                        }
+                        hibernateSession.merge(targetUser);
+                        tx.commit();
+                        resp.getWriter().write("{\"success\":true}");
+                    } else {
+                        resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                        resp.getWriter().write("{\"error\":\"User not found\"}");
+                    }
+                } catch (Exception e) {
+                    if (tx != null) tx.rollback();
+                    throw e;
+                }
+
             } else if ("changeUserRole".equals(action)) {
                 int targetUserId = requestBody.get("userId").getAsInt();
                 String newRole = requestBody.get("role").getAsString();

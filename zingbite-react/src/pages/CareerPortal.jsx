@@ -357,6 +357,81 @@ const CareerPortal = () => {
           padding: 20px;
           box-shadow: var(--shadow-sm);
         }
+        .premium-btn-shimmer {
+          background: linear-gradient(135deg, var(--brand-red), #ff6b8b, var(--brand-red));
+          background-size: 200% 100%;
+          animation: shimmerSweep 2s ease-in-out infinite;
+        }
+        @keyframes shimmerSweep {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .job-card {
+          position: relative;
+          overflow: hidden;
+          transition: all 0.3s var(--ease-premium);
+        }
+        .job-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, var(--brand-red), #ff6b8b);
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+        .job-card:hover::before {
+          opacity: 1;
+        }
+        .job-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 16px 32px rgba(28,28,28,0.08);
+        }
+        .email-card {
+          transition: all 0.3s var(--ease-premium);
+          position: relative;
+          overflow: hidden;
+        }
+        .email-card:hover {
+          transform: translateX(4px);
+          border-color: rgba(247,55,79,0.15);
+          box-shadow: var(--shadow-md);
+        }
+        .hero-banner {
+          position: relative;
+          overflow: hidden;
+        }
+        .hero-banner::after {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 60%);
+          animation: heroShimmer 8s ease-in-out infinite;
+        }
+        @keyframes heroShimmer {
+          0%, 100% { transform: translate(-10%, -10%); }
+          50% { transform: translate(10%, 10%); }
+        }
+        .btn-primary {
+          position: relative;
+          overflow: hidden;
+        }
+        .btn-primary:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(247,55,79,0.3);
+        }
+        .modal-content {
+          animation: modalSlideUp 0.3s ease-out;
+        }
+        @keyframes modalSlideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
         @media (max-width: 600px) {
           .hero-banner {
             padding: 32px 16px;
@@ -388,7 +463,7 @@ const CareerPortal = () => {
         }
       `}</style>
 
-      <div className="careers-container fade-in">
+      <div className="careers-container fade-in page-enter">
         {/* Banner */}
         <div className="hero-banner">
           <h1 style={{ fontSize: '2.4rem', fontWeight: 800 }}>Grow Your Career with ZingBite</h1>

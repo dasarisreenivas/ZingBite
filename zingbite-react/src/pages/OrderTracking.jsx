@@ -1443,11 +1443,84 @@ const OrderTracking = () => {
           border-color: var(--brand-red);
           color: var(--brand-red);
         }
+        .tracking-main-box {
+          position: relative;
+          overflow: hidden;
+          transition: all 0.3s var(--ease-premium);
+        }
+        .tracking-main-box::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, var(--brand-red), #ff6b8b, var(--brand-red));
+          opacity: 0.5;
+        }
+        .tracking-main-box:hover {
+          box-shadow: var(--shadow-md);
+        }
+        .tracking-header {
+          transition: all 0.3s var(--ease-premium);
+        }
+        .tracking-header:hover {
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-sm);
+        }
+        .rider-panel-box {
+          position: relative;
+          overflow: hidden;
+          transition: all 0.3s var(--ease-premium);
+        }
+        .rider-panel-box::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+          opacity: 0.5;
+        }
+        .active-order-card {
+          transition: all 0.3s var(--ease-premium);
+        }
+        .active-order-card:hover {
+          transform: translateY(-3px);
+          box-shadow: var(--shadow-lg);
+        }
+        .recent-order-item {
+          transition: all 0.2s var(--ease-premium);
+        }
+        .recent-order-item:hover {
+          border-color: rgba(247,55,79,0.15);
+          background: rgba(247,55,79,0.02);
+        }
+        .simulator-panel {
+          border-top: 4px solid var(--brand-red);
+        }
+        .track-button-link {
+          position: relative;
+          overflow: hidden;
+        }
+        .track-button-link:hover {
+          transform: translateY(-2px) scale(1.03);
+          box-shadow: 0 8px 20px rgba(247,55,79,0.35);
+        }
+        .search-submit-btn {
+          position: relative;
+          overflow: hidden;
+        }
+        .search-submit-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(247,55,79,0.2);
+        }
       `}</style>
       
       {!user ? (
         // Login Required View
-        <div className="tracking-portal-empty fade-in">
+        <div className="tracking-portal-empty fade-in page-enter">
           <MapPin size={64} color="var(--brand-red)" style={{ marginBottom: '16px' }} />
           <h2>Track Your Order</h2>
           <p>Please log in to track your active deliveries and view your order history.</p>
@@ -1457,7 +1530,7 @@ const OrderTracking = () => {
         </div>
       ) : !orderIdParam ? (
         // General Dashboard View
-        <div className="portal-container fade-in">
+        <div className="portal-container fade-in page-enter">
           <div className="portal-header">
             <h2>Order Tracking Portal</h2>
             <p>Track your active food deliveries and search order histories in real time.</p>
@@ -1582,7 +1655,7 @@ const OrderTracking = () => {
         </div>
       ) : !orderDetail ? (
         // Order Not Found View
-        <div className="tracking-portal-empty fade-in">
+        <div className="tracking-portal-empty fade-in page-enter">
           <AlertCircle size={64} color="var(--brand-red)" style={{ marginBottom: '16px' }} />
           <h2>Order Not Found</h2>
           <p>We couldn't find any active or past order matching ID "ZB-{orderIdParam}".</p>
@@ -1597,7 +1670,7 @@ const OrderTracking = () => {
         </div>
       ) : getNormalizedStatus(orderDetail.status) === 'PENDING_PAYMENT' ? (
         // Verifying Payment view
-        <div className="tracking-portal-empty fade-in" style={{ maxWidth: '500px', margin: '80px auto', padding: '40px 32px' }}>
+        <div className="tracking-portal-empty fade-in page-enter" style={{ maxWidth: '500px', margin: '80px auto', padding: '40px 32px' }}>
           <div className="spin" style={{
             width: '48px',
             height: '48px',
@@ -1616,7 +1689,7 @@ const OrderTracking = () => {
         </div>
       ) : (
         // Live Order Tracking View
-        <div className="tracking-layout fade-in">
+        <div className="tracking-layout fade-in page-enter">
           <div>
             <button onClick={() => navigate('/track-order')} className="back-home-btn">
               <ArrowLeft size={16} /> Back to Tracker Portal

@@ -19,17 +19,18 @@ import com.app.zingbitemodels.User;
 
 public class EmailService {
 
-    // Thread pool with bounded queue of 1000 tasks to prevent memory overload
     private static final ExecutorService executor = new ThreadPoolExecutor(
         2, 2, 0L, TimeUnit.MILLISECONDS,
         new LinkedBlockingQueue<>(1000),
         new ThreadPoolExecutor.CallerRunsPolicy()
     );
 
-    private static final String SMTP_HOST = "smtp.gmail.com";
-    private static final String SMTP_PORT = "587";
-    private static final String SMTP_USER = "test.zingbite@gmail.com"; // Configure as needed
-    private static final String SMTP_PASS = "placeholder_pass";
+    private static final String SMTP_HOST = System.getenv().getOrDefault("ZINGBITE_SMTP_HOST", "smtp.gmail.com");
+    private static final String SMTP_PORT = System.getenv().getOrDefault("ZINGBITE_SMTP_PORT", "587");
+    private static final String SMTP_USER = System.getenv().getOrDefault("ZINGBITE_SMTP_USER", "test.zingbite@gmail.com");
+    private static final String SMTP_PASS = System.getenv().getOrDefault("ZINGBITE_SMTP_PASS", "");
+    private static final boolean SMTP_DISABLED = System.getenv().getOrDefault("ZINGBITE_SMTP_DISABLE", "false").equalsIgnoreCase("true")
+                                                  || SMTP_PASS.isEmpty();
 
     public static void shutdown() {
         System.out.println("[EmailService] Shutting down email executor pool...");
@@ -46,13 +47,19 @@ public class EmailService {
     }
 
     public static void sendEmailAsync(final int userId, final String recipientEmail, final String subject, final String htmlBody) {
+        if (SMTP_DISABLED) {
+            System.out.println("[EmailService] SMTP disabled or password not configured. Skipping email to " + recipientEmail
+                + " (subject: " + subject + "). Set ZINGBITE_SMTP_PASS env var to enable.");
+            logNotification(userId, recipientEmail, subject, htmlBody, "DISABLED");
+            return;
+        }
+
         executor.submit(new Runnable() {
             @Override
             public void run() {
-                // 1. Initial Logging as PENDING in DB
                 int notificationId = 0;
                 EmailNotification notification = new EmailNotification(userId, recipientEmail, subject, htmlBody, "PENDING");
-                
+
                 try (org.hibernate.Session dbSession = DBUtils.openSession()) {
                     Transaction tx = dbSession.beginTransaction();
                     try {
@@ -69,11 +76,9 @@ public class EmailService {
                     System.err.println("[EmailService] Failed to log initial EmailNotification in DB: " + e.getMessage());
                 }
 
-                // 2. Check User Preference (Notifications Enabled)
                 boolean notificationsEnabled = true;
                 try (org.hibernate.Session dbSession = DBUtils.openSession()) {
                     User userObj = dbSession.get(User.class, userId);
-                    // Future: check userObj notification preferences if field is added
                 } catch (Exception e) {
                     System.err.println("[EmailService] Failed to fetch user preferences: " + e.getMessage());
                 }
@@ -83,7 +88,6 @@ public class EmailService {
                     return;
                 }
 
-                // 3. Send the Email via SMTP
                 try {
                     Properties props = new Properties();
                     props.put("mail.smtp.auth", "true");
@@ -107,7 +111,6 @@ public class EmailService {
 
                     Transport.send(message);
 
-                    // 4. Update DB status to SENT
                     String sentDateStr = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
                     updateStatus(notificationId, "SENT", sentDateStr);
                     System.out.println("[EmailService] Email sent successfully to " + recipientEmail);
@@ -120,9 +123,17 @@ public class EmailService {
         });
     }
 
-    /**
-     * Updates the status of a persisted EmailNotification record.
-     */
+    private static void logNotification(int userId, String recipientEmail, String subject, String htmlBody, String status) {
+        EmailNotification notification = new EmailNotification(userId, recipientEmail, subject, htmlBody, status);
+        try (org.hibernate.Session dbSession = DBUtils.openSession()) {
+            Transaction tx = dbSession.beginTransaction();
+            dbSession.persist(notification);
+            tx.commit();
+        } catch (Exception e) {
+            System.err.println("[EmailService] Failed to log disabled notification: " + e.getMessage());
+        }
+    }
+
     private static void updateStatus(int notificationId, String status, String sentDate) {
         if (notificationId == 0) return;
         Transaction tx = null;

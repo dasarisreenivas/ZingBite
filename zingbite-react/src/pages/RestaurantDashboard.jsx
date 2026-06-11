@@ -398,7 +398,7 @@ const RestaurantDashboard = () => {
           }
         `}</style>
 
-        <div className="onboard-container fade-in">
+        <div className="onboard-container fade-in page-enter">
           {isPending ? (
             <div className="status-panel">
               <Loader size={48} style={{ animation: 'spin 2s linear infinite', color: '#ff9f40', margin: '0 auto 16px' }} />
@@ -1420,7 +1420,7 @@ const RestaurantDashboard = () => {
         }
       `}</style>
 
-      <div className="admin-container fade-in">
+      <div className="admin-container fade-in page-enter">
         {/* Banner */}
         {restaurant && (
           <div 
@@ -1441,6 +1441,7 @@ const RestaurantDashboard = () => {
                 }}
                 alt={restaurant.restaurantName} 
                 className="restaurant-img" 
+                loading="lazy"
               />
               <div className="banner-details">
                 <div className="banner-title-row">
@@ -1565,6 +1566,7 @@ const RestaurantDashboard = () => {
                         }}
                         alt={item.menuName} 
                         className="menu-item-img" 
+                        loading="lazy"
                       />
                     </div>
                     <div className="menu-item-body">

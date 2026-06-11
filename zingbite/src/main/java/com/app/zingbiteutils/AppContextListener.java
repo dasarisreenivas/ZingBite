@@ -16,9 +16,23 @@ public class AppContextListener implements ServletContextListener {
         System.out.println("[AppContextListener] Web application initialization started.");
         System.out.println("[AppContextListener] Pre-initializing Hibernate SessionFactory...");
         try {
-            DBUtils.getSessionFactory();
+            var sf = DBUtils.getSessionFactory();
+            if (sf == null) {
+                System.err.println("[AppContextListener] FATAL: SessionFactory is null. Skipping dependent startup tasks.");
+                return;
+            }
             System.out.println("[AppContextListener] SessionFactory pre-initialized successfully!");
-            
+
+            // Run database index initialization
+            System.out.println("[AppContextListener] Running database index initialization...");
+            try {
+                DatabaseIndexInitializer.initialize();
+                System.out.println("[AppContextListener] Database index initialization completed.");
+            } catch (Exception e) {
+                System.err.println("[AppContextListener] Database index initialization failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+
             // Pre-initialize RecommendationEngine asynchronously to warm the cache
             new Thread(() -> {
                 try {
@@ -44,7 +58,7 @@ public class AppContextListener implements ServletContextListener {
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
         System.out.println("[AppContextListener] Web application shutdown started.");
-        
+
         // 1. Close Hibernate SessionFactory (closes HikariCP pool and stops housekeeper thread)
         System.out.println("[AppContextListener] Closing Hibernate SessionFactory...");
         try {
