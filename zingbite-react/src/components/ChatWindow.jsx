@@ -184,7 +184,21 @@ const ChatWindow = ({ type, targetId, onClose }) => {
   };
 
   return (
-    <div style={{
+    <>
+      <style>{`
+        .chat-window-premium {
+          animation: slideInUpChat 0.3s ease-out;
+        }
+        @keyframes slideInUpChat {
+          from { transform: translateY(12px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .chat-window-premium .premium-input:focus {
+          border-color: #F7374F !important;
+          box-shadow: 0 0 0 3px rgba(247,55,79,0.1) !important;
+        }
+      `}</style>
+      <div className="chat-window-premium" style={{
       display: 'flex', flexDirection: 'column', height: '500px', width: '384px',
       backgroundColor: '#ffffff', border: '1px solid #e0e0e0', borderRadius: '12px',
       boxShadow: '0 12px 32px rgba(28,28,28,0.12)', overflow: 'hidden', fontFamily: "'Inter', sans-serif"
@@ -268,19 +282,20 @@ const ChatWindow = ({ type, targetId, onClose }) => {
         padding: '10px 12px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: '8px',
         alignItems: 'center', backgroundColor: '#fff'
       }}>
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type your message..."
-          style={{
-            flex: 1, padding: '8px 12px', fontSize: '13px', border: '1px solid #e0e0e0',
-            borderRadius: '8px', outline: 'none', fontFamily: "'Inter', sans-serif",
-            transition: 'border-color 0.2s'
-          }}
-          onFocus={(e) => e.target.style.borderColor = '#F7374F'}
-          onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
-        />
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Type your message..."
+            className="premium-input"
+            style={{
+              flex: 1, padding: '8px 12px', fontSize: '13px', border: '1px solid #e0e0e0',
+              borderRadius: '8px', outline: 'none', fontFamily: "'Inter', sans-serif",
+              transition: 'border-color 0.2s'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#F7374F'}
+            onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+          />
         <button
           type="submit"
           disabled={!newMessage.trim()}
@@ -294,7 +309,7 @@ const ChatWindow = ({ type, targetId, onClose }) => {
           <Send size={16} />
         </button>
       </form>
-    </div>
+    </div></>
   );
 };
 

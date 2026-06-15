@@ -259,17 +259,9 @@ public class ProfileServlet extends HttpServlet {
                     resp.getWriter().write("{\"error\":\"Invalid role upgrade request\"}");
                     return;
                 }
-                user.setRole(role);
-                UserDAO userDao = new UserDAOImplementation();
-                int success = userDao.updateUser(user);
-                if (success > 0) {
-                    session.setAttribute("loggedInUser", user);
-                    jsonResponse.addProperty("success", true);
-                    jsonResponse.add("user", new Gson().toJsonTree(user));
-                } else {
-                    resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                    jsonResponse.addProperty("error", "Failed to update role in database");
-                }
+                // Role upgrades must go through the approval queue; direct upgrade not allowed
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                jsonResponse.addProperty("error", "Role upgrades require admin approval via Onboarding Queue. Please use the Partner With Us or Ride With Us forms.");
                 resp.getWriter().write(jsonResponse.toString());
 
             } else if ("createOrder".equals(action)) {

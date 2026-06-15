@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +9,7 @@ import {
   Loader, Shield, UserCheck, Check, X, FileCheck2, LogOut, MessageSquare, ChevronRight
 } from 'lucide-react';
 import ChatWidget from '../components/ChatWidget';
+import RiderApplicationRow from '../components/RiderApplicationRow';
 
 const ADMIN_LIST_PAGE_SIZE = 6;
 
@@ -253,21 +254,21 @@ const SuperAdminDashboard = () => {
     );
   }
 
-  // Separate pending requests
-  const pendingRequests = (data.restaurantRequests || []).filter(r => r.status === 'Pending');
-  const reviewedRequests = (data.restaurantRequests || []).filter(r => r.status !== 'Pending');
-  const riderApps = (data.applications || []).filter(app => app.jobTitle === 'Delivery Rider');
-  const generalApps = (data.applications || []).filter(app => app.jobTitle !== 'Delivery Rider');
-  const visiblePendingRequests = pendingRequests.slice(0, visiblePendingCount);
-  const visibleReviewedRequests = reviewedRequests.slice(0, visibleReviewedCount);
-  const visibleUsers = (data.users || []).slice(0, visibleUserCount);
-  const visibleRiderApps = riderApps.slice(0, visibleRiderAppCount);
-  const visibleGeneralApps = generalApps.slice(0, visibleGeneralAppCount);
-  const hasMorePendingRequests = visiblePendingCount < pendingRequests.length;
-  const hasMoreReviewedRequests = visibleReviewedCount < reviewedRequests.length;
-  const hasMoreUsers = visibleUserCount < (data.users || []).length;
-  const hasMoreRiderApps = visibleRiderAppCount < riderApps.length;
-  const hasMoreGeneralApps = visibleGeneralAppCount < generalApps.length;
+  // Separate pending requests — memoized to avoid re-filter on unrelated re-renders
+  const pendingRequests = useMemo(() => (data.restaurantRequests || []).filter(r => r.status === 'Pending'), [data.restaurantRequests]);
+  const reviewedRequests = useMemo(() => (data.restaurantRequests || []).filter(r => r.status !== 'Pending'), [data.restaurantRequests]);
+  const riderApps = useMemo(() => (data.applications || []).filter(app => app.jobTitle === 'Delivery Rider'), [data.applications]);
+  const generalApps = useMemo(() => (data.applications || []).filter(app => app.jobTitle !== 'Delivery Rider'), [data.applications]);
+  const visiblePendingRequests = useMemo(() => pendingRequests.slice(0, visiblePendingCount), [pendingRequests, visiblePendingCount]);
+  const visibleReviewedRequests = useMemo(() => reviewedRequests.slice(0, visibleReviewedCount), [reviewedRequests, visibleReviewedCount]);
+  const visibleUsers = useMemo(() => (data.users || []).slice(0, visibleUserCount), [data.users, visibleUserCount]);
+  const visibleRiderApps = useMemo(() => riderApps.slice(0, visibleRiderAppCount), [riderApps, visibleRiderAppCount]);
+  const visibleGeneralApps = useMemo(() => generalApps.slice(0, visibleGeneralAppCount), [generalApps, visibleGeneralAppCount]);
+  const hasMorePendingRequests = useMemo(() => visiblePendingCount < pendingRequests.length, [visiblePendingCount, pendingRequests.length]);
+  const hasMoreReviewedRequests = useMemo(() => visibleReviewedCount < reviewedRequests.length, [visibleReviewedCount, reviewedRequests.length]);
+  const hasMoreUsers = useMemo(() => visibleUserCount < (data.users || []).length, [visibleUserCount, data.users]);
+  const hasMoreRiderApps = useMemo(() => visibleRiderAppCount < riderApps.length, [visibleRiderAppCount, riderApps.length]);
+  const hasMoreGeneralApps = useMemo(() => visibleGeneralAppCount < generalApps.length, [visibleGeneralAppCount, generalApps.length]);
 
   return (
     <>
@@ -372,16 +373,31 @@ const SuperAdminDashboard = () => {
           border-bottom: none;
         }
         .role-selector {
-          padding: 6px 10px;
-          border: 1px solid var(--border-medium);
-          border-radius: 4px;
+          padding: 6px 32px 6px 10px;
+          border: 1.5px solid var(--border-medium);
+          border-radius: 8px;
           font-size: 0.85rem;
-          background: white;
+          background: #fff;
           outline: none;
           font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s var(--ease-premium);
+          appearance: none;
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%239e9e9e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 8px center;
+          background-size: 13px;
+        }
+        .role-selector:hover {
+          border-color: var(--brand-red);
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23F7374F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
         }
         .role-selector:focus {
           border-color: var(--brand-red);
+          box-shadow: 0 0 0 3px rgba(247,55,79,0.1);
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23F7374F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
         }
         .management-grid {
           display: grid;
@@ -406,14 +422,30 @@ const SuperAdminDashboard = () => {
         }
         .form-group input, .form-group textarea, .form-group select {
           width: 100%;
-          padding: 10px 12px;
-          border: 1px solid var(--border-medium);
+          padding: 10px 36px 10px 12px;
+          border: 1.5px solid var(--border-medium);
           border-radius: var(--radius-sm);
           font-size: 0.95rem;
           outline: none;
+          transition: all 0.25s var(--ease-premium);
+        }
+        .form-group select {
+          cursor: pointer;
+          appearance: none;
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239e9e9e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          background-size: 14px;
+        }
+        .form-group select:hover {
+          border-color: var(--brand-red);
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23F7374F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
         }
         .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
           border-color: var(--brand-red);
+          box-shadow: 0 0 0 3px rgba(247,55,79,0.1);
         }
         .btn-primary {
           background: var(--brand-red);
@@ -596,7 +628,7 @@ const SuperAdminDashboard = () => {
         }
       `}</style>
 
-      <div className="admin-container fade-in">
+      <div className="admin-container fade-in page-enter">
         {/* Title */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1021,6 +1053,7 @@ const SuperAdminDashboard = () => {
                   <th>Username</th>
                   <th>Email</th>
                   <th>Phone Number</th>
+                  <th>Rider Status</th>
                   <th>Role Control</th>
                 </tr>
               </thead>
@@ -1031,6 +1064,18 @@ const SuperAdminDashboard = () => {
                     <td>{u.userName}</td>
                     <td>{u.email}</td>
                     <td>{u.phoneNumber || 'N/A'}</td>
+                    <td>
+                      {u.role === 'delivery_partner' || u.riderStatus ? (
+                        <span className={`badge ${
+                          u.riderStatus === 'Active' ? 'approved' :
+                          u.riderStatus === 'Pending' ? 'pending' : 'rejected'
+                        }`}>
+                          {u.riderStatus || 'N/A'}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>—</span>
+                      )}
+                    </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <select 
@@ -1093,97 +1138,13 @@ const SuperAdminDashboard = () => {
                   </thead>
                   <tbody>
                     {visibleRiderApps.map((app) => (
-                      <tr key={app.id}>
-                        <td style={{ fontWeight: 700 }}>{app.candidateName}</td>
-                        <td>
-                          <div style={{ fontSize: '0.85rem' }}>{app.email}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{app.phone}</div>
-                        </td>
-                        <td>{app.appliedDate}</td>
-                        <td>
-                          <a 
-                            href={app.resumeUrl} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
-                          >
-                            <FileText size={14} /> Resume
-                          </a>
-                        </td>
-                        <td>
-                          <button 
-                            onClick={() => setActiveChatAppId(app.id)}
-                            style={{
-                              background: 'transparent',
-                              color: '#8b5cf6',
-                              border: '1px solid #8b5cf6',
-                              padding: '6px 10px',
-                              borderRadius: '4px',
-                              fontSize: '0.8rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
-                          >
-                            <MessageSquare size={12} /> Chat
-                          </button>
-                        </td>
-                        <td>
-                          <span className={`badge ${
-                            app.status.toLowerCase().includes('applied') ? 'applied' : 
-                            app.status.toLowerCase().includes('interview') ? 'interview' : 
-                            app.status.toLowerCase().includes('offer') ? 'offered' : 'rejected'
-                          }`}>
-                            {app.status}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              disabled={actionLoading === `app-${app.id}` || app.status === 'Offer Extended'}
-                              onClick={() => handleUpdateAppStatus(app.id, 'Offer Extended')}
-                              style={{
-                                background: '#4bc0c0',
-                                color: 'white',
-                                border: 'none',
-                                padding: '6px 12px',
-                                borderRadius: '4px',
-                                fontSize: '0.8rem',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                opacity: app.status === 'Offer Extended' ? 0.6 : 1
-                              }}
-                            >
-                              <Check size={12} /> Approve Rider
-                            </button>
-                            <button
-                              disabled={actionLoading === `app-${app.id}` || app.status === 'Rejected'}
-                              onClick={() => handleUpdateAppStatus(app.id, 'Rejected')}
-                              style={{
-                                background: 'var(--danger)',
-                                color: 'white',
-                                border: 'none',
-                                padding: '6px 12px',
-                                borderRadius: '4px',
-                                fontSize: '0.8rem',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                opacity: app.status === 'Rejected' ? 0.6 : 1
-                              }}
-                            >
-                              <X size={12} /> Reject Rider
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                      <RiderApplicationRow
+                        key={app.id}
+                        app={app}
+                        actionLoading={actionLoading}
+                        onChat={setActiveChatAppId}
+                        onUpdateStatus={handleUpdateAppStatus}
+                      />
                     ))}
                   </tbody>
                 </table>

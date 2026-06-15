@@ -269,6 +269,7 @@ const ChatWidget = ({ type, targetId, userId, userName, receiverId, placeholder 
         }
         .chat-input:focus {
           border-color: #8b5cf6;
+          box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
         }
         .chat-send-btn {
           width: 38px;
@@ -285,6 +286,14 @@ const ChatWidget = ({ type, targetId, userId, userName, receiverId, placeholder 
         }
         .chat-send-btn:hover {
           background: #7c3aed;
+          transform: scale(1.05);
+          box-shadow: 0 2px 8px rgba(139,92,246,0.4);
+        }
+        .chat-bubble.sent {
+          background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+        }
+        .chat-header {
+          background: linear-gradient(135deg, #1a1625, #2d1f5e);
         }
         @media (max-width: 450px) {
           .chat-panel-container {

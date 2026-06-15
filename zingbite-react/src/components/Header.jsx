@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Bike,
@@ -6,15 +6,18 @@ import {
   Compass,
   Flame,
   Home,
+  Mail,
   MapPin,
   Shield,
   ShoppingCart,
   Store,
   User,
-  X
+  X,
+  ChevronRight
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import MailboxModal from './MailboxModal';
 
 const Header = () => {
   const { user, logout } = useContext(AuthContext);
@@ -23,9 +26,17 @@ const Header = () => {
   const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [showMailbox, setShowMailbox] = useState(false);
+  const headerRef = useRef(null);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 10);
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      setScrollProgress(docHeight > 0 ? Math.min((scrollTop / docHeight) * 100, 100) : 0);
+    };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -95,16 +106,25 @@ const Header = () => {
           position: sticky;
           top: 0;
           z-index: 1000;
-          background: rgba(255, 255, 255, 0.85);
-          backdrop-filter: blur(20px) saturate(180%);
-          -webkit-backdrop-filter: blur(20px) saturate(180%);
-          border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-          transition: all 0.3s ease;
+          background: rgba(255, 255, 255, 0.75);
+          backdrop-filter: blur(24px) saturate(200%);
+          -webkit-backdrop-filter: blur(24px) saturate(200%);
+          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+          transition: all 0.35s var(--ease-premium);
           padding: 0 20px;
         }
         .header.scrolled {
-          background: rgba(255, 255, 255, 0.95);
-          box-shadow: 0 4px 30px rgba(0, 0, 0, 0.08);
+          background: rgba(255, 255, 255, 0.92);
+          box-shadow: 0 4px 30px rgba(0, 0, 0, 0.06);
+        }
+        .scroll-progress {
+          position: absolute;
+          bottom: -1px;
+          left: 0;
+          height: 2px;
+          background: linear-gradient(90deg, var(--brand-red), #ff7a8a);
+          transition: width 0.1s linear;
+          z-index: 1;
         }
         .header-inner {
           display: flex;
@@ -114,7 +134,7 @@ const Header = () => {
           width: 92%;
           margin: 0 auto;
           height: 72px;
-          transition: height 0.3s ease;
+          transition: height 0.35s var(--ease-premium);
           gap: 18px;
         }
         .header.scrolled .header-inner {
@@ -124,27 +144,28 @@ const Header = () => {
           text-decoration: none;
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
           flex-shrink: 0;
-          transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+          transition: transform 0.4s var(--ease-spring);
         }
         .logo-link:hover {
-          transform: scale(1.03);
+          transform: scale(1.04);
         }
         .logo-icon {
           width: 36px;
           height: 36px;
-          background: var(--brand-red);
+          background: linear-gradient(135deg, var(--brand-red), #ff6b7a);
           border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 1.2rem;
-          box-shadow: 0 2px 10px rgba(247, 55, 79, 0.3);
-          transition: box-shadow 0.3s ease;
+          box-shadow: 0 2px 12px rgba(247, 55, 79, 0.3);
+          transition: box-shadow 0.4s var(--ease-premium), transform 0.4s var(--ease-spring);
         }
         .logo-link:hover .logo-icon {
-          box-shadow: 0 4px 16px rgba(247, 55, 79, 0.4);
+          box-shadow: 0 4px 20px rgba(247, 55, 79, 0.45);
+          transform: rotate(-5deg) scale(1.05);
         }
         .logo-text {
           font-family: 'Outfit', sans-serif;
@@ -152,7 +173,8 @@ const Header = () => {
           font-size: 1.6rem;
           color: var(--text-primary);
           margin: 0;
-          letter-spacing: 0;
+          letter-spacing: -0.5px;
+          transition: color 0.3s ease;
         }
         .logo-text span {
           color: var(--brand-red);
@@ -161,7 +183,7 @@ const Header = () => {
           display: flex;
           align-items: center;
           justify-content: flex-end;
-          gap: 6px;
+          gap: 4px;
           min-width: 0;
           flex: 1;
           flex-wrap: nowrap;
@@ -174,7 +196,7 @@ const Header = () => {
           text-decoration: none;
           padding: 8px 12px;
           border-radius: var(--radius-sm);
-          transition: all 0.25s ease;
+          transition: all 0.3s var(--ease-premium);
           display: flex;
           align-items: center;
           gap: 6px;
@@ -182,24 +204,32 @@ const Header = () => {
           flex-shrink: 0;
           overflow: hidden;
         }
+        .nav-link::before {
+          content: '';
+          position: absolute;
+          bottom: 4px;
+          left: 12px;
+          right: 12px;
+          height: 2px;
+          background: var(--brand-red);
+          transform: scaleX(0);
+          transform-origin: center;
+          transition: transform 0.35s var(--ease-premium);
+          border-radius: 2px;
+        }
         .nav-link:hover {
           color: var(--text-primary);
           background: var(--bg-surface);
+        }
+        .nav-link:hover::before {
+          transform: scaleX(1);
         }
         .nav-link.active {
           color: var(--brand-red);
           background: rgba(247, 55, 79, 0.06);
         }
-        .nav-link.active::after {
-          content: '';
-          position: absolute;
-          bottom: 0;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 20px;
-          height: 2px;
-          background: var(--brand-red);
-          border-radius: 2px;
+        .nav-link.active::before {
+          transform: scaleX(1);
         }
         .nav-welcome {
           color: var(--text-secondary);
@@ -219,36 +249,52 @@ const Header = () => {
           font-family: inherit;
           padding: 8px 18px;
           border-radius: 20px;
-          transition: all 0.25s ease;
+          transition: all 0.3s var(--ease-premium);
           white-space: nowrap;
           flex-shrink: 0;
+          position: relative;
+          overflow: hidden;
         }
         .nav-btn-logout:hover {
           border-color: var(--danger);
           color: var(--danger);
           background: rgba(226, 55, 68, 0.04);
+          transform: translateY(-1px);
         }
         .nav-btn-signup {
-          background: var(--brand-red);
+          background: linear-gradient(135deg, var(--brand-red), #ff6b7a);
           color: #fff;
           padding: 9px 20px;
           border-radius: 20px;
           font-weight: 600;
           font-size: 0.9rem;
           text-decoration: none;
-          transition: all 0.25s ease;
+          transition: all 0.35s var(--ease-premium);
           box-shadow: 0 2px 8px rgba(247, 55, 79, 0.25);
           white-space: nowrap;
           flex-shrink: 0;
+          position: relative;
+          overflow: hidden;
+        }
+        .nav-btn-signup::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+          transform: translateX(-100%);
+          transition: transform 0.6s ease;
+        }
+        .nav-btn-signup:hover::after {
+          transform: translateX(100%);
         }
         .nav-btn-signup:hover {
-          background: var(--brand-red-hover);
+          background: linear-gradient(135deg, var(--brand-red-hover), #e55a6a);
           color: #fff;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 15px rgba(247, 55, 79, 0.35);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(247, 55, 79, 0.4);
         }
         .cart-badge {
-          background: var(--brand-red);
+          background: linear-gradient(135deg, var(--brand-red), #ff6b7a);
           color: #fff;
           border-radius: 10px;
           padding: 1px 7px;
@@ -256,11 +302,11 @@ const Header = () => {
           font-weight: 700;
           min-width: 18px;
           text-align: center;
-          animation: bounceIn 0.4s ease-out;
+          animation: badgePop 0.35s var(--ease-spring) both;
         }
-        @keyframes bounceIn {
+        @keyframes badgePop {
           0% { transform: scale(0); }
-          50% { transform: scale(1.2); }
+          70% { transform: scale(1.15); }
           100% { transform: scale(1); }
         }
         .hamburger {
@@ -282,37 +328,40 @@ const Header = () => {
           background: var(--text-primary);
           margin: 5px 0;
           border-radius: 2px;
-          transition: all 0.3s ease;
+          transition: all 0.35s var(--ease-premium);
         }
         .hamburger.open span:nth-child(1) {
           transform: rotate(45deg) translate(5px, 5px);
+          width: 20px;
         }
         .hamburger.open span:nth-child(2) {
           opacity: 0;
+          transform: translateX(-10px);
         }
         .hamburger.open span:nth-child(3) {
           transform: rotate(-45deg) translate(5px, -5px);
+          width: 20px;
         }
         .mobile-menu {
           position: fixed;
           top: 0;
           right: 0;
           bottom: 0;
-          width: 310px;
+          width: 320px;
           max-width: 85%;
           height: 100vh;
-          background: rgba(255, 255, 255, 0.98);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          box-shadow: -10px 0 30px rgba(0, 0, 0, 0.15);
+          background: rgba(255, 255, 255, 0.97);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          box-shadow: -10px 0 40px rgba(0, 0, 0, 0.12);
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 6px;
           padding: 24px 20px;
           z-index: 1000;
           transform: translateX(100%);
-          transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-          border-left: 1px solid var(--border-light);
+          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+          border-left: 1px solid rgba(0, 0, 0, 0.06);
         }
         .mobile-menu.open {
           transform: translateX(0);
@@ -322,13 +371,18 @@ const Header = () => {
           font-size: 1rem;
           white-space: normal;
           overflow: visible;
+          border-radius: var(--radius-sm);
+        }
+        .mobile-menu .nav-link:hover {
+          background: rgba(247, 55, 79, 0.05);
+          transform: translateX(4px);
         }
         .sidebar-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.4);
-          backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
+          background: rgba(0, 0, 0, 0.3);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
           z-index: 999;
           animation: fadeIn 0.35s ease-out;
           border: 0;
@@ -364,7 +418,8 @@ const Header = () => {
         }
       `}</style>
 
-      <header className={`header ${scrolled ? 'scrolled' : ''}`}>
+      <header className={`header ${scrolled ? 'scrolled' : ''}`} ref={headerRef}>
+        <div className="scroll-progress" style={{ width: `${scrollProgress}%` }} />
         <div className="header-inner">
           <Link to={getHomeLink()} onClick={closeMenus} className="logo-link">
             <div className="logo-icon"><Flame size={18} color="#fff" /></div>
@@ -420,6 +475,9 @@ const Header = () => {
                     {cart?.itemCount > 0 && <span className="cart-badge">{cart.itemCount}</span>}
                   </Link>
                 )}
+                <button type="button" onClick={() => setShowMailbox(true)} className="nav-link" style={{background:'none',border:'none',cursor:'pointer',fontSize:'0.9rem',color:'inherit',display:'flex',alignItems:'center',gap:'6px',padding:'8px 12px'}}>
+                  <Mail size={16} /> Mailbox
+                </button>
                 <button type="button" onClick={handleLogout} className="nav-btn-logout">Logout</button>
               </>
             ) : (
@@ -469,11 +527,11 @@ const Header = () => {
 
         {(!user || user.role === 'customer') && (
           <>
-            <Link to="/" onClick={closeMobileMenu} className={`nav-link ${isActive('/') || isActive('/home') ? 'active' : ''}`}><Home size={16} /> Home</Link>
-            <Link to="/track-order" onClick={closeMobileMenu} className={`nav-link ${isActive('/track-order') ? 'active' : ''}`}><MapPin size={16} /> Track Order</Link>
+            <Link to="/" onClick={closeMobileMenu} className={`nav-link mobile-nav-item ${isActive('/') || isActive('/home') ? 'active' : ''}`}><Home size={16} /> Home</Link>
+            <Link to="/track-order" onClick={closeMobileMenu} className={`nav-link mobile-nav-item ${isActive('/track-order') ? 'active' : ''}`}><MapPin size={16} /> Track Order</Link>
           </>
         )}
-        <Link to="/careers" onClick={closeMobileMenu} className={`nav-link ${isActive('/careers') ? 'active' : ''}`}><Briefcase size={16} /> Careers</Link>
+        <Link to="/careers" onClick={closeMobileMenu} className={`nav-link mobile-nav-item ${isActive('/careers') ? 'active' : ''}`}><Briefcase size={16} /> Careers</Link>
         
         {/* Dynamic authorized mobile portal links */}
         {user && (user.role === 'delivery_partner' || user.role === 'restaurant_admin' || user.role === 'super_admin') && (
@@ -482,22 +540,22 @@ const Header = () => {
               My Portal
             </div>
             {user.role === 'delivery_partner' && (
-              <Link to="/delivery" onClick={closeMobileMenu} className="nav-link" style={{ paddingLeft: '24px' }}>
+              <Link to="/delivery" onClick={closeMobileMenu} className="nav-link mobile-nav-item" style={{ paddingLeft: '24px' }}>
                 <Bike size={16} /> Delivery Portal
               </Link>
             )}
             {user.role === 'restaurant_admin' && (
-              <Link to="/restaurant-admin" onClick={closeMobileMenu} className="nav-link" style={{ paddingLeft: '24px' }}>
+              <Link to="/restaurant-admin" onClick={closeMobileMenu} className="nav-link mobile-nav-item" style={{ paddingLeft: '24px' }}>
                 <Store size={16} /> Restaurant Portal
               </Link>
             )}
             {user.role === 'super_admin' && (
-              <Link to="/admin" onClick={closeMobileMenu} className="nav-link" style={{ paddingLeft: '24px' }}>
+              <Link to="/admin" onClick={closeMobileMenu} className="nav-link mobile-nav-item" style={{ paddingLeft: '24px' }}>
                 <Shield size={16} /> Admin Panel
               </Link>
             )}
             {user.role === 'super_admin' && (
-              <Link to="/vrp" onClick={closeMobileMenu} className="nav-link" style={{ paddingLeft: '24px' }}>
+              <Link to="/vrp" onClick={closeMobileMenu} className="nav-link mobile-nav-item" style={{ paddingLeft: '24px' }}>
                 <Compass size={16} /> VRP Dispatch
               </Link>
             )}
@@ -507,25 +565,50 @@ const Header = () => {
 
         {user ? (
           <>
-            <Link to="/profile" onClick={closeMobileMenu} className={`nav-link ${isActive('/profile') ? 'active' : ''}`}>
+            <Link to="/profile" onClick={closeMobileMenu} className={`nav-link mobile-nav-item ${isActive('/profile') ? 'active' : ''}`}>
               <User size={16} /> Profile
             </Link>
             {(!user || user.role === 'customer') && (
-              <Link to="/cart" onClick={closeMobileMenu} className={`nav-link ${isActive('/cart') ? 'active' : ''}`}>
+              <Link to="/cart" onClick={closeMobileMenu} className={`nav-link mobile-nav-item ${isActive('/cart') ? 'active' : ''}`}>
                 <ShoppingCart size={16} /> Cart {cart?.itemCount > 0 && <span className="cart-badge">{cart.itemCount}</span>}
               </Link>
             )}
+            <button type="button" onClick={() => { setShowMailbox(true); closeMobileMenu(); }} className="nav-link mobile-nav-item" style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', color: 'inherit' }}>
+              <Mail size={16} /> Mailbox
+            </button>
             <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
               <button type="button" onClick={handleLogout} className="nav-btn-logout" style={{width:'100%'}}>Logout</button>
             </div>
           </>
         ) : (
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '20px' }}>
-            <Link to="/login" onClick={closeMobileMenu} className="nav-link" style={{ justifyContent: 'center', border: '1px solid var(--border-medium)' }}>Login</Link>
+            <Link to="/login" onClick={closeMobileMenu} className="nav-link mobile-nav-item" style={{ justifyContent: 'center', border: '1px solid var(--border-medium)' }}>Login</Link>
             <Link to="/register" onClick={closeMobileMenu} className="nav-btn-signup" style={{textAlign:'center'}}>Sign Up</Link>
           </div>
         )}
       </div>
+
+      <style>{`
+        .mobile-menu.open .mobile-nav-item {
+          animation: slideLeft 0.35s var(--ease-premium) both;
+        }
+        .mobile-menu.open .mobile-nav-item:nth-child(1) { animation-delay: 0.05s; }
+        .mobile-menu.open .mobile-nav-item:nth-child(2) { animation-delay: 0.1s; }
+        .mobile-menu.open .mobile-nav-item:nth-child(3) { animation-delay: 0.15s; }
+        .mobile-menu.open .mobile-nav-item:nth-child(4) { animation-delay: 0.2s; }
+        .mobile-menu.open .mobile-nav-item:nth-child(5) { animation-delay: 0.25s; }
+        .mobile-menu.open .mobile-nav-item:nth-child(6) { animation-delay: 0.3s; }
+        .mobile-menu.open .mobile-nav-item:nth-child(7) { animation-delay: 0.35s; }
+        .mobile-menu.open .mobile-nav-item:nth-child(8) { animation-delay: 0.4s; }
+        .mobile-menu.open .mobile-nav-item:nth-child(9) { animation-delay: 0.45s; }
+        .mobile-menu.open .mobile-nav-item:nth-child(10) { animation-delay: 0.5s; }
+
+        @keyframes slideLeft {
+          from { opacity: 0; transform: translateX(20px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
+      {showMailbox && <MailboxModal onClose={() => setShowMailbox(false)} />}
     </>
   );
 };

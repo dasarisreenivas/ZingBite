@@ -20,13 +20,25 @@ import com.app.zingbitemodels.OrderStatusConverter;
 import com.app.zingbitemodels.Payment;
 import com.app.zingbitemodels.AnalyticsEvent;
 
-public class DBUtils {
+	public class DBUtils {
 
 	private static SessionFactory sf;
 
 	static {
 		try {
+			String defaultPass = "Srinivas@192004";
+			String dbUser = System.getenv().getOrDefault("ZINGBITE_DB_USER", "root");
+			String dbPass = System.getenv().getOrDefault("ZINGBITE_DB_PASS", defaultPass);
+			String dbUrl = System.getenv().getOrDefault("ZINGBITE_DB_URL", "jdbc:mysql://localhost:3306/ZingBite");
+
+			if (!System.getenv().containsKey("ZINGBITE_DB_PASS")) {
+				System.out.println("[DBUtils] WARNING: ZINGBITE_DB_PASS env var not set. Using default (hardcoded) password. Set ZINGBITE_DB_PASS in your environment for production security.");
+			}
+
 			Configuration config = new Configuration().configure("hibernate.cfg.xml")
+									.setProperty("hibernate.connection.username", dbUser)
+									.setProperty("hibernate.connection.password", dbPass)
+									.setProperty("hibernate.connection.url", dbUrl)
 									.addAnnotatedClass(Menu.class)
 									.addAnnotatedClass(OrderHistory.class)
 									.addAnnotatedClass(Orders.class)
@@ -42,12 +54,11 @@ public class DBUtils {
 									.addAnnotatedClass(OrderStatusConverter.class)
 									.addAnnotatedClass(Payment.class)
 									.addAnnotatedClass(AnalyticsEvent.class);
-			sf =config.buildSessionFactory();
+			sf = config.buildSessionFactory();
 			System.out.println("session factory created successfully");
 
 		} catch (Exception e) {
 			e.printStackTrace();
-			//System.out.println("Session factory failed to create" + e);
 		}
 	}
 

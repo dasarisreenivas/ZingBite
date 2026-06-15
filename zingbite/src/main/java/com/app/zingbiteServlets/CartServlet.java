@@ -103,35 +103,39 @@ public class CartServlet extends HttpServlet {
         MenuDAO menuDAO = new MenuDAOImplementation();
         Menu menuItem = menuDAO.getMenuById(itemId);
 
-        if (menuItem != null) {
-            int newRestaurantId = menuItem.getRestaurant().getRestaurantId();
-            Integer currentRestaurantId = (Integer) session.getAttribute("restaurantId");
-
-            if (currentRestaurantId != null && currentRestaurantId != newRestaurantId) {
-                String json = String.format(
-                        "{\"restaurantConflict\":true,\"newItemId\":%d,\"newQuantity\":%d}",
-                        itemId, quantity
-                );
-                resp.getWriter().write(json);
-                return;
-            }
-
-            CartItem item = new CartItem(
-                    menuItem.getMenuId(),
-                    newRestaurantId,
-                    menuItem.getMenuName(),
-                    menuItem.getPrice(),
-                    quantity,
-                    0f
-            );
-            cart.addItemToCart(item);
-
-            session.setAttribute("restaurantId", newRestaurantId);
-            session.setAttribute("restaurantName",
-                    new RestaurantDAOImplementation().getRestaurantById(newRestaurantId).getRestaurantName());
-
-            sendCartTotals(resp, cart);
+        if (menuItem == null) {
+            sendError(resp, "Menu item not found");
+            return;
         }
+
+        int newRestaurantId = menuItem.getRestaurant().getRestaurantId();
+        Integer currentRestaurantId = (Integer) session.getAttribute("restaurantId");
+
+        if (currentRestaurantId != null && currentRestaurantId.intValue() != newRestaurantId) {
+            String json = String.format(
+                    "{\"restaurantConflict\":true,\"newItemId\":%d,\"newQuantity\":%d}",
+                    itemId, quantity
+            );
+            resp.getWriter().write(json);
+            return;
+        }
+
+        CartItem item = new CartItem(
+                menuItem.getMenuId(),
+                newRestaurantId,
+                menuItem.getMenuName(),
+                menuItem.getPrice(),
+                quantity,
+                0f
+        );
+        cart.addItemToCart(item);
+
+        session.setAttribute("cart", cart);
+        session.setAttribute("restaurantId", newRestaurantId);
+        session.setAttribute("restaurantName",
+                new RestaurantDAOImplementation().getRestaurantById(newRestaurantId).getRestaurantName());
+
+        sendCartTotals(resp, cart);
     }
 
     private void updateQuantity(JsonObject requestBody, Cart cart) {
@@ -160,15 +164,17 @@ public class CartServlet extends HttpServlet {
         double subtotal = 0;
         double shipping = 50.0;
         double tax = 50.0;
+        int totalQuantity = 0;
 
         for (CartItem ci : cart.getItems().values()) {
             subtotal += ci.getPrice() * ci.getQuantity();
+            totalQuantity += ci.getQuantity();
         }
 
         double total = (subtotal >= 1000 || subtotal == 0) ? subtotal + tax : subtotal + shipping + tax;
         if(subtotal == 0) total = 0;
 
-        responseJson.addProperty("itemCount", cart.getItems().size());
+        responseJson.addProperty("itemCount", totalQuantity);
         responseJson.addProperty("subtotal", subtotal);
         responseJson.addProperty("shipping", (subtotal >= 1000 || subtotal == 0 ? 0 : shipping));
         responseJson.addProperty("tax", tax);

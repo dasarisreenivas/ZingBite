@@ -6,6 +6,8 @@ import java.io.BufferedReader;
 import com.app.zingbitedao.UserDAO;
 import com.app.zingbitedaoimpl.UserDAOImplementation;
 import com.app.zingbiteutils.PasswordUtils;
+import com.app.zingbiteutils.SanitizationUtils;
+import com.app.zingbiteutils.CsrfUtils;
 import com.app.zingbitemodels.User;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -16,6 +18,7 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 @WebServlet("/api/register")
 public class RegisterServlet extends HttpServlet {
@@ -33,15 +36,15 @@ public class RegisterServlet extends HttpServlet {
             BufferedReader reader = req.getReader();
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
             
-            String userName = requestBody.has("username") ? requestBody.get("username").getAsString() : null;
-            String email = requestBody.has("email") ? requestBody.get("email").getAsString() : null;
-            String mobile = requestBody.has("mobile") ? requestBody.get("mobile").getAsString() : null;
+            String userName = requestBody.has("username") ? SanitizationUtils.escapeHtml(requestBody.get("username").getAsString()) : null;
+            String email = requestBody.has("email") ? requestBody.get("email").getAsString().trim().toLowerCase() : null;
+            String mobile = requestBody.has("mobile") ? requestBody.get("mobile").getAsString().trim() : null;
             String password = requestBody.has("password") ? requestBody.get("password").getAsString() : null;
             String confirmPassword = requestBody.has("confirmPassword") ? requestBody.get("confirmPassword").getAsString() : null;
-            String address = requestBody.has("address") ? requestBody.get("address").getAsString() : null;
+            String address = requestBody.has("address") ? SanitizationUtils.escapeHtml(requestBody.get("address").getAsString()) : null;
             Double latitude = requestBody.has("latitude") && !requestBody.get("latitude").isJsonNull() ? requestBody.get("latitude").getAsDouble() : null;
             Double longitude = requestBody.has("longitude") && !requestBody.get("longitude").isJsonNull() ? requestBody.get("longitude").getAsDouble() : null;
-            String city = requestBody.has("city") && !requestBody.get("city").isJsonNull() ? requestBody.get("city").getAsString() : null;
+            String city = requestBody.has("city") && !requestBody.get("city").isJsonNull() ? SanitizationUtils.escapeHtml(requestBody.get("city").getAsString()) : null;
 
             if (email == null || password == null || userName == null || mobile == null || address == null) {
                 jsonResponse.addProperty("error", "All fields are required");
@@ -93,6 +96,10 @@ public class RegisterServlet extends HttpServlet {
                         "Welcome to ZingBite!",
                         com.app.zingbiteutils.EmailTemplates.welcome(registeredUser.getUserName())
                     );
+                    HttpSession session = req.getSession();
+                    session.setAttribute("loggedInUser", registeredUser);
+                    String csrfToken = CsrfUtils.generateToken(session);
+                    jsonResponse.addProperty("csrfToken", csrfToken);
                 }
                 jsonResponse.addProperty("success", true);
             } else {

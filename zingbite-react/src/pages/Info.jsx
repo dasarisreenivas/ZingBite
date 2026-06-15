@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
@@ -109,14 +109,21 @@ const InfoPage = () => {
     );
   };
 
+  const destroyMap = useCallback(() => {
+    if (mapInstanceRef.current) {
+      try {
+        mapInstanceRef.current.remove();
+      } catch (e) {
+        // ignore errors from removing already-detached map
+      }
+      mapInstanceRef.current = null;
+      markerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     const showMap = activeSection === 'partner-with-us' || activeSection === 'ride-with-us';
     if (!leafletLoaded || !mapRef.current || !showMap || !user) {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-        markerRef.current = null;
-      }
       return;
     }
 
@@ -158,17 +165,12 @@ const InfoPage = () => {
 
     reverseGeocode(defaultLat, defaultLng);
 
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-        markerRef.current = null;
-      }
-    };
-  }, [leafletLoaded, activeSection, user]);
+    return destroyMap;
+  }, [leafletLoaded, activeSection, user, destroyMap]);
   
   // Job apply state
   const [appliedJob, setAppliedJob] = useState(null);
+  const [applyingJob, setApplyingJob] = useState(false);
   
   // Accordion FAQs state
   const [openFaq, setOpenFaq] = useState(null);
@@ -195,13 +197,23 @@ const InfoPage = () => {
     { id: 'refunds', name: 'Refund Policy', icon: RefreshCw, group: 'Legal' },
   ];
 
-  const handleContactSubmit = (e) => {
+  const handleContactSubmit = async (e) => {
     e.preventDefault();
-    setContactSubmitted(true);
-    setTimeout(() => {
-      setContactForm({ name: '', email: '', subject: '', message: '' });
-      setContactSubmitted(false);
-    }, 4000);
+    try {
+      await axios.post('/api/contact', {
+        name: contactForm.name,
+        email: contactForm.email,
+        subject: contactForm.subject,
+        message: contactForm.message
+      });
+      setContactSubmitted(true);
+      setTimeout(() => {
+        setContactForm({ name: '', email: '', subject: '', message: '' });
+        setContactSubmitted(false);
+      }, 4000);
+    } catch (err) {
+      showAlert(err.response?.data?.error || 'Failed to send message.', 'error');
+    }
   };
 
   const handlePartnerSubmit = async (e) => {
@@ -336,34 +348,35 @@ const InfoPage = () => {
             <p className="section-desc">We are always looking for passionate, driven, and creative individuals to join our team and build the future of food tech.</p>
 
             <div className="jobs-list">
-              {[
-                { id: 1, title: 'Senior Frontend Engineer (React)', dept: 'Engineering', loc: 'Remote / Bangalore', salary: '₹18L - ₹24L' },
-                { id: 2, title: 'Product Designer (UX/UI)', dept: 'Design', loc: 'Hybrid (Delhi/NCR)', salary: '₹12L - ₹16L' },
-                { id: 3, title: 'Logistics Operations Lead', dept: 'Operations', loc: 'On-site (Mumbai)', salary: '₹8L - ₹11L' },
-                { id: 4, title: 'Customer Support Executive', dept: 'Customer Care', loc: 'Remote', salary: '₹4L - ₹6L' }
-              ].map(job => (
-                <div key={job.id} className="job-card">
-                  <div className="job-main">
-                    <h4>{job.title}</h4>
-                    <div className="job-meta">
-                      <span>{job.dept}</span>
-                      <span className="dot" />
-                      <span>{job.loc}</span>
-                      <span className="dot" />
-                      <span>{job.salary}</span>
+                  {[
+                    { id: 1, title: 'Senior Frontend Engineer (React)', dept: 'Engineering', loc: 'Remote / Bangalore', salary: '₹18L - ₹24L' },
+                    { id: 2, title: 'Product Designer (UX/UI)', dept: 'Design', loc: 'Hybrid (Delhi/NCR)', salary: '₹12L - ₹16L' },
+                    { id: 3, title: 'Logistics Operations Lead', dept: 'Operations', loc: 'On-site (Mumbai)', salary: '₹8L - ₹11L' },
+                    { id: 4, title: 'Customer Support Executive', dept: 'Customer Care', loc: 'Remote', salary: '₹4L - ₹6L' }
+                  ].map(job => (
+                    <div key={job.id} className="job-card">
+                      <div className="job-main">
+                        <h4>{job.title}</h4>
+                        <div className="job-meta">
+                          <span>{job.dept}</span>
+                          <span className="dot" />
+                          <span>{job.loc}</span>
+                          <span className="dot" />
+                          <span>{job.salary}</span>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setAppliedJob(job.title);
+                          showAlert("Please visit our Career Portal to apply for this position.", "info");
+                          setTimeout(() => setAppliedJob(null), 3000);
+                        }} 
+                        className="job-apply-btn"
+                      >
+                        {appliedJob === job.title ? 'Visit Career Portal' : 'Apply Now'}
+                      </button>
                     </div>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      setAppliedJob(job.title);
-                      setTimeout(() => setAppliedJob(null), 3000);
-                    }} 
-                    className="job-apply-btn"
-                  >
-                    {appliedJob === job.title ? 'Applied Successfully!' : 'Apply Now'}
-                  </button>
-                </div>
-              ))}
+                  ))}
             </div>
 
             {appliedJob && (
@@ -809,7 +822,8 @@ const InfoPage = () => {
                       <select 
                         value={riderForm.vehicle}
                         onChange={e => setRiderForm({...riderForm, vehicle: e.target.value})}
-                        style={{ width: '100%', padding: '12px', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-sm)' }}
+                        className="premium-select"
+                        style={{ width: '100%' }}
                       >
                         <option value="bike">Bicycle / Electric Cycle</option>
                         <option value="motorcycle">Motorcycle / Scooter</option>
@@ -1011,15 +1025,33 @@ const InfoPage = () => {
         }
         .info-mobile-select {
           width: 100%;
-          padding: 14px;
+          padding: 14px 40px 14px 16px;
           font-family: inherit;
           font-size: 1rem;
-          border: 1px solid rgba(247,55,79,0.12);
+          border: 1.5px solid rgba(247,55,79,0.12);
           border-radius: var(--radius-sm);
           background: #fff;
           color: var(--text-primary);
           outline: none;
           font-weight: 600;
+          cursor: pointer;
+          transition: all 0.25s var(--ease-premium);
+          appearance: none;
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239e9e9e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 14px center;
+          background-size: 16px;
+        }
+        .info-mobile-select:hover {
+          border-color: var(--brand-red);
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23F7374F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        }
+        .info-mobile-select:focus {
+          border-color: var(--brand-red);
+          box-shadow: 0 0 0 3px rgba(247,55,79,0.1);
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23F7374F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
         }
 
         .info-main-content {
@@ -1458,6 +1490,57 @@ const InfoPage = () => {
           }
         }
         
+        .premium-btn-shimmer {
+          background: linear-gradient(135deg, var(--brand-red), #ff6b8b, var(--brand-red));
+          background-size: 200% 100%;
+          animation: shimmerSweep 2s ease-in-out infinite;
+        }
+        @keyframes shimmerSweep {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .job-card, .grid-card, .team-card, .stat-box {
+          transition: all 0.3s var(--ease-premium);
+        }
+        .job-card:hover, .grid-card:hover, .team-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 12px 28px rgba(28,28,28,0.08);
+          border-color: rgba(247,55,79,0.2);
+        }
+        .info-content-pane {
+          position: relative;
+          overflow: hidden;
+        }
+        .info-content-pane::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, var(--brand-red), #ff6b8b, var(--brand-red));
+          opacity: 0.6;
+        }
+        .job-apply-btn, .form-submit-btn {
+          position: relative;
+          overflow: hidden;
+        }
+        .job-apply-btn:hover, .form-submit-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(247,55,79,0.25);
+        }
+        .section-hero {
+          position: relative;
+          overflow: hidden;
+          background: linear-gradient(135deg, rgba(247,55,79,0.03), rgba(247,55,79,0.08));
+        }
+        .faq-item {
+          transition: all 0.3s var(--ease-premium);
+        }
+        .faq-item:hover {
+          border-color: rgba(247,55,79,0.2);
+          box-shadow: 0 4px 12px rgba(28,28,28,0.04);
+        }
         @media (max-width: 768px) {
           .contact-split {
             grid-template-columns: 1fr;
@@ -1483,7 +1566,7 @@ const InfoPage = () => {
         }
       `}</style>
 
-      <div className="info-page-layout fade-in">
+      <div className="info-page-layout fade-in page-enter">
         {/* Desktop Sidebar Navigation */}
         <aside className="info-sidebar">
           {['Company', 'Support', 'Legal'].map((group) => (

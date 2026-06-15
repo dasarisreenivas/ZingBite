@@ -6,6 +6,23 @@ import axios from 'axios';
 axios.defaults.withCredentials = true; // Send cookies
 axios.defaults.baseURL = typeof window !== 'undefined' ? window.location.origin + '/zingbite' : '/zingbite';
 
+// CSRF token management
+let csrfToken = null;
+
+export const setCsrfToken = (token) => {
+  csrfToken = token;
+};
+
+export const getCsrfToken = () => csrfToken;
+
+// Axios interceptor to attach CSRF token to state-changing requests
+axios.interceptors.request.use((config) => {
+  if (csrfToken && ['post', 'put', 'delete'].includes(config.method?.toLowerCase())) {
+    config.headers['X-CSRF-Token'] = csrfToken;
+  }
+  return config;
+});
+
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -18,6 +35,9 @@ export const AuthProvider = ({ children }) => {
         const response = await axios.get('/api/login');
         if (response.data.loggedIn) {
           setUser(response.data.user);
+          if (response.data.csrfToken) {
+            setCsrfToken(response.data.csrfToken);
+          }
         }
       } catch (error) {
         console.error("Auth check failed", error);
@@ -33,6 +53,9 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post('/api/login', { email, password });
       if (response.data.success) {
         setUser(response.data.user);
+        if (response.data.csrfToken) {
+          setCsrfToken(response.data.csrfToken);
+        }
         return { success: true, user: response.data.user };
       }
       return { success: false, error: response.data.error };
@@ -51,6 +74,7 @@ export const AuthProvider = ({ children }) => {
       console.error("Failed to call logout API:", err);
     }
     setUser(null);
+    csrfToken = null;
   };
 
   const updateUser = (updatedUser) => {

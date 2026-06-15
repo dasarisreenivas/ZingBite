@@ -8,6 +8,7 @@ export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState({ items: [], total: 0, subtotal: 0, itemCount: 0, shipping: 0, tax: 0 });
   const [loading, setLoading] = useState(true);
   const [conflictPopup, setConflictPopup] = useState(null);
+  const [cartError, setCartError] = useState(null);
 
   const [coupon, setCoupon] = useState(null);
 
@@ -95,10 +96,14 @@ export const CartProvider = ({ children }) => {
         return false;
       }
       setCart(res.data);
+      setCartError(null);
       trackEvent('ADD_TO_CART', { itemId, quantity });
       return true;
     } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to add item to cart';
+      setCartError(msg);
       console.error(err);
+      setTimeout(() => setCartError(null), 4000);
       return false;
     }
   };
@@ -114,11 +119,15 @@ export const CartProvider = ({ children }) => {
     try {
       const res = await axios.post('/api/cart', { action: 'updateQuantity', itemId, quantity });
       setCart(res.data);
+      setCartError(null);
       if (isAdd) {
         trackEvent('ADD_TO_CART', { itemId, quantity: quantity - currentQty });
       }
     } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to update cart';
+      setCartError(msg);
       console.error(err);
+      setTimeout(() => setCartError(null), 4000);
     }
   };
 
@@ -155,7 +164,8 @@ export const CartProvider = ({ children }) => {
     <CartContext.Provider value={{ 
       cart: getDiscountedCart(), loading, addToCart, updateQuantity, removeFromCart, 
       conflictPopup, setConflictPopup, clearAndAdd, clearCart,
-      coupon, applyCoupon, removeCoupon
+      coupon, applyCoupon, removeCoupon,
+      cartError, setCartError
     }}>
       {children}
     </CartContext.Provider>

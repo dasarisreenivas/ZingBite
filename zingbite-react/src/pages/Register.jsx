@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { AlertTriangle, Loader, ChevronDown, MapPin } from 'lucide-react';
+import { AlertTriangle, Loader, ChevronDown, MapPin, Flame, Mail, Lock, User, Phone } from 'lucide-react';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -12,6 +12,10 @@ const Register = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
+  const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
   const [focusedField, setFocusedField] = useState(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const navigate = useNavigate();
@@ -53,6 +57,29 @@ const Register = () => {
       }
     );
   };
+
+  useEffect(() => {
+    if (window.L) { setLeafletLoaded(true); return; }
+    let link = document.querySelector('link[href*="leaflet.css"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+    let script = document.querySelector('script[src*="leaflet.js"]');
+    if (!script) {
+      script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.async = true;
+      script.onload = () => {
+        const interval = setInterval(() => {
+          if (window.L) { setLeafletLoaded(true); clearInterval(interval); }
+        }, 50);
+      };
+      document.body.appendChild(script);
+    }
+  }, []);
 
   const countryPhoneLengths = {
     '91': { label: '+91 (IN)', length: 10 },
@@ -103,6 +130,52 @@ const Register = () => {
     }
   };
 
+  useEffect(() => {
+    if (!leafletLoaded || !mapRef.current || !formData.latitude) return;
+    const L = window.L;
+    if (!L) return;
+    if (mapInstanceRef.current) return;
+    const lat = formData.latitude || 12.9716;
+    const lng = formData.longitude || 77.5946;
+    const map = L.map(mapRef.current).setView([lat, lng], 14);
+    mapInstanceRef.current = map;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    const customIcon = L.divIcon({
+      html: '<div style="font-size:24px;text-align:center;line-height:24px;">📍</div>',
+      className: 'custom-register-marker', iconSize: [24, 24], iconAnchor: [12, 12]
+    });
+    const marker = L.marker([lat, lng], { icon: customIcon, draggable: true }).addTo(map);
+    markerRef.current = marker;
+    const reverseGeocodeRegister = async (lat, lng) => {
+      try {
+        const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
+        const data = await resp.json();
+        if (data) {
+          const addr = data.display_name || '';
+          const cityName = data.address?.city || data.address?.town || data.address?.village || data.address?.suburb || '';
+          setFormData(prev => ({ ...prev, address: addr, latitude: lat, longitude: lng, city: cityName }));
+        }
+      } catch (e) { console.error("Reverse geocode error:", e); }
+    };
+    marker.on('dragend', () => {
+      const ll = marker.getLatLng();
+      reverseGeocodeRegister(ll.lat, ll.lng);
+    });
+    map.on('click', (e) => {
+      marker.setLatLng(e.latlng);
+      reverseGeocodeRegister(e.latlng.lat, e.latlng.lng);
+    });
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, [leafletLoaded]);
+
   return (
     <>
       <style>{`
@@ -131,7 +204,7 @@ const Register = () => {
         .register-hero-overlay {
           position: absolute;
           inset: 0;
-          background: linear-gradient(135deg, rgba(247,55,79,0.24) 0%, rgba(0,0,0,0.62) 100%);
+          background: linear-gradient(135deg, rgba(247,55,79,0.35) 0%, rgba(0,0,0,0.7) 100%);
           display: flex;
           flex-direction: column;
           justify-content: center;
@@ -139,49 +212,101 @@ const Register = () => {
           text-align: center;
           padding: 40px;
         }
+        .register-hero-overlay::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(ellipse at 50% 80%, rgba(247,55,79,0.15) 0%, transparent 60%);
+        }
         .register-hero-overlay h2 {
           font-family: 'Outfit', sans-serif;
-          font-size: 3rem;
+          font-size: 3.2rem;
           font-weight: 800;
           color: #fff;
-          margin-bottom: 16px;
+          margin-bottom: 12px;
           line-height: 1.1;
+          position: relative;
         }
         .register-hero-overlay p {
           color: rgba(255,255,255,0.85);
           font-size: 1.1rem;
           max-width: 400px;
+          position: relative;
+        }
+        .hero-flame {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 24px;
+          padding: 8px 20px;
+          border-radius: 30px;
+          background: rgba(255,255,255,0.1);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255,255,255,0.15);
+          color: #fff;
+          font-size: 0.85rem;
+          font-weight: 600;
+          position: relative;
         }
         .register-form-section {
           flex: 1;
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: center;
-          padding: 40px 20px;
+          padding: 32px 20px;
           background: linear-gradient(180deg, rgba(247,55,79,0.035) 0%, #fff 42%);
+          position: relative;
+          overflow-y: auto;
+        }
+        .register-form-section::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, transparent, var(--brand-red), transparent);
         }
         .register-form-container {
           width: 100%;
-          max-width: 400px;
+          max-width: 420px;
           background: rgba(255,255,255,0.96);
           border: 1px solid rgba(247,55,79,0.1);
-          border-radius: var(--radius-lg);
-          padding: 28px;
+          border-radius: 20px;
+          padding: 32px;
           box-shadow: 0 18px 50px rgba(28,28,28,0.08);
           animation: fadeInScale 0.5s ease-out both;
+          position: relative;
+          backdrop-filter: blur(12px);
+        }
+        .register-form-container::before {
+          content: '';
+          position: absolute;
+          top: -1px;
+          left: -1px;
+          right: -1px;
+          height: 4px;
+          background: linear-gradient(90deg, var(--brand-red), #ff6b81, var(--brand-red));
+          border-radius: 20px 20px 0 0;
         }
         @keyframes fadeInScale {
           from { opacity: 0; transform: scale(0.96) translateY(12px); }
           to { opacity: 1; transform: scale(1) translateY(0); }
         }
+        .register-form-container .brand-icon {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
         .register-form-container h2 {
-          font-size: 2rem;
-          margin-bottom: 6px;
+          font-size: 1.8rem;
+          margin: 0 0 4px;
           color: var(--text-primary);
         }
         .register-form-container .subtitle {
           color: var(--text-secondary);
-          margin-bottom: 32px;
+          margin-bottom: 24px;
           font-size: 0.95rem;
         }
         .register-form-container .subtitle a {
@@ -191,61 +316,80 @@ const Register = () => {
         }
         .form-field {
           position: relative;
-          margin-bottom: 18px;
+          margin-bottom: 16px;
         }
         .form-field label {
           position: absolute;
-          left: 16px;
+          left: 44px;
           top: 50%;
           transform: translateY(-50%);
           color: var(--text-muted);
-          font-size: 1rem;
+          font-size: 0.95rem;
           pointer-events: none;
-          transition: all 0.25s ease;
+          transition: all 0.25s var(--ease-premium);
           background: #fff;
           padding: 0 4px;
         }
         .form-field.focused label,
         .form-field.filled label {
           top: 0;
-          font-size: 0.78rem;
+          left: 16px;
+          font-size: 0.72rem;
           color: var(--brand-red);
-          font-weight: 500;
+          font-weight: 600;
+        }
+        .form-field .field-icon {
+          position: absolute;
+          left: 14px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--text-muted);
+          transition: color 0.25s var(--ease-premium);
+          pointer-events: none;
+          z-index: 1;
+        }
+        .form-field.focused .field-icon {
+          color: var(--brand-red);
         }
         .form-field input,
         .form-field textarea {
           width: 100%;
-          padding: 16px;
-          border: 2px solid var(--border-medium);
-          border-radius: var(--radius-sm);
-          font-size: 1rem;
+          padding: 14px 14px 14px 44px;
+          border: 1.5px solid var(--border-medium);
+          border-radius: 12px;
+          font-size: 0.95rem;
           font-family: inherit;
           outline: none;
-          transition: all 0.3s ease;
+          transition: all 0.25s var(--ease-premium);
           background: #fff;
           resize: vertical;
         }
         .form-field.focused input,
         .form-field.focused textarea {
           border-color: var(--brand-red);
-          box-shadow: 0 0 0 3px rgba(247, 55, 79, 0.08);
+          box-shadow: 0 0 0 4px rgba(247, 55, 79, 0.08);
         }
         .form-field textarea {
-          min-height: 80px;
+          min-height: 70px;
         }
         .form-field.textarea-field label {
-          top: 16px;
+          top: 14px;
           transform: none;
+          left: 44px;
         }
         .form-field.textarea-field.focused label,
         .form-field.textarea-field.filled label {
           top: -8px;
+          left: 16px;
+        }
+        .form-field.textarea-field .field-icon {
+          top: 14px;
           transform: none;
         }
         .phone-input-group {
           display: flex;
           gap: 10px;
-          margin-bottom: 18px;
+          margin-bottom: 16px;
         }
         .phone-prefix-select-wrapper {
           position: relative;
@@ -255,21 +399,24 @@ const Register = () => {
         .phone-prefix-select {
           width: 100%;
           height: 100%;
-          padding: 16px 28px 16px 16px;
-          border: 2px solid var(--border-medium);
-          border-radius: var(--radius-sm);
-          font-size: 0.95rem;
+          padding: 14px 28px 14px 14px;
+          border: 1.5px solid var(--border-medium);
+          border-radius: 12px;
+          font-size: 0.9rem;
           font-family: inherit;
           outline: none;
           background: #fff;
           cursor: pointer;
-          transition: all 0.3s ease;
+          transition: all 0.25s var(--ease-premium);
           appearance: none;
           font-weight: 500;
         }
+        .phone-prefix-select:hover {
+          border-color: var(--brand-red);
+        }
         .phone-input-group.focused .phone-prefix-select {
           border-color: var(--brand-red);
-          box-shadow: 0 0 0 3px rgba(247, 55, 79, 0.08);
+          box-shadow: 0 0 0 4px rgba(247, 55, 79, 0.08);
         }
         .select-chevron {
           position: absolute;
@@ -287,8 +434,8 @@ const Register = () => {
           display: flex;
           align-items: flex-start;
           gap: 10px;
-          margin-bottom: 20px;
-          margin-top: 12px;
+          margin-bottom: 16px;
+          margin-top: 8px;
           user-select: none;
         }
         .terms-checkbox-field input[type="checkbox"] {
@@ -300,7 +447,7 @@ const Register = () => {
           flex-shrink: 0;
         }
         .terms-checkbox-field label {
-          font-size: 0.9rem;
+          font-size: 0.85rem;
           color: var(--text-secondary);
           cursor: pointer;
           line-height: 1.4;
@@ -318,8 +465,8 @@ const Register = () => {
           border: 1px solid rgba(226, 55, 68, 0.2);
           color: var(--danger);
           padding: 12px 16px;
-          border-radius: var(--radius-sm);
-          margin-bottom: 18px;
+          border-radius: 10px;
+          margin-bottom: 16px;
           font-size: 0.9rem;
           animation: shake 0.4s ease-in-out;
           display: flex;
@@ -333,24 +480,22 @@ const Register = () => {
         }
         .register-submit {
           width: 100%;
-          padding: 16px;
-          background: var(--brand-red);
+          padding: 14px;
+          background: linear-gradient(135deg, var(--brand-red), #d42d42);
           color: #fff;
           border: none;
-          border-radius: var(--radius-sm);
+          border-radius: 12px;
           font-size: 1rem;
           font-weight: 700;
           font-family: inherit;
           cursor: pointer;
-          margin-top: 8px;
-          transition: all 0.3s ease;
+          transition: all 0.3s var(--ease-premium);
           position: relative;
           overflow: hidden;
         }
         .register-submit:hover:not(:disabled) {
-          background: var(--brand-red-hover);
-          transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(247, 55, 79, 0.3);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 28px rgba(247, 55, 79, 0.35);
         }
         .register-submit:disabled {
           opacity: 0.7;
@@ -367,6 +512,27 @@ const Register = () => {
           transform: translateX(100%);
           transition: transform 0.6s ease;
         }
+        .locate-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: rgba(247,55,79,0.04);
+          border: 1.5px solid var(--border-medium);
+          color: var(--text-secondary);
+          padding: 8px 14px;
+          border-radius: 10px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          margin-bottom: 16px;
+          margin-top: -6px;
+          transition: all 0.25s var(--ease-premium);
+        }
+        .locate-btn:hover {
+          border-color: var(--brand-red);
+          color: var(--brand-red);
+          background: rgba(247,55,79,0.06);
+        }
         @media (max-width: 768px) {
           .register-form-section {
             padding: 24px 16px;
@@ -378,17 +544,24 @@ const Register = () => {
         }
       `}</style>
 
-      <div className="register-page">
+      <div className="register-page page-enter">
         <div className="register-hero">
-          <img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1974&auto=format&fit=crop" alt="Food" />
+          <img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1974&auto=format&fit=crop" alt="Food" loading="lazy" />
           <div className="register-hero-overlay">
             <h2>Join<br/>ZingBite!</h2>
             <p>Create an account and start ordering from hundreds of restaurants</p>
+            <div className="hero-flame">
+              <Flame size={16} color="#F7374F" /> Free delivery on your first 5 orders
+            </div>
           </div>
         </div>
 
         <div className="register-form-section">
           <div className="register-form-container">
+            <div className="brand-icon">
+              <Flame size={22} color="#F7374F" fill="#F7374F" />
+              <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>ZingBite</span>
+            </div>
             <h2>Sign Up</h2>
             <p className="subtitle">
               or <Link to="/login">login to your account</Link>
@@ -398,6 +571,7 @@ const Register = () => {
 
             <form onSubmit={handleSubmit}>
               <div className={`form-field ${focusedField === 'username' ? 'focused' : ''} ${formData.username ? 'filled' : ''}`}>
+                <User size={16} className="field-icon" />
                 <label>Full Name</label>
                 <input
                   type="text"
@@ -411,6 +585,7 @@ const Register = () => {
               </div>
 
               <div className={`form-field ${focusedField === 'email' ? 'focused' : ''} ${formData.email ? 'filled' : ''}`}>
+                <Mail size={16} className="field-icon" />
                 <label>Email address</label>
                 <input
                   type="email"
@@ -423,7 +598,6 @@ const Register = () => {
                 />
               </div>
 
-              {/* Custom Mobile Input with Country Code Selector */}
               <div className={`phone-input-group ${focusedField === 'mobile' ? 'focused' : ''}`}>
                 <div className="phone-prefix-select-wrapper">
                   <select 
@@ -442,7 +616,8 @@ const Register = () => {
                 </div>
                 
                 <div className={`form-field ${focusedField === 'mobile' ? 'focused' : ''} ${formData.mobile ? 'filled' : ''}`} style={{ flex: 1, marginBottom: 0 }}>
-                  <label>Mobile Number ({countryPhoneLengths[countryCode].length} digits)</label>
+                  <Phone size={16} className="field-icon" />
+                  <label>Mobile Number</label>
                   <input
                     type="tel"
                     name="mobile"
@@ -456,6 +631,7 @@ const Register = () => {
               </div>
 
               <div className={`form-field ${focusedField === 'password' ? 'focused' : ''} ${formData.password ? 'filled' : ''}`}>
+                <Lock size={16} className="field-icon" />
                 <label>Password</label>
                 <input
                   type="password"
@@ -469,6 +645,7 @@ const Register = () => {
               </div>
 
               <div className={`form-field ${focusedField === 'confirmPassword' ? 'focused' : ''} ${formData.confirmPassword ? 'filled' : ''}`}>
+                <Lock size={16} className="field-icon" />
                 <label>Confirm Password</label>
                 <input
                   type="password"
@@ -482,6 +659,7 @@ const Register = () => {
               </div>
 
               <div className={`form-field textarea-field ${focusedField === 'address' ? 'focused' : ''} ${formData.address ? 'filled' : ''}`}>
+                <MapPin size={16} className="field-icon" />
                 <label>Delivery Address</label>
                 <textarea
                   name="address"
@@ -493,31 +671,12 @@ const Register = () => {
                 />
               </div>
 
-              <button 
-                type="button" 
-                onClick={detectLocation}
-                disabled={geocoding}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'none',
-                  border: '1px solid var(--border-medium)',
-                  color: 'var(--text-secondary)',
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  fontSize: '0.82rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  marginBottom: '18px',
-                  marginTop: '-10px',
-                  alignSelf: 'flex-start',
-                  transition: 'all 0.2s'
-                }}
-              >
+              <button type="button" onClick={detectLocation} disabled={geocoding} className="locate-btn">
                 <MapPin size={12} style={{ color: 'var(--brand-red)' }} />
                 {geocoding ? 'Detecting Location...' : 'Auto-Detect Address'}
               </button>
+              
+              {leafletLoaded && <div ref={mapRef} style={{ height: '180px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-medium)', zIndex: 1, marginTop: '8px' }} />}
               
               <div className="terms-checkbox-field">
                 <input

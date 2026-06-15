@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowRight, Flame, Search, ShieldCheck, Star, Truck, UtensilsCrossed, Zap } from 'lucide-react';
+import { 
+  ArrowRight, Flame, Search, ShieldCheck, Star, Truck, UtensilsCrossed, Zap,
+  MapPin, Clock, Award, Users, Heart
+} from 'lucide-react';
 import { trackEvent } from '../utils/analytics';
+import ScrollReveal from '../components/ScrollReveal';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?q=80&w=2200&auto=format&fit=crop';
 const RESTAURANT_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop';
@@ -24,7 +28,71 @@ const formatRating = (value) => {
   return Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : 'New';
 };
 
-// Simple client-side cache for Stale-While-Revalidate
+// Particles background component
+function Particles() {
+  const particles = useMemo(() => 
+    Array.from({ length: 12 }, (_, i) => ({
+      id: i,
+      left: `${(i * 8.3 + 5) % 100}%`,
+      size: 4 + (i % 4) * 2,
+      delay: i * 0.7,
+      duration: 7 + (i % 5) * 2
+    })), []
+  );
+
+  return (
+    <div className="particles-bg">
+      {particles.map(p => (
+        <div
+          key={p.id}
+          className="particle"
+          style={{
+            left: p.left,
+            width: p.size,
+            height: p.size,
+            animationDelay: `${p.delay}s`,
+            animationDuration: `${p.duration}s`
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Stats counter component
+function AnimatedCounter({ target, suffix = '', duration = 2000 }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef(null);
+  const counted = useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !counted.current) {
+          counted.current = true;
+          const startTime = Date.now();
+          const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            setCount(Math.floor(eased * target));
+            if (progress < 1) requestAnimationFrame(animate);
+          };
+          requestAnimationFrame(animate);
+          observer.unobserve(el);
+        }
+      },
+      { threshold: 0.3 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [target, duration]);
+
+  return <span ref={ref} className="count-up">{count}{suffix}</span>;
+}
+
 let homeCache = {
   restaurants: null,
   suggestion: null,
@@ -47,13 +115,30 @@ const Home = () => {
   const [resultCount, setResultCount] = useState(0);
   const [isSearch, setIsSearch] = useState(false);
   const [coords, setCoords] = useState(null);
+  const [heroLoaded, setHeroLoaded] = useState(false);
+  const [parallaxOffset, setParallaxOffset] = useState(0);
   const heroRef = useRef(null);
   const lastLoggedSearchQueryRef = useRef('');
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setParallaxOffset(window.scrollY * 0.15);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Hero image load handler
+  useEffect(() => {
+    const img = new Image();
+    img.src = HERO_IMAGE;
+    img.onload = () => setHeroLoaded(true);
+  }, []);
 
   const fetchRestaurants = async () => {
     const cacheKey = JSON.stringify({ q: debouncedSearchQuery.trim(), lat: coords?.lat, lng: coords?.lng });
     const hasCache = homeCache.restaurants !== null && homeCache.key === cacheKey;
-    const isStale = hasCache && (Date.now() - homeCache.timestamp > 15000); // 15 seconds TTL
+    const isStale = hasCache && (Date.now() - homeCache.timestamp > 15000);
 
     if (hasCache) {
       setRestaurants(homeCache.restaurants);
@@ -62,10 +147,7 @@ const Home = () => {
       setIsSearch(homeCache.isSearch);
       setLoading(false);
       setError('');
-      if (!isStale) {
-        // Cache is fresh, skip background revalidation
-        return;
-      }
+      if (!isStale) return;
     } else {
       setLoading(true);
       setError('');
@@ -73,17 +155,12 @@ const Home = () => {
 
     try {
       const params = new URLSearchParams();
-      if (debouncedSearchQuery.trim()) {
-        params.append('q', debouncedSearchQuery.trim());
-      }
-      if (coords) {
-        params.append('lat', coords.lat);
-        params.append('lng', coords.lng);
-      }
+      if (debouncedSearchQuery.trim()) params.append('q', debouncedSearchQuery.trim());
+      if (coords) { params.append('lat', coords.lat); params.append('lng', coords.lng); }
       const queryString = params.toString();
       const url = queryString ? `/api/home?${queryString}` : '/api/home';
       const response = await axios.get(url);
-      
+
       let resData, sugData, countData, searchData;
       if (response.data && typeof response.data === 'object' && !Array.isArray(response.data)) {
         resData = response.data.restaurants || [];
@@ -102,7 +179,6 @@ const Home = () => {
       setResultCount(countData);
       setIsSearch(searchData);
 
-      // Update cache
       homeCache = {
         restaurants: resData,
         suggestion: sugData,
@@ -114,46 +190,28 @@ const Home = () => {
       setError('');
     } catch (err) {
       console.error(err);
-      if (!hasCache) {
-        setError('We could not load restaurants right now. Please try again.');
-      }
+      if (!hasCache) setError('We could not load restaurants right now. Please try again.');
     } finally {
-      if (!hasCache) {
-        setLoading(false);
-      }
+      if (!hasCache) setLoading(false);
     }
   };
 
-  const retryRestaurants = () => {
-    fetchRestaurants();
-  };
+  const retryRestaurants = () => fetchRestaurants();
 
-  // Get user geolocation on mount
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCoords({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.warn("Geolocation permission denied or failed, falling back.", error);
-        },
+        (position) => setCoords({ lat: position.coords.latitude, lng: position.coords.longitude }),
+        (error) => console.warn("Geolocation permission denied or failed, falling back.", error),
         { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
       );
     }
   }, []);
 
-  useEffect(() => {
-    fetchRestaurants();
-  }, [debouncedSearchQuery, coords]);
+  useEffect(() => { fetchRestaurants(); }, [debouncedSearchQuery, coords]);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 400);
+    const handler = setTimeout(() => setDebouncedSearchQuery(searchQuery), 400);
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
@@ -172,118 +230,159 @@ const Home = () => {
   const filteredAndSortedRestaurants = restaurants
     .filter(r => {
       const cuisine = r.cusineType ? r.cusineType.toLowerCase() : '';
-      const matchesCuisine = selectedCuisine === 'All' || 
-                             cuisine.includes(selectedCuisine.toLowerCase());
+      const matchesCuisine = selectedCuisine === 'All' || cuisine.includes(selectedCuisine.toLowerCase());
       return matchesCuisine;
     })
     .sort((a, b) => {
-      if (sortBy === 'rating') {
-        return Number(b.rating || 0) - Number(a.rating || 0);
-      }
-      if (sortBy === 'time') {
-        return getDeliveryMinutes(a.deliveryTime) - getDeliveryMinutes(b.deliveryTime);
-      }
-      return 0; // default (server relevance / DB order)
+      if (sortBy === 'rating') return Number(b.rating || 0) - Number(a.rating || 0);
+      if (sortBy === 'time') return getDeliveryMinutes(a.deliveryTime) - getDeliveryMinutes(b.deliveryTime);
+      return 0;
     });
   const visibleRestaurants = filteredAndSortedRestaurants.slice(0, visibleRestaurantCount);
   const hasMoreRestaurants = visibleRestaurantCount < filteredAndSortedRestaurants.length;
   const remainingRestaurants = filteredAndSortedRestaurants.length - visibleRestaurantCount;
+
   return (
     <>
       <style>{`
+        /* ===== HERO SECTION ===== */
         .home-hero {
           position: relative;
-          min-height: min(72vh, 640px);
-          padding: 72px 20px;
+          min-height: min(75vh, 660px);
+          padding: 80px 20px;
           display: flex;
           align-items: center;
           overflow: hidden;
+          background-color: #0d0d0d;
+          color: #fff;
+        }
+        .home-hero-bg {
+          position: absolute;
+          inset: 0;
           background-image:
-            linear-gradient(90deg, rgba(16, 16, 16, 0.82) 0%, rgba(16, 16, 16, 0.56) 48%, rgba(16, 16, 16, 0.22) 100%),
+            linear-gradient(90deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.25) 100%),
             url('${HERO_IMAGE}');
           background-size: cover;
           background-position: center;
-          color: #fff;
+          transform: scale(1.05);
+          transition: transform 0.1s linear, opacity 0.8s ease;
+          opacity: ${heroLoaded ? 1 : 0};
         }
         .home-hero::before {
           content: '';
           position: absolute;
           inset: 0;
-          background: linear-gradient(180deg, rgba(0,0,0,0) 64%, rgba(247,55,79,0.1) 100%);
+          background: linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(247,55,79,0.12) 100%);
           pointer-events: none;
           z-index: 1;
         }
+        .home-hero::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(247,55,79,0.2), transparent);
+          z-index: 2;
+        }
         .hero-content {
-          max-width: 680px;
+          max-width: 700px;
           width: min(92%, 1400px);
           margin: 0 auto;
           position: relative;
-          z-index: 1;
+          z-index: 3;
           text-align: left;
         }
         .hero-tag {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          background: rgba(255, 255, 255, 0.14);
+          background: rgba(255,255,255,0.1);
+          backdrop-filter: blur(8px);
           color: #fff;
-          border: 1px solid rgba(255, 255, 255, 0.22);
+          border: 1px solid rgba(255,255,255,0.15);
           padding: 6px 16px;
           border-radius: 20px;
           font-size: 0.85rem;
           font-weight: 600;
           margin-bottom: 16px;
-          animation: fadeIn 0.6s ease-out both;
+          animation: premiumFadeIn 0.6s var(--ease-premium) both;
         }
         .hero-title {
           font-family: 'Outfit', sans-serif;
-          font-size: clamp(2.4rem, 4.5vw, 3.6rem);
+          font-size: clamp(2.4rem, 5vw, 3.8rem);
           font-weight: 800;
-          letter-spacing: 0;
-          line-height: 1.1;
+          letter-spacing: -0.5px;
+          line-height: 1.08;
           margin-bottom: 16px;
           color: #fff;
-          animation: fadeIn 0.6s ease-out 0.1s both;
+          animation: premiumFadeIn 0.6s var(--ease-premium) 0.1s both;
+        }
+        .hero-title .highlight {
+          background: linear-gradient(135deg, var(--brand-red), #ff8a9e);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
         .hero-subtitle {
           font-size: 1.05rem;
-          color: rgba(255, 255, 255, 0.84);
-          line-height: 1.6;
+          color: rgba(255,255,255,0.75);
+          line-height: 1.65;
           max-width: 560px;
           margin: 0;
-          animation: fadeIn 0.6s ease-out 0.2s both;
+          animation: premiumFadeIn 0.6s var(--ease-premium) 0.2s both;
         }
         .hero-actions {
           display: flex;
           flex-wrap: wrap;
           gap: 12px;
           margin-top: 28px;
-          animation: fadeIn 0.6s ease-out 0.3s both;
+          animation: premiumSlideUp 0.5s var(--ease-premium) 0.3s both;
         }
         .hero-btn {
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          min-height: 44px;
-          padding: 0 18px;
+          min-height: 48px;
+          padding: 0 24px;
           border-radius: 999px;
           font-size: 0.92rem;
           font-weight: 800;
           text-decoration: none;
-          transition: transform var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+          transition: all 0.35s var(--ease-premium);
+          position: relative;
+          overflow: hidden;
         }
         .hero-btn.primary {
-          background: var(--brand-red);
+          background: linear-gradient(135deg, var(--brand-red), #ff6b7a);
           color: #fff;
-          box-shadow: 0 12px 28px rgba(247, 55, 79, 0.32);
+          box-shadow: 0 12px 30px rgba(247,55,79,0.35);
+        }
+        .hero-btn.primary::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+          transform: translateX(-100%);
+          transition: transform 0.6s ease;
+        }
+        .hero-btn.primary:hover::after {
+          transform: translateX(100%);
+        }
+        .hero-btn.primary:hover {
+          transform: translateY(-2px) scale(1.02);
+          box-shadow: 0 16px 40px rgba(247,55,79,0.45);
         }
         .hero-btn.secondary {
-          background: rgba(255, 255, 255, 0.12);
+          background: rgba(255,255,255,0.08);
+          backdrop-filter: blur(8px);
           color: #fff;
-          border: 1px solid rgba(255, 255, 255, 0.28);
+          border: 1px solid rgba(255,255,255,0.2);
         }
-        .hero-btn:hover {
+        .hero-btn.secondary:hover {
+          background: rgba(255,255,255,0.15);
           transform: translateY(-2px);
           color: #fff;
         }
@@ -292,27 +391,83 @@ const Home = () => {
           justify-content: flex-start;
           gap: 10px;
           flex-wrap: wrap;
-          margin-top: 24px;
-          animation: fadeIn 0.6s ease-out 0.4s both;
+          margin-top: 28px;
+          animation: premiumSlideUp 0.5s var(--ease-premium) 0.4s both;
         }
         .hero-chip {
           display: flex;
           align-items: center;
           gap: 6px;
-          background: rgba(255, 255, 255, 0.12);
-          border: 1px solid rgba(255, 255, 255, 0.18);
+          background: rgba(255,255,255,0.06);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255,255,255,0.1);
           padding: 8px 16px;
           border-radius: 30px;
           font-size: 0.85rem;
           font-weight: 500;
-          color: #fff;
-          transition: all 0.3s ease;
+          color: rgba(255,255,255,0.85);
+          transition: all 0.35s var(--ease-premium);
           cursor: default;
         }
         .hero-chip:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+          background: rgba(255,255,255,0.12);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.15);
         }
+
+        /* ===== STATS BAR ===== */
+        .stats-bar {
+          display: flex;
+          justify-content: center;
+          gap: 40px;
+          max-width: 1400px;
+          width: 92%;
+          margin: -32px auto 32px;
+          padding: 24px 32px;
+          background: rgba(255,255,255,0.95);
+          backdrop-filter: blur(16px);
+          border: 1px solid rgba(247,55,79,0.08);
+          border-radius: var(--radius-lg);
+          box-shadow: 0 8px 30px rgba(28,28,28,0.06);
+          position: relative;
+          z-index: 5;
+          flex-wrap: wrap;
+        }
+        .stat-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 0 16px;
+        }
+        .stat-icon {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          background: rgba(247,55,79,0.08);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--brand-red);
+          flex-shrink: 0;
+        }
+        .stat-info {
+          display: flex;
+          flex-direction: column;
+        }
+        .stat-number {
+          font-family: 'Outfit', sans-serif;
+          font-size: 1.4rem;
+          font-weight: 800;
+          color: var(--text-primary);
+          line-height: 1.2;
+        }
+        .stat-label {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
+
+        /* ===== HOME STATUS CARD ===== */
         .home-status-card {
           grid-column: 1 / -1;
           text-align: center;
@@ -343,6 +498,8 @@ const Home = () => {
           background: var(--brand-red-hover);
           transform: translateY(-1px);
         }
+
+        /* ===== SECTION TITLE ===== */
         .section-title-row {
           display: flex;
           justify-content: space-between;
@@ -352,7 +509,6 @@ const Home = () => {
           margin: 0 auto 16px;
           padding-bottom: 12px;
           border-bottom: 1px solid var(--border-light);
-          animation: fadeIn 0.5s ease-out both;
         }
         .section-title-row h2 {
           font-size: 1.45rem;
@@ -362,6 +518,8 @@ const Home = () => {
           color: var(--text-muted);
           font-size: 0.85rem;
         }
+
+        /* ===== RESTAURANT GRID ===== */
         .restaurant-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -377,14 +535,21 @@ const Home = () => {
           border: 1px solid rgba(247,55,79,0.08);
           text-decoration: none;
           color: inherit;
-          transition: all 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+          transition: all 0.4s var(--ease-premium);
           position: relative;
           display: flex;
           flex-direction: column;
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        .rest-card.visible {
+          opacity: 1;
+          transform: translateY(0);
         }
         .rest-card:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 20px 40px rgba(28, 28, 28, 0.12);
+          transform: translateY(-8px) scale(1.01);
+          box-shadow: 0 24px 48px rgba(28,28,28,0.12);
+          border-color: rgba(247,55,79,0.2);
         }
         .rest-card-img-wrap {
           position: relative;
@@ -399,10 +564,10 @@ const Home = () => {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: transform 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+          transition: transform 0.6s var(--ease-premium);
         }
         .rest-card:hover .rest-card-img {
-          transform: scale(1.06);
+          transform: scale(1.08);
         }
         .rest-card-img-overlay {
           position: absolute;
@@ -447,9 +612,6 @@ const Home = () => {
         }
         .rest-card-rating .star {
           color: #FFB800;
-          font-size: 0.85rem;
-          display: flex;
-          align-items: center;
         }
         .rest-card-details {
           padding: 12px 4px 8px;
@@ -477,6 +639,8 @@ const Home = () => {
           background: var(--text-muted);
           border-radius: 50%;
         }
+
+        /* ===== CONTROL BAR ===== */
         .control-bar {
           display: flex;
           justify-content: space-between;
@@ -502,12 +666,13 @@ const Home = () => {
           padding: 8px 16px;
           border-radius: 30px;
           width: 100%;
-          transition: all 0.3s;
+          transition: all 0.3s var(--ease-premium);
         }
         .search-box:focus-within {
           border-color: var(--brand-red);
           background: #fff;
-          box-shadow: 0 0 0 3px rgba(247, 55, 79, 0.08);
+          box-shadow: 0 0 0 4px rgba(247,55,79,0.08);
+          transform: scale(1.01);
         }
         .search-box input {
           border: none;
@@ -521,7 +686,7 @@ const Home = () => {
           font-size: 0.85rem;
           color: var(--text-secondary);
           padding-left: 12px;
-          animation: fadeIn 0.3s ease-out;
+          animation: slideUp 0.3s var(--ease-premium) both;
         }
         .suggestion-btn {
           background: none;
@@ -549,7 +714,7 @@ const Home = () => {
           font-weight: 500;
         }
         .sort-box select {
-          padding: 8px 16px;
+          padding: 8px 36px 8px 16px;
           border-radius: 30px;
           border: 1px solid rgba(247,55,79,0.12);
           background: #fff;
@@ -558,7 +723,17 @@ const Home = () => {
           color: var(--text-primary);
           outline: none;
           cursor: pointer;
+          transition: all 0.25s var(--ease-premium);
         }
+        .sort-box select:hover {
+          border-color: var(--brand-red);
+        }
+        .sort-box select:focus {
+          border-color: var(--brand-red);
+          box-shadow: 0 0 0 3px rgba(247,55,79,0.1);
+        }
+
+        /* ===== CUISINE FILTERS ===== */
         .cuisine-filters {
           display: flex;
           justify-content: center;
@@ -578,59 +753,62 @@ const Home = () => {
           font-weight: 500;
           color: var(--text-secondary);
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.25s var(--ease-premium);
           white-space: nowrap;
         }
         .cuisine-chip:hover {
           border-color: var(--brand-red);
           color: var(--brand-red);
+          transform: translateY(-1px);
         }
         .cuisine-chip.active {
           background: var(--brand-red);
           border-color: var(--brand-red);
           color: #fff;
+          box-shadow: 0 4px 12px rgba(247,55,79,0.25);
         }
+
         @media (max-width: 768px) {
-          .home-hero { padding: 32px 16px 24px; }
+          .home-hero { padding: 40px 16px 32px; min-height: 70vh; }
           .hero-title { font-size: 2rem; }
           .hero-content { text-align: center; }
           .hero-subtitle { margin: 0 auto; }
           .hero-actions, .hero-chips { justify-content: center; }
+          .stats-bar { flex-direction: column; gap: 16px; margin-top: -24px; padding: 20px; }
+          .stat-item { justify-content: center; }
           .restaurant-grid { grid-template-columns: 1fr; gap: 16px; margin-bottom: 32px; }
-          .control-bar {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 12px;
-          }
-          .search-container {
-            max-width: 100%;
-          }
-          .sort-box {
-            justify-content: space-between;
-          }
-          .sort-box select {
-            flex: 1;
-            max-width: 200px;
-          }
-          .cuisine-filters {
-            justify-content: flex-start;
-            padding-bottom: 8px;
-          }
+          .control-bar { flex-direction: column; align-items: stretch; gap: 12px; }
+          .search-container { max-width: 100%; }
+          .sort-box { justify-content: space-between; }
+          .sort-box select { flex: 1; max-width: 200px; }
+          .cuisine-filters { justify-content: flex-start; padding-bottom: 8px; }
         }
       `}</style>
 
       <div>
+        {/* HERO SECTION */}
         <section className="home-hero" ref={heroRef}>
+          <Particles />
+          <div className="home-hero-bg" style={{ 
+            transform: `scale(1.05) translateY(${parallaxOffset}px)` 
+          }} />
           <div className="hero-content">
             <div className="hero-tag"><Flame size={16} /> Fresh meals, fast routes</div>
-            <h2 className="hero-title">Food that reaches you hot, fast, and right on time.</h2>
-            <p className="hero-subtitle">Explore trusted local restaurants, order in a few taps, and track every step from kitchen prep to doorstep delivery.</p>
+            <h2 className="hero-title">
+              Your food,{' '}
+              <span className="highlight">delivered with love</span>
+              <br />right on time.
+            </h2>
+            <p className="hero-subtitle">
+              Explore trusted local restaurants, order in a few taps, and track every step 
+              from kitchen prep to doorstep delivery.
+            </p>
             <div className="hero-actions">
               <a href="#restaurants" className="hero-btn primary">
                 Explore restaurants <ArrowRight size={17} />
               </a>
               <Link to="/track-order" className="hero-btn secondary">
-                Track an order
+                <MapPin size={16} /> Track an order
               </Link>
             </div>
             <div className="hero-chips">
@@ -641,7 +819,43 @@ const Home = () => {
             </div>
           </div>
         </section>
-        <div className="control-bar">
+
+        {/* STATS BAR */}
+        <ScrollReveal>
+          <div className="stats-bar">
+            <div className="stat-item">
+              <div className="stat-icon"><Award size={22} /></div>
+              <div className="stat-info">
+                <span className="stat-number"><AnimatedCounter target={200} suffix="+" /></span>
+                <span className="stat-label">Restaurant Partners</span>
+              </div>
+            </div>
+            <div className="stat-item">
+              <div className="stat-icon"><Users size={22} /></div>
+              <div className="stat-info">
+                <span className="stat-number"><AnimatedCounter target={50} suffix="K+" /></span>
+                <span className="stat-label">Happy Customers</span>
+              </div>
+            </div>
+            <div className="stat-item">
+              <div className="stat-icon"><MapPin size={22} /></div>
+              <div className="stat-info">
+                <span className="stat-number"><AnimatedCounter target={25} suffix="+" /></span>
+                <span className="stat-label">Cities Covered</span>
+              </div>
+            </div>
+            <div className="stat-item">
+              <div className="stat-icon"><Clock size={22} /></div>
+              <div className="stat-info">
+                <span className="stat-number"><AnimatedCounter target={28} suffix=" min" /></span>
+                <span className="stat-label">Avg. Delivery Time</span>
+              </div>
+            </div>
+          </div>
+        </ScrollReveal>
+
+        {/* CONTROLS */}
+        <div className="control-bar page-enter">
           <div className="search-container">
             <div className="search-box">
               <Search size={18} color="var(--text-secondary)" />
@@ -656,17 +870,12 @@ const Home = () => {
             {suggestion && (
               <div className="suggestion-box">
                 Did you mean:{' '}
-                <button 
-                  type="button" 
-                  className="suggestion-btn"
-                  onClick={() => setSearchQuery(suggestion)}
-                >
+                <button type="button" className="suggestion-btn" onClick={() => setSearchQuery(suggestion)}>
                   {suggestion}
                 </button>
               </div>
             )}
           </div>
-
           <div className="sort-box">
             <label>Sort By:</label>
             <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
@@ -677,19 +886,22 @@ const Home = () => {
           </div>
         </div>
 
-        <div className="cuisine-filters">
-          {['All', 'Biryani', 'Burger', 'Pizza', 'Chinese', 'Indian', 'Desserts'].map(c => (
+        {/* CUISINE FILTERS */}
+        <div className="cuisine-filters page-enter" style={{animationDelay: '0.1s'}}>
+          {['All', 'Biryani', 'Burger', 'Pizza', 'Chinese', 'Indian', 'Desserts'].map((c, idx) => (
             <button 
               key={c} 
               className={`cuisine-chip ${selectedCuisine === c ? 'active' : ''}`}
               onClick={() => setSelectedCuisine(c)}
+              style={{ animation: `premiumFadeIn 0.4s var(--ease-premium) ${idx * 0.06}s both` }}
             >
               {c}
             </button>
           ))}
         </div>
 
-        <div id="restaurants" className="section-title-row">
+        {/* RESTAURANTS HEADER */}
+        <div id="restaurants" className="section-title-row page-enter" style={{animationDelay: '0.15s'}}>
           <h2>
             {isSearch && debouncedSearchQuery.trim()
               ? `Search Results for "${debouncedSearchQuery}"` 
@@ -702,10 +914,11 @@ const Home = () => {
           )}
         </div>
 
-        <section className="restaurant-grid stagger-children">
+        {/* RESTAURANTS GRID */}
+        <section className="restaurant-grid">
           {loading ? (
             Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} style={{ height: '300px', borderRadius: 'var(--radius-lg)' }} className="skeleton"></div>
+              <div key={i} style={{ height: '300px', borderRadius: 'var(--radius-lg)' }} className="skeleton-premium" />
             ))
           ) : error ? (
             <div className="home-status-card">
@@ -715,38 +928,8 @@ const Home = () => {
               <button type="button" className="retry-btn" onClick={retryRestaurants}>Retry</button>
             </div>
           ) : filteredAndSortedRestaurants.length > 0 ? (
-            visibleRestaurants.map((r) => (
-              <Link
-                to={`/menu?restaurantId=${r.restaurantId}&restaurantName=${encodeURIComponent(r.restaurantName)}`}
-                key={r.restaurantId}
-                className="rest-card"
-              >
-                <div className="rest-card-img-wrap">
-                  <img
-                    src={r.imagePath || RESTAURANT_FALLBACK_IMAGE}
-                    alt={`${r.restaurantName || 'Restaurant'} dishes`}
-                    className="rest-card-img"
-                    loading="lazy"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = RESTAURANT_FALLBACK_IMAGE;
-                    }}
-                  />
-                  <div className="rest-card-img-overlay" />
-                  <div className="rest-card-offer">Free Delivery</div>
-                  <div className="rest-card-rating">
-                    <span className="star"><Star size={14} fill="#FFB800" color="#FFB800" /></span> {formatRating(r.rating)}
-                  </div>
-                </div>
-                <div className="rest-card-details">
-                  <h3 className="rest-card-name">{r.restaurantName}</h3>
-                  <div className="rest-card-meta">
-                    <span>{r.cusineType}</span>
-                    <span className="dot" />
-                    <span>{formatDeliveryTime(r.deliveryTime)}</span>
-                  </div>
-                </div>
-              </Link>
+            visibleRestaurants.map((r, idx) => (
+              <RestaurantCard key={r.restaurantId} restaurant={r} index={idx} />
             ))
           ) : (
             <div className="home-status-card">
@@ -767,9 +950,123 @@ const Home = () => {
             </button>
           </div>
         )}
+
+        {/* TRUST SECTION */}
+        <ScrollReveal>
+          <section style={{
+            maxWidth: '1400px',
+            width: '92%',
+            margin: '0 auto 60px',
+            padding: '48px 0',
+            borderTop: '1px solid var(--border-light)',
+            textAlign: 'center'
+          }}>
+            <span style={{
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              color: 'var(--brand-red)',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}>Why ZingBite</span>
+            <h3 style={{
+              fontFamily: "'Outfit', sans-serif",
+              fontSize: 'clamp(1.5rem, 3vw, 2.2rem)',
+              fontWeight: 800,
+              margin: '8px 0 36px',
+              color: 'var(--text-primary)'
+            }}>
+              We <Heart size={20} fill="var(--brand-red)" color="var(--brand-red)" style={{display:'inline'}} /> good food
+            </h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: '24px'
+            }}>
+              {[
+                { icon: <Flame size={24} />, title: 'Handpicked Restaurants', desc: 'Every restaurant is vetted for quality, hygiene, and taste.' },
+                { icon: <Truck size={24} />, title: 'Lightning Fast Delivery', desc: 'Our route optimization gets your food to you in record time.' },
+                { icon: <ShieldCheck size={24} />, title: 'Secure & Easy Payments', desc: 'Multiple payment options with bank-grade encryption.' },
+              ].map((item, i) => (
+                <div key={i} className="promise-card" style={{
+                  background: 'rgba(255,255,255,0.96)',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: '20px',
+                  padding: '32px 24px',
+                  transition: 'all 0.35s var(--ease-premium)',
+                  opacity: 0,
+                  transform: 'translateY(20px)',
+                  animation: `premiumSlideUp 0.5s var(--ease-premium) ${0.15 + i * 0.1}s both`
+                }}>
+                  <div style={{
+                    width: '56px', height: '56px', borderRadius: '16px',
+                    background: 'rgba(247,55,79,0.08)', color: 'var(--brand-red)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    margin: '0 auto 20px'
+                  }}>{item.icon}</div>
+                  <h4 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.15rem', fontWeight: 700, margin: '0 0 10px' }}>{item.title}</h4>
+                  <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </ScrollReveal>
       </div>
     </>
   );
 };
+
+// Individual restaurant card with IntersectionObserver reveal
+function RestaurantCard({ restaurant: r, index }) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => setVisible(true), index * 60);
+          observer.unobserve(el);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [index]);
+
+  return (
+    <Link
+      ref={ref}
+      to={`/menu?restaurantId=${r.restaurantId}&restaurantName=${encodeURIComponent(r.restaurantName)}`}
+      className={`rest-card ${visible ? 'visible' : ''}`}
+      style={{ transitionDelay: visible ? `${index * 0.05}s` : '0s' }}
+    >
+      <div className="rest-card-img-wrap">
+        <img
+          src={r.imagePath || RESTAURANT_FALLBACK_IMAGE}
+          alt={`${r.restaurantName || 'Restaurant'} dishes`}
+          className="rest-card-img"
+          loading="lazy"
+          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RESTAURANT_FALLBACK_IMAGE; }}
+        />
+        <div className="rest-card-img-overlay" />
+        <div className="rest-card-offer">Free Delivery</div>
+        <div className="rest-card-rating">
+          <span className="star"><Star size={14} fill="#FFB800" color="#FFB800" /></span> {formatRating(r.rating)}
+        </div>
+      </div>
+      <div className="rest-card-details">
+        <h3 className="rest-card-name">{r.restaurantName}</h3>
+        <div className="rest-card-meta">
+          <span>{r.cusineType}</span>
+          <span className="dot" />
+          <span>{formatDeliveryTime(r.deliveryTime)}</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 export default Home;
