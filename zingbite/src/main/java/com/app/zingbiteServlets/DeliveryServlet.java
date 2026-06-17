@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.BufferedReader;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -21,6 +23,7 @@ import com.app.zingbitedaoimpl.OrdersDAOImplementation;
 import com.app.zingbitemodels.User;
 import com.app.zingbitemodels.Orders;
 import com.app.zingbitemodels.OrderHistory;
+import com.app.zingbitemodels.OrderItem;
 import com.app.zingbitemodels.OrderStatus;
 import com.app.zingbiteutils.DBUtils;
 import com.app.zingbiteutils.GeoUtils;
@@ -34,31 +37,61 @@ import com.google.gson.JsonParser;
 public class DeliveryServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
+    private static final int DEFAULT_PAGE_SIZE = 50;
+    private static final int MAX_PAGE_SIZE = 200;
 
+    private static final Map<String, VrpPathCacheEntry> vrpPathCache = new ConcurrentHashMap<>();
+    private static final long VRP_CACHE_TTL_MS = 30_000;
+
+    private static class VrpPathCacheEntry {
+        final JsonObject paths;
+        final long timestamp;
+        VrpPathCacheEntry(JsonObject paths) {
+            this.paths = paths;
+            this.timestamp = System.currentTimeMillis();
+        }
+        boolean isExpired() {
+            return System.currentTimeMillis() - timestamp > VRP_CACHE_TTL_MS;
+        }
+    }
+
+    static void clearVrpPathCache() {
+        vrpPathCache.clear();
+    }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        
+
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
 
-        HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
+        HttpSession httpSession = req.getSession(false);
+        if (httpSession == null || httpSession.getAttribute("loggedInUser") == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Unauthorized\"}");
             return;
         }
 
-        User user = (User) session.getAttribute("loggedInUser");
+        User user = (User) httpSession.getAttribute("loggedInUser");
         if (!"delivery_partner".equals(user.getRole())) {
             resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
             resp.getWriter().write("{\"error\":\"Forbidden: Only delivery partners can access this resource.\"}");
             return;
         }
 
-        double riderLat = GeoUtils.getRiderLatitude(user.getUserID());
-        double riderLon = GeoUtils.getRiderLongitude(user.getUserID());
+        int page = 1;
+        int pageSize = DEFAULT_PAGE_SIZE;
+        try {
+            if (req.getParameter("page") != null) page = Math.max(1, Integer.parseInt(req.getParameter("page")));
+            if (req.getParameter("pageSize") != null) pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Integer.parseInt(req.getParameter("pageSize"))));
+        } catch (NumberFormatException ignored) {}
+
+        int offset = (page - 1) * pageSize;
+
+        int riderId = user.getUserID();
+        double riderLat = GeoUtils.getRiderLatitude(riderId);
+        double riderLon = GeoUtils.getRiderLongitude(riderId);
 
         JsonArray availableRuns = new JsonArray();
         JsonArray activeDeliveries = new JsonArray();
@@ -69,10 +102,19 @@ public class DeliveryServlet extends HttpServlet {
         List<JsonObject> activeList = new ArrayList<>();
 
         try (Session hibernateSession = DBUtils.openSession()) {
-            String hql = "from Orders where orderStatus != :pendingStatus order by orderId desc";
+            String countHql = "select count(o) from Orders o where o.orderStatus != :pendingStatus";
+            Query<Long> countQuery = hibernateSession.createQuery(countHql, Long.class);
+            countQuery.setParameter("pendingStatus", OrderStatus.PENDING_PAYMENT);
+            long totalOrders = countQuery.uniqueResult();
+
+            String hql = "from Orders o where o.orderStatus != :pendingStatus order by o.orderId desc";
             Query<Orders> query = hibernateSession.createQuery(hql, Orders.class);
             query.setParameter("pendingStatus", OrderStatus.PENDING_PAYMENT);
+            query.setFirstResult(offset);
+            query.setMaxResults(pageSize);
             List<Orders> ordersList = query.list();
+
+            Map<Integer, User> userCache = new ConcurrentHashMap<>();
 
             for (Orders o : ordersList) {
                 JsonObject oJson = new JsonObject();
@@ -83,22 +125,20 @@ public class DeliveryServlet extends HttpServlet {
                 oJson.addProperty("status", o.getOrderStatus() != null ? o.getOrderStatus().name() : "PLACED");
                 oJson.addProperty("payment", o.getPaymentMethod() != null ? o.getPaymentMethod() : "UPI");
 
-                // Get customer address & name
-                User customer = hibernateSession.get(User.class, o.getUserId());
+                User customer = userCache.computeIfAbsent(o.getUserId(), id -> hibernateSession.get(User.class, id));
                 oJson.addProperty("customerId", o.getUserId());
                 oJson.addProperty("customerName", customer != null ? customer.getUserName() : "Customer");
                 oJson.addProperty("customerAddress", customer != null ? customer.getAddress() : "ZingBite Hub");
                 oJson.addProperty("customerPhone", customer != null ? String.valueOf(customer.getPhoneNumber()) : "");
 
                 int rId = o.getRestaurantId() != null ? o.getRestaurantId().getRestaurantId() : 0;
-                double restLat = GeoUtils.getRestaurantLatitude(rId);
-                double restLon = GeoUtils.getRestaurantLongitude(rId);
-                double custLat = GeoUtils.getUserLatitude(o.getUserId());
-                double custLon = GeoUtils.getUserLongitude(o.getUserId());
+                double restLat = GeoUtils.getRestaurantLatitudeCached(rId);
+                double restLon = GeoUtils.getRestaurantLongitudeCached(rId);
+                double custLat = GeoUtils.getUserLatitudeCached(o.getUserId());
+                double custLon = GeoUtils.getUserLongitudeCached(o.getUserId());
                 double dist = GeoUtils.haversine(riderLat, riderLon, restLat, restLon);
                 oJson.addProperty("distance", Math.round(dist * 10.0) / 10.0);
 
-                // Include raw coordinates for map markers
                 oJson.addProperty("restaurantLat", restLat);
                 oJson.addProperty("restaurantLon", restLon);
                 oJson.addProperty("customerLat", custLat);
@@ -108,16 +148,16 @@ public class DeliveryServlet extends HttpServlet {
 
                 if (o.getRiderId() == null) {
                     OrderStatus status = o.getOrderStatus();
-                    if (status == OrderStatus.PLACED || 
-                        status == OrderStatus.PREPARING || 
+                    if (status == OrderStatus.PLACED ||
+                        status == OrderStatus.PREPARING ||
                         status == OrderStatus.READY_FOR_PICKUP ||
                         status == OrderStatus.OUT_FOR_DELIVERY) {
                         availableList.add(oJson);
                     }
-                } else if (o.getRiderId() == user.getUserID()) {
+                } else if (o.getRiderId() == riderId) {
                     if (o.getOrderStatus() == OrderStatus.DELIVERED) {
                         completedDeliveries.add(oJson);
-                        totalEarnings += 45; // 45 INR per trip
+                        totalEarnings += 45;
                     } else {
                         double currentGps = o.getGpsProgress() != null ? o.getGpsProgress() : 0.0;
                         oJson.addProperty("gpsProgress", currentGps);
@@ -125,10 +165,8 @@ public class DeliveryServlet extends HttpServlet {
                             oJson.addProperty("gpsCoordinates", o.getGpsCoordinates());
                         }
                         try {
-                            int riderId = o.getRiderId() != null ? o.getRiderId() : 0;
-                            double rLat = GeoUtils.getRiderLatitude(riderId);
-                            double rLon = GeoUtils.getRiderLongitude(riderId);
-
+                            double rLat = riderLat;
+                            double rLon = riderLon;
                             if (o.getGpsCoordinates() != null) {
                                 String coords = o.getGpsCoordinates();
                                 String[] parts = coords.split(",");
@@ -140,16 +178,26 @@ public class DeliveryServlet extends HttpServlet {
                                 }
                             }
 
-                            java.util.Map<String, List<com.app.zingbiteutils.VRPRouteOptimizer.Node>> vrpPaths = 
-                                com.app.zingbiteutils.VRPRouteOptimizer.getVRPPathsForOrder(
-                                    rLat, rLon,
-                                    restLat, restLon,
-                                    custLat, custLon
-                                );
-
-                            Gson sseGson = new Gson();
-                            oJson.add("pathFM", sseGson.toJsonTree(vrpPaths.get("pathFM")));
-                            oJson.add("pathLM1", sseGson.toJsonTree(vrpPaths.get("pathLM1")));
+                            String cacheKey = rLat + "," + rLon + "," + restLat + "," + restLon + "," + custLat + "," + custLon;
+                            VrpPathCacheEntry cached = vrpPathCache.get(cacheKey);
+                            if (cached != null && !cached.isExpired()) {
+                                oJson.add("pathFM", cached.paths.get("pathFM"));
+                                oJson.add("pathLM1", cached.paths.get("pathLM1"));
+                            } else {
+                                java.util.Map<String, List<com.app.zingbiteutils.VRPRouteOptimizer.Node>> vrpPaths =
+                                    com.app.zingbiteutils.VRPRouteOptimizer.getVRPPathsForOrder(
+                                        rLat, rLon,
+                                        restLat, restLon,
+                                        custLat, custLon
+                                    );
+                                Gson sseGson = new Gson();
+                                JsonObject pathCacheObj = new JsonObject();
+                                pathCacheObj.add("pathFM", sseGson.toJsonTree(vrpPaths.get("pathFM")));
+                                pathCacheObj.add("pathLM1", sseGson.toJsonTree(vrpPaths.get("pathLM1")));
+                                vrpPathCache.put(cacheKey, new VrpPathCacheEntry(pathCacheObj));
+                                oJson.add("pathFM", pathCacheObj.get("pathFM"));
+                                oJson.add("pathLM1", pathCacheObj.get("pathLM1"));
+                            }
                         } catch (Exception ex) {
                             ex.printStackTrace();
                         }
@@ -158,31 +206,20 @@ public class DeliveryServlet extends HttpServlet {
                 }
             }
 
-            // Sort available runs by distance (Haversine)
             availableList.sort((a, b) -> Double.compare(a.get("distance").getAsDouble(), b.get("distance").getAsDouble()));
             for (JsonObject run : availableList) {
                 availableRuns.add(run);
             }
 
-            // Route Optimization (TSP Nearest Neighbor) for Active runs
             if (activeList.size() > 1) {
                 List<RouteOptimizer.Location> locations = new ArrayList<>();
                 for (int i = 0; i < activeList.size(); i++) {
                     JsonObject act = activeList.get(i);
                     int oId = act.get("orderId").getAsInt();
-                    Orders matchedOrder = null;
-                    for (Orders ord : ordersList) {
-                        if (ord.getOrderId() == oId) {
-                            matchedOrder = ord;
-                            break;
-                        }
-                    }
-                    int cId = matchedOrder != null ? matchedOrder.getUserId() : 0;
-                    double cLat = GeoUtils.getUserLatitude(cId);
-                    double cLon = GeoUtils.getUserLongitude(cId);
+                    double cLat = act.get("customerLat").getAsDouble();
+                    double cLon = act.get("customerLon").getAsDouble();
                     locations.add(new RouteOptimizer.Location(i, cLat, cLon, act.get("customerName").getAsString()));
                 }
-
                 int[] optSequence = RouteOptimizer.optimizeRoute(riderLat, riderLon, locations);
                 for (int idx : optSequence) {
                     activeDeliveries.add(activeList.get(idx));
@@ -199,9 +236,11 @@ public class DeliveryServlet extends HttpServlet {
             responseJson.add("completed", completedDeliveries);
             responseJson.addProperty("totalEarnings", totalEarnings);
             responseJson.addProperty("completedCount", completedDeliveries.size());
-            // Include rider's current coordinates so the frontend knows the rider position
             responseJson.addProperty("riderLat", riderLat);
             responseJson.addProperty("riderLon", riderLon);
+            responseJson.addProperty("totalOrders", totalOrders);
+            responseJson.addProperty("page", page);
+            responseJson.addProperty("pageSize", pageSize);
 
             resp.getWriter().write(responseJson.toString());
 
@@ -219,14 +258,14 @@ public class DeliveryServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
 
-        HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
+        HttpSession httpSession = req.getSession(false);
+        if (httpSession == null || httpSession.getAttribute("loggedInUser") == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Unauthorized\"}");
             return;
         }
 
-        User user = (User) session.getAttribute("loggedInUser");
+        User user = (User) httpSession.getAttribute("loggedInUser");
         if (!"delivery_partner".equals(user.getRole())) {
             resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
             resp.getWriter().write("{\"error\":\"Forbidden: Only delivery partners can perform this action.\"}");
@@ -238,10 +277,7 @@ public class DeliveryServlet extends HttpServlet {
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
             String action = requestBody.has("action") ? requestBody.get("action").getAsString() : "";
 
-            // ─── Handle updateLocation first (no orderId needed) ───
             if ("updateLocation".equals(action)) {
-                // Rider location update from browser geolocation on portal load
-                // This updates the rider's stored position even when they have no active delivery
                 double lat = requestBody.get("latitude").getAsDouble();
                 double lng = requestBody.get("longitude").getAsDouble();
 
@@ -258,9 +294,9 @@ public class DeliveryServlet extends HttpServlet {
                     ex.printStackTrace();
                 }
 
-                // Update session object so subsequent requests in this session use the new coords
                 user.setLatitude(lat);
                 user.setLongitude(lng);
+                GeoUtils.updateCachedCoordinates(user.getUserID(), lat, lng);
 
                 JsonObject jsonResponse = new JsonObject();
                 jsonResponse.addProperty("success", true);
@@ -270,7 +306,6 @@ public class DeliveryServlet extends HttpServlet {
                 return;
             }
 
-            // ─── All other actions require an orderId ───
             int orderId = requestBody.get("orderId").getAsInt();
 
             OrdersDAo ordersDAO = new OrdersDAOImplementation();
@@ -285,7 +320,6 @@ public class DeliveryServlet extends HttpServlet {
             Transaction tx = null;
 
             if ("updateGPS".equals(action)) {
-                // Verify ownership (IDOR check)
                 if (order.getRiderId() == null || order.getRiderId() != user.getUserID()) {
                     resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
                     resp.getWriter().write("{\"error\":\"Forbidden: You cannot update GPS for another rider's delivery task.\"}");
@@ -301,7 +335,7 @@ public class DeliveryServlet extends HttpServlet {
                     double lng = requestBody.get("longitude").getAsDouble();
                     coords = lat + "," + lng;
                     order.setGpsCoordinates(coords);
-                    
+
                     try (Session hibernateSession = DBUtils.openSession()) {
                         Transaction txRider = hibernateSession.beginTransaction();
                         User rider = hibernateSession.get(User.class, user.getUserID());
@@ -314,10 +348,10 @@ public class DeliveryServlet extends HttpServlet {
                     } catch (Exception ex) {
                         ex.printStackTrace();
                     }
+                    GeoUtils.updateCachedCoordinates(user.getUserID(), lat, lng);
                 }
                 ordersDAO.updateOrders(order);
 
-                // Broadcast SSE Update
                 JsonObject ssePayload = new JsonObject();
                 ssePayload.addProperty("orderId", orderId);
                 ssePayload.addProperty("status", order.getOrderStatus() != null ? order.getOrderStatus().name() : "PLACED");
@@ -357,7 +391,6 @@ public class DeliveryServlet extends HttpServlet {
                 }
                 ordersDAO.updateOrders(order);
 
-                // Send rider assigned email to the customer
                 try (Session hibernateSession = DBUtils.openSession()) {
                     User customer = hibernateSession.get(User.class, order.getUserId());
                     if (customer != null) {
@@ -372,7 +405,6 @@ public class DeliveryServlet extends HttpServlet {
                     ex.printStackTrace();
                 }
 
-                // Update OrderHistory
                 try (Session hibernateSession = DBUtils.openSession()) {
                     tx = hibernateSession.beginTransaction();
                     String hql = "from OrderHistory where orderId = :orderId";
@@ -393,7 +425,6 @@ public class DeliveryServlet extends HttpServlet {
                 jsonResponse.addProperty("success", true);
                 jsonResponse.addProperty("status", nextStatus);
 
-                // Broadcast SSE Update
                 JsonObject ssePayload = new JsonObject();
                 ssePayload.addProperty("orderId", orderId);
                 ssePayload.addProperty("status", nextStatus);
@@ -404,14 +435,12 @@ public class DeliveryServlet extends HttpServlet {
                 resp.getWriter().write(jsonResponse.toString());
 
             } else {
-                // Verify ownership (IDOR check)
                 if (order.getRiderId() == null || order.getRiderId() != user.getUserID()) {
                     resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
                     resp.getWriter().write("{\"error\":\"Forbidden: You cannot modify another rider's delivery task.\"}");
                     return;
                 }
 
-                // Default update status
                 String status = requestBody.get("status").getAsString();
                 OrderStatus targetStatus = OrderStatus.parse(status);
                 OrderStatus currentStatus = order.getOrderStatus() != null ? order.getOrderStatus() : OrderStatus.PLACED;
@@ -428,15 +457,33 @@ public class DeliveryServlet extends HttpServlet {
                     order.setGpsCoordinates(null);
                     ordersDAO.updateOrders(order);
 
-                    // Send delivery confirmation email
                     try (Session hibernateSession = DBUtils.openSession()) {
                         User customer = hibernateSession.get(User.class, order.getUserId());
                         if (customer != null) {
+                            String itemsSummary = "Order items";
+                            try (Session itemSession = DBUtils.openSession()) {
+                                String itemHql = "from OrderItem where orderId = :orderId";
+                                Query<OrderItem> itemQuery = itemSession.createQuery(itemHql, OrderItem.class);
+                                itemQuery.setParameter("orderId", orderId);
+                                List<OrderItem> orderItems = itemQuery.list();
+                                if (!orderItems.isEmpty()) {
+                                    StringBuilder sb = new StringBuilder();
+                                    for (int i = 0; i < orderItems.size(); i++) {
+                                        OrderItem oi = orderItems.get(i);
+                                        if (i > 0) sb.append(", ");
+                                        sb.append(oi.getQuantity()).append("x &ndash; &#8377;").append(String.format("%.2f", oi.getSubTotal()));
+                                    }
+                                    itemsSummary = sb.toString();
+                                }
+                            } catch (Exception itemEx) {
+                                itemEx.printStackTrace();
+                            }
+                            String restName = order.getRestaurantId() != null ? order.getRestaurantId().getRestaurantName() : "ZingBite";
                             com.app.zingbiteutils.EmailService.sendEmailAsync(
                                 customer.getUserID(),
                                 customer.getEmail(),
                                 "Order ZB-" + orderId + " Delivered!",
-                                com.app.zingbiteutils.EmailTemplates.delivered(customer.getUserName(), orderId)
+                                com.app.zingbiteutils.EmailTemplates.delivered(customer.getUserName(), orderId, restName, order.getTotalAmount(), itemsSummary)
                             );
                         }
                     } catch (Exception ex) {
@@ -444,7 +491,6 @@ public class DeliveryServlet extends HttpServlet {
                     }
                 }
 
-                // Update OrderHistory
                 try (Session hibernateSession = DBUtils.openSession()) {
                     tx = hibernateSession.beginTransaction();
                     String hql = "from OrderHistory where orderId = :orderId";
@@ -465,7 +511,6 @@ public class DeliveryServlet extends HttpServlet {
                 jsonResponse.addProperty("success", true);
                 jsonResponse.addProperty("status", status);
 
-                // Broadcast SSE Update
                 JsonObject ssePayload = new JsonObject();
                 ssePayload.addProperty("orderId", orderId);
                 ssePayload.addProperty("status", status);
@@ -491,14 +536,14 @@ public class DeliveryServlet extends HttpServlet {
         try {
             int orderId = order.getOrderId();
             int restId = order.getRestaurantId() != null ? order.getRestaurantId().getRestaurantId() : 0;
-            double restLat = GeoUtils.getRestaurantLatitude(restId);
-            double restLon = GeoUtils.getRestaurantLongitude(restId);
-            double custLat = GeoUtils.getUserLatitude(order.getUserId());
-            double custLon = GeoUtils.getUserLongitude(order.getUserId());
+            double restLat = GeoUtils.getRestaurantLatitudeCached(restId);
+            double restLon = GeoUtils.getRestaurantLongitudeCached(restId);
+            double custLat = GeoUtils.getUserLatitudeCached(order.getUserId());
+            double custLon = GeoUtils.getUserLongitudeCached(order.getUserId());
 
             int riderId = order.getRiderId() != null ? order.getRiderId() : 0;
-            double rLat = GeoUtils.getRiderLatitude(riderId);
-            double rLon = GeoUtils.getRiderLongitude(riderId);
+            double rLat = GeoUtils.getRiderLatitudeCached(riderId);
+            double rLon = GeoUtils.getRiderLongitudeCached(riderId);
 
             if (order.getGpsCoordinates() != null) {
                 String coords = order.getGpsCoordinates();
@@ -511,7 +556,7 @@ public class DeliveryServlet extends HttpServlet {
                 }
             }
 
-            java.util.Map<String, List<com.app.zingbiteutils.VRPRouteOptimizer.Node>> vrpPaths = 
+            java.util.Map<String, List<com.app.zingbiteutils.VRPRouteOptimizer.Node>> vrpPaths =
                 com.app.zingbiteutils.VRPRouteOptimizer.getVRPPathsForOrder(
                     rLat, rLon,
                     restLat, restLon,
@@ -522,7 +567,6 @@ public class DeliveryServlet extends HttpServlet {
             ssePayload.add("pathFM", sseGson.toJsonTree(vrpPaths.get("pathFM")));
             ssePayload.add("pathLM1", sseGson.toJsonTree(vrpPaths.get("pathLM1")));
 
-            // Include raw coordinates so the frontend can place/update map markers
             ssePayload.addProperty("restaurantLat", restLat);
             ssePayload.addProperty("restaurantLon", restLon);
             ssePayload.addProperty("customerLat", custLat);
@@ -544,20 +588,16 @@ public class DeliveryServlet extends HttpServlet {
                 msg.addProperty("gpsProgress", order.getGpsProgress());
             }
 
-            // Broadcast to the customer
             com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:user_orders:" + order.getUserId(), msg.toString());
 
-            // Broadcast to the restaurant
             if (order.getRestaurantId() != null) {
                 com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:restaurant_orders:" + order.getRestaurantId().getRestaurantId(), msg.toString());
             }
 
-            // Broadcast to the rider specifically
             if (order.getRiderId() != null) {
                 com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:rider_orders:" + order.getRiderId(), msg.toString());
             }
 
-            // Broadcast globally to all riders (for available runs list updates)
             if ("acceptOrder".equals(eventType) || "status_update".equals(eventType)) {
                 com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:rider_orders", msg.toString());
             }

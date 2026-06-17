@@ -115,8 +115,8 @@ const RestaurantDashboard = () => {
       showAlert('Please fill out all required fields.', 'warning');
       return;
     }
-    setSubmittingOnboard(true);
     try {
+      setSubmittingOnboard(true);
       await axios.post('/api/restaurant-admin', {
         action: 'submitRestaurantRequest',
         name: onboardForm.name,
@@ -127,11 +127,11 @@ const RestaurantDashboard = () => {
         licenseNo: onboardForm.licenseNo,
         aadhaarNo: onboardForm.aadhaarNo,
         gstNo: onboardForm.gstNo
-      });
+      }, { timeout: 15000 });
       showAlert('Onboarding request submitted successfully! Super admin will verify your documents.', 'success');
       await fetchRestaurantData();
     } catch (err) {
-      showAlert('Failed to submit onboarding request.', 'error');
+      showAlert('Failed to submit onboarding request: ' + (err.response?.data?.error || err.message), 'error');
     } finally {
       setSubmittingOnboard(false);
     }
@@ -143,13 +143,13 @@ const RestaurantDashboard = () => {
         action: 'toggleAvailability',
         menuId,
         isAvailable: !currentAvailable
-      });
+      }, { timeout: 15000 });
       setData(prev => ({
         ...prev,
         menu: (prev.menu || []).map(item => item.menuId === menuId ? { ...item, isAvailable: !currentAvailable } : item)
       }));
     } catch (err) {
-      showAlert('Failed to update availability.', 'error');
+      showAlert('Failed to update availability: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 
@@ -159,8 +159,8 @@ const RestaurantDashboard = () => {
       showAlert('Please fill out all required fields.', 'warning');
       return;
     }
-    setSubmitting(true);
     try {
+      setSubmitting(true);
       await axios.post('/api/restaurant-admin', {
         action: 'addMenuItem',
         name: newDish.name,
@@ -168,34 +168,59 @@ const RestaurantDashboard = () => {
         description: newDish.description,
         imagePath: newDish.imagePath || undefined,
         restaurantId: data.restaurant.restaurantId
-      });
+      }, { timeout: 15000 });
       setShowAddModal(false);
       setNewDish({ name: '', price: '', description: '', imagePath: '' });
       await fetchRestaurantData();
     } catch (err) {
-      showAlert('Failed to add menu item.', 'error');
+      showAlert('Failed to add menu item: ' + (err.response?.data?.error || err.message), 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleUpdateOrderStatus = async (orderId, newStatus) => {
-    setActionLoading(orderId);
+  window.testOrderStatus = async (orderId, newStatus) => {
+    console.log('[REST] window.testOrderStatus called with', orderId, newStatus);
     try {
-      await axios.post('/api/restaurant-admin', {
+      setActionLoading(orderId);
+      const res = await axios.post('/api/restaurant-admin', {
         action: 'updateOrderStatus',
         orderId,
         status: newStatus
-      });
+      }, { timeout: 15000 });
+      console.log('[REST] Update success:', res.data);
       await fetchRestaurantData();
     } catch (err) {
-      showAlert('Failed to update order status.', 'error');
+      const serverMsg = err.response?.data?.error || err.message || 'Request failed';
+      console.error('[REST] Update failed:', err);
+      showAlert('Failed to update order status: ' + serverMsg, 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    console.log('[REST] handleUpdateOrderStatus called with', orderId, newStatus);
+    try {
+      setActionLoading(orderId);
+      const res = await axios.post('/api/restaurant-admin', {
+        action: 'updateOrderStatus',
+        orderId,
+        status: newStatus
+      }, { timeout: 15000 });
+      console.log('[REST] Update success:', res.data);
+      await fetchRestaurantData();
+    } catch (err) {
+      const serverMsg = err.response?.data?.error || err.message || 'Request failed';
+      console.error('[REST] Update failed:', err);
+      showAlert('Failed to update order status: ' + serverMsg, 'error');
     } finally {
       setActionLoading(null);
     }
   };
 
   const renderOrderStepper = (o) => {
+    console.log('[REST] Order data:', JSON.stringify(o));
     const getStatusStep = (status) => {
       switch (status) {
         case 'PLACED': return 0;
@@ -518,6 +543,8 @@ const RestaurantDashboard = () => {
   const visibleOrders = filteredOrders.slice(0, visibleOrderCount);
   const hasMoreMenuItems = visibleMenuCount < filteredMenu.length;
   const hasMoreOrders = visibleOrderCount < filteredOrders.length;
+
+  console.log('[REST] Dashboard rendering, user:', user?.email, 'orders:', orders?.length);
 
   return (
     <>

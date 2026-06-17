@@ -92,7 +92,11 @@ public class SuperAdminServlet extends HttpServlet {
                 aJson.addProperty("status", app.getStatus());
                 aJson.addProperty("appliedDate", app.getAppliedDate());
                 aJson.addProperty("userId", app.getUserId());
-                
+
+                // Include rider status from the user entity for rider-specific actions
+                User applicantUser = hibernateSession.get(User.class, app.getUserId());
+                aJson.addProperty("riderStatus", applicantUser != null && applicantUser.getRiderStatus() != null ? applicantUser.getRiderStatus() : "");
+
                 Job job = hibernateSession.get(Job.class, app.getJobId());
                 aJson.addProperty("jobTitle", job != null ? job.getTitle() : "Position");
                 applicationsJson.add(aJson);
@@ -191,7 +195,7 @@ public class SuperAdminServlet extends HttpServlet {
                                     "<h2>Restaurant Onboarding Approved! 🎉</h2>"
                                     + "<p>Dear " + adminUser.getUserName() + ", we are thrilled to inform you that your restaurant request for <b>" + rr.getRestaurantName() + "</b> has been approved!</p>"
                                     + "<p>Your role has been upgraded to <b>Restaurant Admin</b>. You can now log into your dashboard to add menu items and manage preparation states.</p>"
-                                    + "<a href='http://localhost:5173/zingbite/restaurant-admin' class='btn' style='display:inline-block;padding:12px 24px;background-color:#F7374F;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;'>Go to Dashboard</a>"
+                                    + "<a href='" + com.app.zingbiteutils.EmailTemplates.getBaseUrl() + "/restaurant-admin' class='btn' style='display:inline-block;padding:12px 24px;background-color:#F7374F;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;'>Go to Dashboard</a>"
                                 );
                             }
                         } else {
@@ -238,8 +242,9 @@ public class SuperAdminServlet extends HttpServlet {
                 String address = requestBody.get("address").getAsString();
                 String deliveryTime = requestBody.has("deliveryTime") ? requestBody.get("deliveryTime").getAsString() : "30 mins";
                 String imagePath = requestBody.has("imagePath") ? requestBody.get("imagePath").getAsString() : "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop";
+                int adminId = requestBody.has("adminId") ? requestBody.get("adminId").getAsInt() : ((com.app.zingbitemodels.User) req.getSession().getAttribute("loggedInUser")).getUserID();
 
-                Restaurant restaurant = new Restaurant(name, deliveryTime, cuisine, address, 4.5f, true, 1, imagePath);
+                Restaurant restaurant = new Restaurant(name, deliveryTime, cuisine, address, 4.5f, true, adminId, imagePath);
 
                 // Geocode the restaurant address to get real coordinates
                 double[] coords = geocodeAddress(address);
@@ -303,12 +308,14 @@ public class SuperAdminServlet extends HttpServlet {
                                     + "Best regards,\n"
                                     + "ZingBite Careers & Operations Team";
 
-                        EmailNotification note = new EmailNotification(
-                            app.getUserId(),
-                            subject,
-                            body,
-                            new SimpleDateFormat("MMMM dd, yyyy HH:mm").format(new Date())
-                        );
+                EmailNotification note = new EmailNotification(
+                    app.getUserId(),
+                    app.getEmail(),
+                    subject,
+                    body,
+                    "PENDING"
+                );
+                note.setSentDate(new SimpleDateFormat("MMMM dd, yyyy HH:mm").format(new Date()));
                         hibernateSession.persist(note);
 
                         // Send real email to candidate

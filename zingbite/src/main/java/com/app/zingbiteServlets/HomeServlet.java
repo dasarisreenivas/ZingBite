@@ -91,7 +91,7 @@ public class HomeServlet extends HttpServlet {
         if (lat == null || lng == null) {
             jakarta.servlet.http.HttpSession session = req.getSession(false);
             if (session != null) {
-                com.app.zingbitemodels.User user = (com.app.zingbitemodels.User) session.getAttribute("user");
+                com.app.zingbitemodels.User user = (com.app.zingbitemodels.User) session.getAttribute("loggedInUser");
                 if (user != null && user.getLatitude() != null && user.getLongitude() != null) {
                     lat = user.getLatitude();
                     lng = user.getLongitude();

@@ -24,6 +24,9 @@ public class CheckEmailServlet extends HttpServlet {
 		String confirmPassword = req.getParameter("confirmPassword");
 		String address = req.getParameter("address");
 		
+		resp.setContentType("application/json");
+		resp.setCharacterEncoding("UTF-8");
+
 		if(email.length()>=10) {
 			HttpSession session = req.getSession();
 			session.setAttribute("username",userName);
@@ -32,10 +35,9 @@ public class CheckEmailServlet extends HttpServlet {
 			session.setAttribute("password",password);
 			session.setAttribute("confirmpassword",confirmPassword);
 			session.setAttribute("address",address);
-			resp.sendRedirect("register");
-			
-		}else {
-			resp.sendRedirect("login.jsp");
+			resp.getWriter().write("{\"redirect\":\"/zingbite/register\"}");
+		} else {
+			resp.getWriter().write("{\"error\":\"Email too short\",\"redirect\":\"/zingbite/login\"}");
 		}
 	}
 

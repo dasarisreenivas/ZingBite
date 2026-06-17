@@ -2,6 +2,16 @@ package com.app.zingbiteutils;
 
 public class EmailTemplates {
 
+    private static String baseUrl = System.getenv().getOrDefault("APP_BASE_URL", "http://localhost:5173/zingbite");
+
+    public static void setBaseUrl(String url) {
+        baseUrl = url;
+    }
+
+    public static String getBaseUrl() {
+        return baseUrl;
+    }
+
     private static String getBaseTemplate(String title, String bodyContent) {
         return "<!DOCTYPE html>"
              + "<html>"
@@ -31,7 +41,7 @@ public class EmailTemplates {
              +        bodyContent
              + "    </div>"
              + "    <div class='footer'>"
-             + "      <p>Need support? Visit our <a href='http://localhost:5173/zingbite/info/help'>Help Center</a> or email <a href='mailto:support@zingbite.com'>support@zingbite.com</a>.</p>"
+             + "      <p>Need support? Visit our <a href='" + baseUrl + "/info/help'>Help Center</a> or email <a href='mailto:support@zingbite.com'>support@zingbite.com</a>.</p>"
              + "      <p>&copy; 2026 ZingBite Operations Inc. All rights reserved.</p>"
              + "    </div>"
              + "  </div>"
@@ -48,7 +58,7 @@ public class EmailTemplates {
                        + "  <li>Explore active menus near your location.</li>"
                        + "  <li>Unlock special welcome coupons (use code <b>WELCOME20</b> at checkout).</li>"
                        + "</ul>"
-                       + "<a href='http://localhost:5173/zingbite/menu' class='btn'>Explore Restaurants</a>";
+                       + "<a href='" + baseUrl + "/menu' class='btn'>Explore Restaurants</a>";
         return getBaseTemplate("Welcome to ZingBite!", content);
     }
 
@@ -62,7 +72,7 @@ public class EmailTemplates {
                        + "  • Order Time: <b>" + date + "</b>"
                        + "</div>"
                        + "<p>The restaurant is currently reviewing your order details. We will alert you the moment they accept it and begin preparing the food.</p>"
-                       + "<a href='http://localhost:5173/zingbite/track-order?orderId=ZB-" + orderId + "' class='btn'>Track Your Order</a>";
+                       + "<a href='" + baseUrl + "/track-order?orderId=ZB-" + orderId + "' class='btn'>Track Your Order</a>";
         return getBaseTemplate("ZingBite Order Confirmation - ZB-" + orderId, content);
     }
 
@@ -75,7 +85,7 @@ public class EmailTemplates {
                        + "  <span style='font-size: 24px; font-weight: 800; color: #F7374F;'>" + status.toUpperCase() + "</span>"
                        + "</div>"
                        + "<p>We will continue to notify you of major updates. You can track live telemetry changes and converse with the delivery rider directly from the dashboard.</p>"
-                       + "<a href='http://localhost:5173/zingbite/track-order?orderId=ZB-" + orderId + "' class='btn'>Open Live Tracking</a>";
+                       + "<a href='" + baseUrl + "/track-order?orderId=ZB-" + orderId + "' class='btn'>Open Live Tracking</a>";
         return getBaseTemplate("Order status update: ZB-" + orderId, content);
     }
 
@@ -88,16 +98,22 @@ public class EmailTemplates {
                        + "  • Status: <b>Heading to Restaurant</b>"
                        + "</div>"
                        + "<p>You can now open a real-time instant chat with the rider directly inside the order tracking portal if you need to provide coordinates or delivery directions.</p>"
-                       + "<a href='http://localhost:5173/zingbite/track-order?orderId=ZB-" + orderId + "' class='btn'>Open Chat & Tracking</a>";
+                       + "<a href='" + baseUrl + "/track-order?orderId=ZB-" + orderId + "' class='btn'>Open Chat & Tracking</a>";
         return getBaseTemplate("Delivery Partner Assigned - ZB-" + orderId, content);
     }
 
-    public static String delivered(String userName, int orderId) {
+    public static String delivered(String userName, int orderId, String restaurantName, float totalAmount, String itemsSummary) {
         String content = "<h2>Order Delivered! 🍔😋</h2>"
-                       + "<p>Dear " + SanitizationUtils.escapeHtml(userName) + ", your order <b>ZB-" + orderId + "</b> has been successfully delivered to your address.</p>"
+                       + "<p>Dear " + SanitizationUtils.escapeHtml(userName) + ", your order from <b>" + SanitizationUtils.escapeHtml(restaurantName) + "</b> has been successfully delivered!</p>"
+                       + "<div class='highlight-box'>"
+                       + "  <b>Order Summary:</b><br/>"
+                       + "  • Order ID: <b>ZB-" + orderId + "</b><br/>"
+                       + "  • Restaurant: <b>" + SanitizationUtils.escapeHtml(restaurantName) + "</b><br/>"
+                       + "  • Items: " + itemsSummary + "<br/>"
+                       + "  • Total Paid: <b>&#8377;" + String.format("%.2f", totalAmount) + "</b>"
+                       + "</div>"
                        + "<p>We hope you enjoy your meal! Thank you for ordering from ZingBite.</p>"
-                       + "<p>If you had a great experience, please take a moment to rate the restaurant and rider in the app.</p>"
-                       + "<a href='http://localhost:5173/zingbite/' class='btn'>Order Again</a>";
+                       + "<a href='" + baseUrl + "/' class='btn'>Order Again</a>";
         return getBaseTemplate("Order ZB-" + orderId + " Delivered!", content);
     }
 
@@ -110,7 +126,7 @@ public class EmailTemplates {
                        + "  <span style='font-size: 20px; font-weight: 800; color: #F7374F;'>" + status.toUpperCase() + "</span>"
                        + "</div>"
                        + "<p>You can check active messages or chat with our recruitment team directly inside the ZingBite Career Portal.</p>"
-                       + "<a href='http://localhost:5173/zingbite/careers' class='btn'>Visit Career Portal</a>";
+                       + "<a href='" + baseUrl + "/careers' class='btn'>Visit Career Portal</a>";
         return getBaseTemplate("Job Application Update: " + jobTitle, content);
     }
 }

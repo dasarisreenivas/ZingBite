@@ -86,6 +86,8 @@ public class LoginServlet extends HttpServlet {
 
             if (user != null && PasswordUtils.verifyPassword(password, user.getPassword())) {
                 LoginAttemptManager.recordSuccessfulAttempt(clientIp);
+                user.setLastLogin(new java.util.Date());
+                userDao.updateUser(user);
                 HttpSession session = req.getSession();
                 session.setAttribute("loggedInUser", user);
 

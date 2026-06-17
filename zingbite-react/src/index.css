@@ -875,7 +875,6 @@ body a[href],
 body [role="button"],
 body summary {
   transform-style: preserve-3d;
-  will-change: transform, box-shadow, filter;
 }
 
 body button:not(:disabled):hover,
@@ -891,8 +890,13 @@ body [role="button"]:hover svg:not(.spin) {
   transform: translate3d(1px, -1px, 12px) rotate(-2deg);
 }
 
-.interaction-pressed {
-  transform: translateY(1px) scale(0.985) !important;
+.interaction-pressed,
+body button:not(:disabled):active,
+body a[href]:active,
+body [role="button"]:active,
+body summary:active {
+  opacity: 0.85 !important;
+  filter: brightness(0.95) !important;
 }
 
 .has-interaction-ripple {

@@ -21,6 +21,8 @@ public class Payment {
 
     @Column(name = "orderId")
     private int orderId;
+    @Column(name = "razorpayOrderId")
+    private String razorpayOrderId;
     @Column(name = "transactionId")
     private String transactionId;
     @Column(name = "amount")
@@ -65,6 +67,14 @@ public class Payment {
 
     public void setOrderId(int orderId) {
         this.orderId = orderId;
+    }
+
+    public String getRazorpayOrderId() {
+        return razorpayOrderId;
+    }
+
+    public void setRazorpayOrderId(String razorpayOrderId) {
+        this.razorpayOrderId = razorpayOrderId;
     }
 
     public String getTransactionId() {

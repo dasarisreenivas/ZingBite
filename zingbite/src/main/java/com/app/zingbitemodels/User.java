@@ -50,6 +50,7 @@ public class User implements Serializable{
 	public User() {
 		super();
 		this.role = "customer";
+		this.createdOn = new Date();
 	}
 	
 	public User(String userName, String email, String password, long phoneNumber,String address) {
@@ -60,6 +61,7 @@ public class User implements Serializable{
 		this.phoneNumber = phoneNumber;
 		this.address = address;
 		this.role = "customer";
+		this.createdOn = new Date();
 	}
 
 	public User(int userID, String userName, String email, String password, long phoneNumber, String address) {
@@ -71,6 +73,7 @@ public class User implements Serializable{
 		this.phoneNumber = phoneNumber;
 		this.address = address;
 		this.role = "customer";
+		this.createdOn = new Date();
 	}
 
 	public int getUserID() {
@@ -187,7 +190,7 @@ public class User implements Serializable{
 
 	@Override
 	public String toString() {
-		return "User [userID=" + userID + ", userName=" + userName + ", email=" + email + ", password=" + password
+		return "User [userID=" + userID + ", userName=" + userName + ", email=" + email + ", password=[PROTECTED]"
 				+ ", phoneNumber=" + phoneNumber + ", createdOn=" + createdOn + ", lastLogin=" + lastLogin + ", role=" + role 
 				+ ", latitude=" + latitude + ", longitude=" + longitude + ", city=" + city + ", riderStatus=" + riderStatus + ", vehicleType=" + vehicleType + "]";
 	}

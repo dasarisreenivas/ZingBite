@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Globe, MessageCircle, Camera, Briefcase, Heart, ArrowUpRight, Flame } from 'lucide-react';
 
 const Footer = () => {
-  const [hoveredLink, setHoveredLink] = useState(null);
 
   return (
     <>
@@ -89,7 +88,7 @@ const Footer = () => {
         .footer-col:hover h3::after {
           width: 40px;
         }
-        .footer-col a {
+        .footer-link {
           display: flex;
           align-items: center;
           gap: 6px;
@@ -101,21 +100,21 @@ const Footer = () => {
           position: relative;
           width: fit-content;
         }
-        .footer-col a .link-arrow {
+        .footer-link .link-arrow {
           opacity: 0;
           transform: translateX(-6px);
           transition: all 0.3s var(--ease-premium);
           color: var(--brand-red);
         }
-        .footer-col a:hover {
+        .footer-link:hover {
           color: #fff;
           padding-left: 4px;
         }
-        .footer-col a:hover .link-arrow {
+        .footer-link:hover .link-arrow {
           opacity: 1;
           transform: translateX(0);
         }
-        .footer-col a::before {
+        .footer-link::before {
           content: '';
           position: absolute;
           bottom: 4px;
@@ -125,7 +124,7 @@ const Footer = () => {
           background: var(--brand-red);
           transition: width 0.3s var(--ease-premium);
         }
-        .footer-col a:hover::before {
+        .footer-link:hover::before {
           width: 100%;
         }
         .footer-bottom {
@@ -204,11 +203,11 @@ const Footer = () => {
             left: 50%;
             transform: translateX(-50%);
           }
-          .footer-col a {
+          .footer-link {
             justify-content: center;
             width: 100%;
           }
-          .footer-col a .link-arrow {
+          .footer-link .link-arrow {
             display: none;
           }
           .footer-bottom {
@@ -218,7 +217,7 @@ const Footer = () => {
           .footer-socials {
             justify-content: center;
           }
-          .footer-col a:hover {
+          .footer-link:hover {
             padding-left: 0;
           }
         }
@@ -235,46 +234,46 @@ const Footer = () => {
           </div>
           <div className="footer-col">
             <h3>Company</h3>
-            <Link to="/info/about-us" onMouseEnter={() => setHoveredLink('about')} onMouseLeave={() => setHoveredLink(null)}>
+            <Link to="/about-us" className="footer-link">
               About Us <ArrowUpRight size={12} className="link-arrow" />
             </Link>
-            <Link to="/info/careers" onMouseEnter={() => setHoveredLink('careers')} onMouseLeave={() => setHoveredLink(null)}>
+            <Link to="/info/careers" className="footer-link">
               Careers <ArrowUpRight size={12} className="link-arrow" />
             </Link>
-            <Link to="/info/team" onMouseEnter={() => setHoveredLink('team')} onMouseLeave={() => setHoveredLink(null)}>
+            <Link to="/team" className="footer-link">
               Team <ArrowUpRight size={12} className="link-arrow" />
             </Link>
-            <Link to="/info/blog" onMouseEnter={() => setHoveredLink('blog')} onMouseLeave={() => setHoveredLink(null)}>
+            <Link to="/blog" className="footer-link">
               Blog <ArrowUpRight size={12} className="link-arrow" />
             </Link>
           </div>
           <div className="footer-col">
             <h3>Support</h3>
-            <Link to="/info/help-faq" onMouseEnter={() => setHoveredLink('faq')} onMouseLeave={() => setHoveredLink(null)}>
+            <Link to="/help-faq" className="footer-link">
               Help &amp; FAQ <ArrowUpRight size={12} className="link-arrow" />
             </Link>
-            <Link to="/info/contact-us" onMouseEnter={() => setHoveredLink('contact')} onMouseLeave={() => setHoveredLink(null)}>
+            <Link to="/contact-us" className="footer-link">
               Contact Us <ArrowUpRight size={12} className="link-arrow" />
             </Link>
-            <Link to="/info/partner-with-us" onMouseEnter={() => setHoveredLink('partner')} onMouseLeave={() => setHoveredLink(null)}>
+            <Link to="/partner-with-us" className="footer-link">
               Partner With Us <ArrowUpRight size={12} className="link-arrow" />
             </Link>
-            <Link to="/info/ride-with-us" onMouseEnter={() => setHoveredLink('ride')} onMouseLeave={() => setHoveredLink(null)}>
+            <Link to="/ride-with-us" className="footer-link">
               Ride With Us <ArrowUpRight size={12} className="link-arrow" />
             </Link>
           </div>
           <div className="footer-col">
             <h3>Legal</h3>
-            <Link to="/info/terms" onMouseEnter={() => setHoveredLink('terms')} onMouseLeave={() => setHoveredLink(null)}>
+            <Link to="/terms" className="footer-link">
               Terms &amp; Conditions <ArrowUpRight size={12} className="link-arrow" />
             </Link>
-            <Link to="/info/privacy" onMouseEnter={() => setHoveredLink('privacy')} onMouseLeave={() => setHoveredLink(null)}>
+            <Link to="/privacy" className="footer-link">
               Privacy Policy <ArrowUpRight size={12} className="link-arrow" />
             </Link>
-            <Link to="/info/cookies" onMouseEnter={() => setHoveredLink('cookies')} onMouseLeave={() => setHoveredLink(null)}>
+            <Link to="/cookies" className="footer-link">
               Cookie Policy <ArrowUpRight size={12} className="link-arrow" />
             </Link>
-            <Link to="/info/refunds" onMouseEnter={() => setHoveredLink('refunds')} onMouseLeave={() => setHoveredLink(null)}>
+            <Link to="/refunds" className="footer-link">
               Refund Policy <ArrowUpRight size={12} className="link-arrow" />
             </Link>
           </div>
@@ -282,10 +281,10 @@ const Footer = () => {
         <div className="footer-bottom">
           <p>&copy; 2026 ZingBite. Made with <Heart size={13} fill="var(--brand-red)" color="var(--brand-red)" style={{ display:'inline' }} /> for food lovers</p>
           <div className="footer-socials">
-            <button className="footer-social-btn" aria-label="Website"><Globe size={15} /></button>
-            <button className="footer-social-btn" aria-label="Chat"><MessageCircle size={15} /></button>
-            <button className="footer-social-btn" aria-label="Instagram"><Camera size={15} /></button>
-            <button className="footer-social-btn" aria-label="LinkedIn"><Briefcase size={15} /></button>
+            <button type="button" className="footer-social-btn" aria-label="Website" onClick={() => window.open('https://zingbite.com', '_blank')}><Globe size={15} /></button>
+            <button type="button" className="footer-social-btn" aria-label="Chat" onClick={() => window.open('https://wa.me/918044556677', '_blank')}><MessageCircle size={15} /></button>
+            <button type="button" className="footer-social-btn" aria-label="Instagram" onClick={() => window.open('https://instagram.com/zingbite', '_blank')}><Camera size={15} /></button>
+            <button type="button" className="footer-social-btn" aria-label="LinkedIn" onClick={() => window.open('https://linkedin.com/company/zingbite', '_blank')}><Briefcase size={15} /></button>
           </div>
         </div>
       </footer>

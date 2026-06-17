@@ -29,6 +29,7 @@ import com.app.zingbitemodels.Orders;
 import com.app.zingbitemodels.OrderHistory;
 import com.app.zingbitemodels.OrderStatus;
 import com.app.zingbiteutils.DBUtils;
+import com.app.zingbiteutils.SanitizationUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -53,6 +54,20 @@ public class RestaurantAdminServlet extends HttpServlet {
         }
 
         User user = (User) session.getAttribute("loggedInUser");
+
+        // Refresh user from DB to pick up any role changes after admin approval
+        try (Session refreshSession = DBUtils.openSession()) {
+            User freshUser = refreshSession.get(User.class, user.getUserID());
+            if (freshUser != null) {
+                if (!user.getRole().equals(freshUser.getRole())) {
+                    session.setAttribute("loggedInUser", freshUser);
+                    user = freshUser;
+                }
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+
         if (!"restaurant_admin".equals(user.getRole()) && !"customer".equals(user.getRole())) {
             resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
             resp.getWriter().write("{\"error\":\"Forbidden: Only restaurant admins or onboarding customers can access this resource.\"}");
@@ -158,6 +173,19 @@ public class RestaurantAdminServlet extends HttpServlet {
         User user = (User) session.getAttribute("loggedInUser");
 
         try {
+            // Refresh user from DB to pick up role changes
+            try (Session refreshSession = DBUtils.openSession()) {
+                User freshUser = refreshSession.get(User.class, user.getUserID());
+                if (freshUser != null) {
+                    if (!user.getRole().equals(freshUser.getRole())) {
+                        session.setAttribute("loggedInUser", freshUser);
+                        user = freshUser;
+                    }
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+
             BufferedReader reader = req.getReader();
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
             String action = requestBody.has("action") ? requestBody.get("action").getAsString() : "";
@@ -166,7 +194,7 @@ public class RestaurantAdminServlet extends HttpServlet {
             if (!"submitRestaurantRequest".equals(action)) {
                 if (!"restaurant_admin".equals(user.getRole())) {
                     resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                    resp.getWriter().write("{\"error\":\"Forbidden: Only restaurant admins can access this resource.\"}");
+                    resp.getWriter().write("{\"error\":\"Forbidden: Only restaurant admins can access this resource. Your current role is: " + user.getRole() + "\"}");
                     return;
                 }
             }
@@ -174,14 +202,30 @@ public class RestaurantAdminServlet extends HttpServlet {
             Transaction tx = null;
 
             if ("submitRestaurantRequest".equals(action)) {
-                String name = requestBody.get("name").getAsString();
-                String cuisine = requestBody.get("cuisine").getAsString();
-                String address = requestBody.get("address").getAsString();
-                String deliveryTime = requestBody.has("deliveryTime") ? requestBody.get("deliveryTime").getAsString() : "30 mins";
+                String name = SanitizationUtils.escapeHtml(requestBody.get("name").getAsString());
+                String cuisine = SanitizationUtils.escapeHtml(requestBody.get("cuisine").getAsString());
+                String address = SanitizationUtils.escapeHtml(requestBody.get("address").getAsString());
+                String deliveryTime = requestBody.has("deliveryTime") ? SanitizationUtils.escapeHtml(requestBody.get("deliveryTime").getAsString()) : "30 mins";
                 String imagePath = requestBody.has("imagePath") ? requestBody.get("imagePath").getAsString() : "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop";
-                String licenseNo = requestBody.get("licenseNo").getAsString();
-                String aadhaarNo = requestBody.get("aadhaarNo").getAsString();
-                String gstNo = requestBody.get("gstNo").getAsString();
+                String licenseNo = SanitizationUtils.escapeHtml(requestBody.get("licenseNo").getAsString());
+                String aadhaarNo = SanitizationUtils.escapeHtml(requestBody.get("aadhaarNo").getAsString());
+                String gstNo = SanitizationUtils.escapeHtml(requestBody.get("gstNo").getAsString());
+
+                // Rate limit: check for existing PENDING request
+                try (Session checkSession = DBUtils.openSession()) {
+                    String countHql = "select count(r) from RestaurantRequest r where r.adminId = :adminId and r.status = :status";
+                    Query<Long> countQuery = checkSession.createQuery(countHql, Long.class);
+                    countQuery.setParameter("adminId", user.getUserID());
+                    countQuery.setParameter("status", "Pending");
+                    Long pendingCount = countQuery.uniqueResult();
+                    if (pendingCount != null && pendingCount > 0) {
+                        resp.setStatus(HttpServletResponse.SC_CONFLICT);
+                        resp.getWriter().write("{\"error\":\"You already have a pending restaurant request. Please wait for it to be reviewed.\"}");
+                        return;
+                    }
+                } catch (Exception rateEx) {
+                    rateEx.printStackTrace();
+                }
 
                 RestaurantRequest request = new RestaurantRequest(
                     name, cuisine, address, deliveryTime, imagePath,
@@ -252,9 +296,9 @@ public class RestaurantAdminServlet extends HttpServlet {
                 }
 
             } else if ("addMenuItem".equals(action)) {
-                String name = requestBody.get("name").getAsString();
+                String name = SanitizationUtils.escapeHtml(requestBody.get("name").getAsString());
                 double price = requestBody.get("price").getAsDouble();
-                String description = requestBody.get("description").getAsString();
+                String description = SanitizationUtils.escapeHtml(requestBody.get("description").getAsString());
                 String imagePath = requestBody.has("imagePath") ? requestBody.get("imagePath").getAsString() : "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop";
                 int restaurantId = requestBody.get("restaurantId").getAsInt();
 

@@ -2,10 +2,11 @@ package com.app.zingbiteutils;
 
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebFilter;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-@WebFilter(filterName = "CacheControlFilter", urlPatterns = {"/assets/*", "/css/*", "/script/*", "/videos/*", "/favicon.svg", "/icons.svg"}, asyncSupported = true)
+@WebFilter(filterName = "CacheControlFilter", urlPatterns = {"/*"}, asyncSupported = true)
 public class CacheControlFilter implements Filter {
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {}
@@ -13,9 +14,22 @@ public class CacheControlFilter implements Filter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-        HttpServletResponse httpResponse = (HttpServletResponse) response;
-        // Cache static assets for 1 year (31536000 seconds)
-        httpResponse.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        HttpServletRequest httpReq = (HttpServletRequest) request;
+        HttpServletResponse httpRes = (HttpServletResponse) response;
+        String path = httpReq.getRequestURI().substring(httpReq.getContextPath().length());
+
+        if (path.startsWith("/assets/") || path.equals("/favicon.svg")) {
+            // Assets have content-hashed filenames so can be cached long-term
+            httpRes.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        } else {
+            // Tell the browser to drop all cached data for this origin
+            httpRes.setHeader("Clear-Site-Data", "\"cache\"");
+            // HTML and everything else: never cache — forces browser to always
+            // fetch the latest index.html which references the newest hashed assets
+            httpRes.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+            httpRes.setHeader("Pragma", "no-cache");
+            httpRes.setHeader("Expires", "0");
+        }
         chain.doFilter(request, response);
     }
 

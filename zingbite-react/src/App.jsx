@@ -7,19 +7,19 @@ import { ThemeProvider } from './context/ThemeContext';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
-import Home from './pages/Home';
-import Menu from './pages/Menu';
-import Cart from './pages/Cart';
-import Checkout from './pages/Checkout';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Info from './pages/Info';
-import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Flame } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
 import { trackPageView } from './utils/analytics';
 
+const Home = React.lazy(() => import('./pages/Home'));
+const Menu = React.lazy(() => import('./pages/Menu'));
+const Cart = React.lazy(() => import('./pages/Cart'));
+const Checkout = React.lazy(() => import('./pages/Checkout'));
+const Login = React.lazy(() => import('./pages/Login'));
+const Register = React.lazy(() => import('./pages/Register'));
+const Info = React.lazy(() => import('./pages/Info'));
+const Profile = React.lazy(() => import('./pages/Profile'));
 const OrderTracking = React.lazy(() => import('./pages/OrderTracking'));
 const DeliveryDashboard = React.lazy(() => import('./pages/DeliveryDashboard'));
 const RestaurantDashboard = React.lazy(() => import('./pages/RestaurantDashboard'));
@@ -31,7 +31,7 @@ const VRPDashboard = React.lazy(() => import('./pages/VRPDashboard'));
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, left: 0 });
   }, [pathname]);
   return null;
 }
@@ -57,47 +57,6 @@ function PremiumAtmosphere() {
 }
 
 function InteractionFX() {
-  useEffect(() => {
-    const interactiveSelector = [
-      'a[href]',
-      'button',
-      '[role="button"]',
-      'input:not([type="hidden"])',
-      'select',
-      'textarea',
-      'label',
-      'summary',
-      '[tabindex]:not([tabindex="-1"])'
-    ].join(',');
-    const handlePointerDown = (event) => {
-      if (!(event.target instanceof Element)) return;
-      const target = event.target.closest(interactiveSelector);
-      if (!target || target.closest('.leaflet-container')) return;
-      if (target.disabled || target.getAttribute('aria-disabled') === 'true') return;
-      target.classList.remove('interaction-pressed');
-      void target.offsetWidth;
-      target.classList.add('interaction-pressed');
-      const canHostRipple = !['INPUT', 'SELECT', 'TEXTAREA', 'OPTION'].includes(target.tagName);
-      if (canHostRipple) {
-        const rect = target.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          const ripple = document.createElement('span');
-          const size = Math.max(rect.width, rect.height) * 1.15;
-          ripple.className = 'interaction-ripple';
-          ripple.style.width = `${size}px`;
-          ripple.style.height = `${size}px`;
-          ripple.style.left = `${event.clientX - rect.left}px`;
-          ripple.style.top = `${event.clientY - rect.top}px`;
-          target.classList.add('has-interaction-ripple');
-          target.appendChild(ripple);
-          window.setTimeout(() => ripple.remove(), 680);
-        }
-      }
-      window.setTimeout(() => target.classList.remove('interaction-pressed'), 260);
-    };
-    document.addEventListener('pointerdown', handlePointerDown, true);
-    return () => document.removeEventListener('pointerdown', handlePointerDown, true);
-  }, []);
   return null;
 }
 
@@ -192,18 +151,29 @@ function App() {
                         <Route path="/" element={<Home />} />
                         <Route path="/home" element={<Home />} />
                         <Route path="/menu" element={<Menu />} />
-                        <Route path="/cart" element={<Cart />} />
-                        <Route path="/checkout" element={<Checkout />} />
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />
                         <Route path="/info/:sectionId" element={<Info />} />
-                        <Route path="/profile" element={<Profile />} />
-                        <Route path="/track-order" element={<OrderTracking />} />
+                        <Route path="/about-us" element={<Info />} />
+                        <Route path="/team" element={<Info />} />
+                        <Route path="/blog" element={<Info />} />
+                        <Route path="/help-faq" element={<Info />} />
+                        <Route path="/contact-us" element={<Info />} />
+                        <Route path="/partner-with-us" element={<Info />} />
+                        <Route path="/ride-with-us" element={<Info />} />
+                        <Route path="/terms" element={<Info />} />
+                        <Route path="/privacy" element={<Info />} />
+                        <Route path="/cookies" element={<Info />} />
+                        <Route path="/refunds" element={<Info />} />
+                        <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+                        <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+                        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                        <Route path="/track-order" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
+                        <Route path="/careers" element={<ProtectedRoute><CareerPortal /></ProtectedRoute>} />
                         <Route path="/delivery" element={<ProtectedRoute allowedRoles={['delivery_partner']}><DeliveryDashboard /></ProtectedRoute>} />
-                        <Route path="/restaurant-admin" element={<ProtectedRoute allowedRoles={['restaurant_admin', 'customer']}><RestaurantDashboard /></ProtectedRoute>} />
-                        <Route path="/careers" element={<CareerPortal />} />
+                        <Route path="/restaurant-admin" element={<ProtectedRoute allowedRoles={['restaurant_admin']}><RestaurantDashboard /></ProtectedRoute>} />
                         <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
-                        <Route path="/vrp" element={<VRPDashboard />} />
+                        <Route path="/vrp" element={<ProtectedRoute allowedRoles={['super_admin']}><VRPDashboard /></ProtectedRoute>} />
                       </Routes>
                     </RouteMotionFrame>
                   </React.Suspense>

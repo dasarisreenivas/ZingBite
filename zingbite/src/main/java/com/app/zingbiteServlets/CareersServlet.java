@@ -23,6 +23,7 @@ import com.app.zingbitemodels.Application;
 import com.app.zingbitemodels.EmailNotification;
 import com.app.zingbiteutils.DBUtils;
 import com.app.zingbiteutils.LRUCache;
+import com.app.zingbiteutils.SanitizationUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -170,12 +171,29 @@ public class CareersServlet extends HttpServlet {
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
 
             int jobId = requestBody.get("jobId").getAsInt();
-            String name = requestBody.get("name").getAsString();
-            String email = requestBody.get("email").getAsString();
-            String phone = requestBody.get("phone").getAsString();
+            String name = SanitizationUtils.escapeHtml(requestBody.get("name").getAsString());
+            String email = requestBody.get("email").getAsString().trim().toLowerCase();
+            String phone = requestBody.get("phone").getAsString().trim();
             String resumeUrl = requestBody.has("resumeUrl") ? requestBody.get("resumeUrl").getAsString() : "https://zingbite.com/resumes/demo.pdf";
-            String city = requestBody.has("city") && !requestBody.get("city").isJsonNull() ? requestBody.get("city").getAsString() : null;
-            String vehicleType = requestBody.has("vehicle") && !requestBody.get("vehicle").isJsonNull() ? requestBody.get("vehicle").getAsString() : null;
+            String city = requestBody.has("city") && !requestBody.get("city").isJsonNull() ? SanitizationUtils.escapeHtml(requestBody.get("city").getAsString()) : null;
+            String vehicleType = requestBody.has("vehicle") && !requestBody.get("vehicle").isJsonNull() ? SanitizationUtils.escapeHtml(requestBody.get("vehicle").getAsString()) : null;
+
+            // Rate limit: check if already applied for this job
+            try (Session checkSession = DBUtils.openSession()) {
+                String countHql = "select count(a) from Application a where a.userId = :userId and a.jobId = :jobId and a.status = :status";
+                Query<Long> countQuery = checkSession.createQuery(countHql, Long.class);
+                countQuery.setParameter("userId", user.getUserID());
+                countQuery.setParameter("jobId", jobId);
+                countQuery.setParameter("status", "Applied");
+                Long pendingCount = countQuery.uniqueResult();
+                if (pendingCount != null && pendingCount > 0) {
+                    resp.setStatus(HttpServletResponse.SC_CONFLICT);
+                    resp.getWriter().write("{\"error\":\"You have already applied for this position. Please wait for a response.\"}");
+                    return;
+                }
+            } catch (Exception rateEx) {
+                rateEx.printStackTrace();
+            }
 
             Application app = new Application();
             app.setJobId(jobId);

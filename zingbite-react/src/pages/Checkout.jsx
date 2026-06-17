@@ -19,6 +19,7 @@ const Checkout = () => {
   const [manualLng, setManualLng] = useState(null);
   const [manualCity, setManualCity] = useState('');
   const [paying, setPaying] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('card');
 
   const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
   const mapRef = useRef(null);
@@ -135,6 +136,29 @@ const Checkout = () => {
 
   const handlePay = async () => {
     if (paying || verifying) return;
+
+    if (paymentMethod === 'cod') {
+      setPaying(true);
+      try {
+        const itemsList = cart.items ? (Array.isArray(cart.items) ? cart.items : Object.values(cart.items)) : [];
+        const formattedItems = itemsList.map(item => ({ id: item.itemId, qty: item.quantity, price: item.price }));
+        const finalAddress = addressChoice === 'profile' ? (user?.address || '') : manualAddress;
+        if (addressChoice === 'manual' && finalAddress) {
+          const upRes = await axios.post('/api/profile', { action: 'update', username: user.userName || user.username || 'User', mobile: String(user.phoneNumber || user.mobile || ''), address: finalAddress, latitude: finalAddress === manualAddress ? manualLat : null, longitude: finalAddress === manualAddress ? manualLng : null, city: finalAddress === manualAddress ? manualCity : '' });
+          if (upRes.data.success && typeof updateUser === 'function') updateUser(upRes.data.user);
+        }
+        const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'COD', items: formattedItems });
+        if (!res.data.success) { showAlert(res.data.error || "Failed to place order.", "error"); setPaying(false); return; }
+        trackEvent('ORDER_PLACED', { orderId: res.data.orderId, amount: cart.total, method: 'COD' });
+        clearCart();
+        navigate(`/track-order?orderId=${res.data.orderId}`);
+      } catch (err) {
+        console.error("Failed to place COD order:", err);
+        showAlert("An error occurred placing your order. Please try again.", "error");
+      } finally { setPaying(false); }
+      return;
+    }
+
     const isLoaded = await loadRazorpay();
     if (!isLoaded) { showAlert("Failed to load Razorpay payment gateway.", "error"); return; }
     setPaying(true);
@@ -149,16 +173,25 @@ const Checkout = () => {
       const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'Razorpay', items: formattedItems });
       if (!res.data.success) { showAlert(res.data.error || "Failed to reserve order.", "error"); setPaying(false); return; }
       const orderId = res.data.orderId;
+      const razorpayOrderId = res.data.razorpayOrderId;
       const options = {
-        key: "rzp_test_RU5HIdwTwlQNOw",
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_RU5HIdwTwlQNOw",
         amount: Math.round(cart.total * 100),
         currency: "INR",
         name: "ZingBite",
         description: "Order Payment",
+        order_id: razorpayOrderId,
         handler: async function (response) {
           setVerifying(true);
           try {
-            const verifyRes = await axios.post('/api/payment/verify', { orderId, transactionId: response.razorpay_payment_id, paymentMethod: 'Razorpay' });
+            const verifyRes = await axios.post('/api/payment/verify', {
+              orderId,
+              transactionId: response.razorpay_payment_id,
+              paymentMethod: 'Razorpay',
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpaySignature: response.razorpay_signature
+            });
             if (verifyRes.data.success) { trackEvent('ORDER_PLACED', { orderId, amount: cart.total }); clearCart(); navigate(`/track-order?orderId=${orderId}`); }
             else { showAlert(verifyRes.data.error || "Payment verification failed.", "error"); }
           } catch (err) {
@@ -324,9 +357,9 @@ const Checkout = () => {
         <div className="chk-card">
           <h2 className="chk-title"><CreditCard size={20} /> Payment</h2>
           <div className="option-group">
-            <label className="option-label"><input type="radio" name="pay" defaultChecked /> <CreditCard size={16} /> Credit / Debit Card</label>
-            <label className="option-label"><input type="radio" name="pay" /> <Smartphone size={16} /> UPI</label>
-            <label className="option-label"><input type="radio" name="pay" /> <Banknote size={16} /> Cash on Delivery</label>
+            <label className="option-label"><input type="radio" name="pay" value="card" checked={paymentMethod === 'card'} onChange={e => setPaymentMethod(e.target.value)} /> <CreditCard size={16} /> Credit / Debit Card</label>
+            <label className="option-label"><input type="radio" name="pay" value="upi" checked={paymentMethod === 'upi'} onChange={e => setPaymentMethod(e.target.value)} /> <Smartphone size={16} /> UPI</label>
+            <label className="option-label"><input type="radio" name="pay" value="cod" checked={paymentMethod === 'cod'} onChange={e => setPaymentMethod(e.target.value)} /> <Banknote size={16} /> Cash on Delivery</label>
           </div>
 
           <div className="chk-summary">

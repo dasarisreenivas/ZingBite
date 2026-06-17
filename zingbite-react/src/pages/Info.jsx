@@ -1,19 +1,18 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useModal } from '../context/ModalContext';
 import { 
-  Info, Briefcase, Users, BookOpen, HelpCircle, Mail, 
-  Building2, Bike, FileText, Shield, Cookie, RefreshCw,
-  Send, CheckCircle, ChevronDown, Search, MapPin, Phone, ExternalLink, AlertCircle, Loader
+  Send, CheckCircle, ChevronDown, MapPin, Phone, ExternalLink, AlertCircle, Loader, Building2, Bike, Mail
 } from 'lucide-react';
 
 const InfoPage = () => {
   const { sectionId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { showAlert } = useModal();
-  const activeSection = sectionId || 'about-us';
+  const activeSection = sectionId || location.pathname.replace(/^\/?(?:info\/)?/, '') || 'about-us';
 
   const { user, updateUser } = useContext(AuthContext);
   const [partnerSubmitting, setPartnerSubmitting] = useState(false);
@@ -22,7 +21,7 @@ const InfoPage = () => {
   // State for forms & interactions
   const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [contactSubmitted, setContactSubmitted] = useState(false);
-  const [partnerForm, setPartnerForm] = useState({ restName: '', owner: '', email: '', phone: '', city: '', cuisine: '', address: '', licenseNo: '', aadhaarNo: '', gstNo: '' });
+  const [partnerForm, setPartnerForm] = useState({ restName: '', owner: '', email: user?.email || '', phone: '', city: '', cuisine: '', address: '', licenseNo: '', aadhaarNo: '', gstNo: '' });
   const [partnerSubmitted, setPartnerSubmitted] = useState(false);
   const [riderForm, setRiderForm] = useState({ name: '', city: '', vehicle: 'bike', phone: '' });
   const [riderSubmitted, setRiderSubmitted] = useState(false);
@@ -168,6 +167,15 @@ const InfoPage = () => {
     return destroyMap;
   }, [leafletLoaded, activeSection, user, destroyMap]);
   
+  // Sync user email into partner/contact forms when user loads
+  useEffect(() => {
+    if (user?.email) {
+      setPartnerForm(prev => prev.email ? prev : { ...prev, email: user.email });
+      setContactForm(prev => prev.email ? prev : { ...prev, email: user.email });
+      setRiderForm(prev => prev.name ? prev : { ...prev, name: user.name || '' });
+    }
+  }, [user?.email]);
+
   // Job apply state
   const [appliedJob, setAppliedJob] = useState(null);
   const [applyingJob, setApplyingJob] = useState(false);
@@ -175,27 +183,24 @@ const InfoPage = () => {
   // Accordion FAQs state
   const [openFaq, setOpenFaq] = useState(null);
 
-  // Sync scroll to top on section change
+  // Sync scroll to section on section change
   useEffect(() => {
-    window.scrollTo(0, 0);
+    if (activeSection === 'partner-with-us') {
+      const el = document.getElementById('partner-with-us-form');
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+        return;
+      }
+    }
+    if (activeSection === 'ride-with-us') {
+      const el = document.getElementById('ride-with-us-form');
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+        return;
+      }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeSection]);
-
-  const sections = [
-    { id: 'about-us', name: 'About Us', icon: Info, group: 'Company' },
-    { id: 'careers', name: 'Careers', icon: Briefcase, group: 'Company' },
-    { id: 'team', name: 'Team', icon: Users, group: 'Company' },
-    { id: 'blog', name: 'Blog', icon: BookOpen, group: 'Company' },
-    
-    { id: 'help-faq', name: 'Help & FAQ', icon: HelpCircle, group: 'Support' },
-    { id: 'contact-us', name: 'Contact Us', icon: Mail, group: 'Support' },
-    { id: 'partner-with-us', name: 'Partner With Us', icon: Building2, group: 'Support' },
-    { id: 'ride-with-us', name: 'Ride With Us', icon: Bike, group: 'Support' },
-    
-    { id: 'terms', name: 'Terms & Conditions', icon: FileText, group: 'Legal' },
-    { id: 'privacy', name: 'Privacy Policy', icon: Shield, group: 'Legal' },
-    { id: 'cookies', name: 'Cookie Policy', icon: Cookie, group: 'Legal' },
-    { id: 'refunds', name: 'Refund Policy', icon: RefreshCw, group: 'Legal' },
-  ];
 
   const handleContactSubmit = async (e) => {
     e.preventDefault();
@@ -231,6 +236,10 @@ const InfoPage = () => {
       const res = await axios.post('/api/restaurant-admin', {
         action: 'submitRestaurantRequest',
         name: partnerForm.restName,
+        owner: partnerForm.owner,
+        email: partnerForm.email,
+        phone: partnerForm.phone,
+        city: partnerForm.city,
         cuisine: partnerForm.cuisine || 'Multi-Cuisine',
         address: partnerForm.address,
         deliveryTime: '30 mins',
@@ -241,7 +250,7 @@ const InfoPage = () => {
       });
       if (res.data.success) {
         setPartnerSubmitted(true);
-        showAlert("Partner onboarding application submitted successfully! Pending administrator verification and role elevation.", "success");
+        showAlert("Partner request submitted! Pending admin approval.", "success");
       }
     } catch (err) {
       showAlert(err.response?.data?.error || "Failed to submit partner application.", "error");
@@ -274,6 +283,7 @@ const InfoPage = () => {
       
       // 3. Submit application
       const res = await axios.post('/api/careers', {
+        action: 'apply',
         jobId: riderJob.id,
         name: riderForm.name,
         email: user.email,
@@ -285,7 +295,7 @@ const InfoPage = () => {
       
       if (res.data.success) {
         setRiderSubmitted(true);
-        showAlert("Rider job application submitted! Pending admin review.", "success");
+        showAlert("Rider application submitted! Pending admin approval.", "success");
       }
     } catch (err) {
       showAlert(err.message || err.response?.data?.error || "Failed to submit rider application.", "error");
@@ -347,36 +357,32 @@ const InfoPage = () => {
             <h2>Careers at ZingBite</h2>
             <p className="section-desc">We are always looking for passionate, driven, and creative individuals to join our team and build the future of food tech.</p>
 
-            <div className="jobs-list">
-                  {[
-                    { id: 1, title: 'Senior Frontend Engineer (React)', dept: 'Engineering', loc: 'Remote / Bangalore', salary: '₹18L - ₹24L' },
-                    { id: 2, title: 'Product Designer (UX/UI)', dept: 'Design', loc: 'Hybrid (Delhi/NCR)', salary: '₹12L - ₹16L' },
-                    { id: 3, title: 'Logistics Operations Lead', dept: 'Operations', loc: 'On-site (Mumbai)', salary: '₹8L - ₹11L' },
-                    { id: 4, title: 'Customer Support Executive', dept: 'Customer Care', loc: 'Remote', salary: '₹4L - ₹6L' }
-                  ].map(job => (
-                    <div key={job.id} className="job-card">
-                      <div className="job-main">
-                        <h4>{job.title}</h4>
-                        <div className="job-meta">
-                          <span>{job.dept}</span>
-                          <span className="dot" />
-                          <span>{job.loc}</span>
-                          <span className="dot" />
-                          <span>{job.salary}</span>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => {
-                          setAppliedJob(job.title);
-                          showAlert("Please visit our Career Portal to apply for this position.", "info");
-                          setTimeout(() => setAppliedJob(null), 3000);
-                        }} 
-                        className="job-apply-btn"
-                      >
-                        {appliedJob === job.title ? 'Visit Career Portal' : 'Apply Now'}
-                      </button>
+        <div className="jobs-list">
+              {[
+                { id: 1, title: 'Senior Frontend Engineer (React)', dept: 'Engineering', loc: 'Remote / Bangalore', salary: '₹18L - ₹24L' },
+                { id: 2, title: 'Product Designer (UX/UI)', dept: 'Design', loc: 'Hybrid (Delhi/NCR)', salary: '₹12L - ₹16L' },
+                { id: 3, title: 'Logistics Operations Lead', dept: 'Operations', loc: 'On-site (Mumbai)', salary: '₹8L - ₹11L' },
+                { id: 4, title: 'Customer Support Executive', dept: 'Customer Care', loc: 'Remote', salary: '₹4L - ₹6L' }
+              ].map(job => (
+                <div key={job.id} className="job-card">
+                  <div className="job-main">
+                    <h4>{job.title}</h4>
+                    <div className="job-meta">
+                      <span>{job.dept}</span>
+                      <span className="dot" />
+                      <span>{job.loc}</span>
+                      <span className="dot" />
+                      <span>{job.salary}</span>
                     </div>
-                  ))}
+                  </div>
+                  <button 
+                    onClick={() => navigate('/careers')} 
+                    className="job-apply-btn"
+                  >
+                    Apply Now
+                  </button>
+                </div>
+              ))}
             </div>
 
             {appliedJob && (
@@ -427,7 +433,7 @@ const InfoPage = () => {
                   <span className="blog-meta">{post.date} &bull; {post.read}</span>
                   <h4>{post.title}</h4>
                   <p>{post.desc}</p>
-                  <a href="#read" onClick={(e) => { e.preventDefault(); showAlert("Blog reading functionality coming soon!", "info"); }} className="blog-link">Read Article <ExternalLink size={14} /></a>
+                  <button onClick={() => navigate('/blog')} className="blog-link">Read Article <ExternalLink size={14} /></button>
                 </article>
               ))}
             </div>
@@ -563,7 +569,7 @@ const InfoPage = () => {
                 </ul>
               </div>
 
-              <div className="contact-form-container">
+              <div className="contact-form-container" id="partner-with-us-form">
                 {!user ? (
                   <div className="login-prompt-card" style={{ padding: '32px 20px', border: '2px dashed var(--border-medium)', borderRadius: 'var(--radius-md)', textAlign: 'center', background: 'var(--bg-surface)' }}>
                     <AlertCircle size={36} style={{ color: 'var(--brand-red)', margin: '0 auto 12px' }} />
@@ -571,18 +577,18 @@ const InfoPage = () => {
                     <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
                       Please log in with your ZingBite account to register a restaurant.
                     </p>
-                    <Link to="/login?redirect=/info/partner-with-us" className="form-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center', width: 'auto', padding: '10px 24px', fontWeight: 600 }}>
+                    <button type="button" onClick={() => navigate('/login?redirect=/partner-with-us')} className="form-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center', width: 'auto', padding: '10px 24px', fontWeight: 600, border: 'none', cursor: 'pointer', color: '#fff' }}>
                       Log In to Apply
-                    </Link>
+                    </button>
                   </div>
                 ) : partnerSubmitted ? (
                   <div className="form-success" style={{ textAlign: 'center', padding: '32px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-md)' }}>
                     <CheckCircle size={48} style={{ color: 'var(--success)', margin: '0 auto 16px' }} />
                     <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '8px' }}>Application Submitted!</h3>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: 1.5 }}>Our merchant team will review your application and reach out within 2 business days.</p>
-                    <Link to="/restaurant-admin" className="form-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center', width: 'auto', padding: '12px 28px', fontWeight: 700 }}>
-                      Go to Onboarding Dashboard
-                    </Link>
+                    <button type="button" onClick={() => navigate('/')} className="form-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center', width: 'auto', padding: '12px 28px', fontWeight: 700, border: 'none', cursor: 'pointer', color: '#fff' }}>
+                      Back to Home
+                    </button>
                   </div>
                 ) : (
                   <form onSubmit={handlePartnerSubmit} className="info-form">
@@ -735,7 +741,7 @@ const InfoPage = () => {
                 </ul>
               </div>
 
-              <div className="contact-form-container">
+              <div className="contact-form-container" id="ride-with-us-form">
                 {!user ? (
                   <div className="login-prompt-card" style={{ padding: '32px 20px', border: '2px dashed var(--border-medium)', borderRadius: 'var(--radius-md)', textAlign: 'center', background: 'var(--bg-surface)' }}>
                     <AlertCircle size={36} style={{ color: 'var(--brand-red)', margin: '0 auto 12px' }} />
@@ -743,18 +749,18 @@ const InfoPage = () => {
                     <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
                       Please log in with your ZingBite account to register as a delivery rider.
                     </p>
-                    <Link to="/login?redirect=/info/ride-with-us" className="form-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center', width: 'auto', padding: '10px 24px', fontWeight: 600 }}>
+                    <button type="button" onClick={() => navigate('/login?redirect=/ride-with-us')} className="form-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center', width: 'auto', padding: '10px 24px', fontWeight: 600, border: 'none', cursor: 'pointer', color: '#fff' }}>
                       Log In to Apply
-                    </Link>
+                    </button>
                   </div>
                 ) : riderSubmitted ? (
                   <div className="form-success" style={{ textAlign: 'center', padding: '32px 20px', background: 'var(--bg-surface)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-md)' }}>
                     <CheckCircle size={48} style={{ color: 'var(--success)', margin: '0 auto 16px' }} />
                     <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '8px' }}>Rider Registration Initiated!</h3>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: 1.5 }}>We've sent onboarding details to your phone number. You can track your application status in the Career Portal.</p>
-                    <Link to="/careers" className="form-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center', width: 'auto', padding: '12px 28px', fontWeight: 700 }}>
+                    <button type="button" onClick={() => navigate('/careers')} className="form-submit-btn" style={{ display: 'inline-block', textDecoration: 'none', textAlign: 'center', width: 'auto', padding: '12px 28px', fontWeight: 700, border: 'none', cursor: 'pointer', color: '#fff' }}>
                       View Application Status
-                    </Link>
+                    </button>
                   </div>
                 ) : (
                   <form onSubmit={handleRiderSubmit} className="info-form">
@@ -953,7 +959,7 @@ const InfoPage = () => {
         return (
           <div className="info-content-pane">
             <h2>Section Not Found</h2>
-            <p>The section you are looking for does not exist. Please use the sidebar to choose a valid section.</p>
+            <p>The section you are looking for does not exist.</p>
           </div>
         );
     }
@@ -963,99 +969,9 @@ const InfoPage = () => {
     <>
       <style>{`
         .info-page-layout {
-          display: flex;
           max-width: 1200px;
           margin: 24px auto 48px;
           padding: 0 20px;
-          gap: 32px;
-          align-items: start;
-        }
-        .info-sidebar {
-          width: 260px;
-          background: rgba(255,255,255,0.96);
-          border: 1px solid rgba(247,55,79,0.1);
-          border-radius: var(--radius-md);
-          padding: 16px;
-          position: sticky;
-          top: 90px;
-          box-shadow: 0 12px 34px rgba(28,28,28,0.06);
-        }
-        .info-group-title {
-          font-size: 0.78rem;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          color: var(--text-muted);
-          margin: 16px 0 8px 8px;
-          font-weight: 700;
-        }
-        .info-group-title:first-child {
-          margin-top: 0;
-        }
-        .info-sidebar-btn {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          width: 100%;
-          padding: 10px 12px;
-          background: transparent;
-          border: none;
-          color: var(--text-secondary);
-          font-size: 0.95rem;
-          font-weight: 500;
-          text-align: left;
-          cursor: pointer;
-          border-radius: var(--radius-sm);
-          transition: all 0.2s ease;
-        }
-        .info-sidebar-btn:hover {
-          color: var(--brand-red);
-          background: rgba(247,55,79,0.04);
-        }
-        .info-sidebar-btn.active {
-          color: #fff;
-          background: var(--brand-red);
-          font-weight: 600;
-        }
-        
-        /* Mobile Dropdown */
-        .info-mobile-selector {
-          display: none;
-          width: 100%;
-          margin-bottom: 16px;
-        }
-        .info-mobile-select {
-          width: 100%;
-          padding: 14px 40px 14px 16px;
-          font-family: inherit;
-          font-size: 1rem;
-          border: 1.5px solid rgba(247,55,79,0.12);
-          border-radius: var(--radius-sm);
-          background: #fff;
-          color: var(--text-primary);
-          outline: none;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.25s var(--ease-premium);
-          appearance: none;
-          -webkit-appearance: none;
-          -moz-appearance: none;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239e9e9e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 14px center;
-          background-size: 16px;
-        }
-        .info-mobile-select:hover {
-          border-color: var(--brand-red);
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23F7374F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-        }
-        .info-mobile-select:focus {
-          border-color: var(--brand-red);
-          box-shadow: 0 0 0 3px rgba(247,55,79,0.1);
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23F7374F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-        }
-
-        .info-main-content {
-          flex: 1;
           background: rgba(255,255,255,0.96);
           border: 1px solid rgba(247,55,79,0.1);
           border-radius: var(--radius-md);
@@ -1474,22 +1390,6 @@ const InfoPage = () => {
           animation: slideUp 0.3s cubic-bezier(0.25, 0.1, 0.25, 1) both;
         }
 
-        @media (max-width: 900px) {
-          .info-page-layout {
-            flex-direction: column;
-            gap: 20px;
-          }
-          .info-sidebar {
-            display: none;
-          }
-          .info-mobile-selector {
-            display: block;
-          }
-          .info-main-content {
-            padding: 24px;
-          }
-        }
-        
         .premium-btn-shimmer {
           background: linear-gradient(135deg, var(--brand-red), #ff6b8b, var(--brand-red));
           background-size: 200% 100%;
@@ -1566,61 +1466,11 @@ const InfoPage = () => {
         }
       `}</style>
 
-      <div className="info-page-layout fade-in page-enter">
-        {/* Desktop Sidebar Navigation */}
-        <aside className="info-sidebar">
-          {['Company', 'Support', 'Legal'].map((group) => (
-            <div key={group}>
-              <h3 className="info-group-title">{group}</h3>
-              {sections.filter(s => s.group === group).map((sec) => {
-                const IconComponent = sec.icon;
-                return (
-                  <button
-                    key={sec.id}
-                    className={`info-sidebar-btn ${activeSection === sec.id ? 'active' : ''}`}
-                    onClick={() => navigate(`/info/${sec.id}`)}
-                  >
-                    <IconComponent size={16} />
-                    {sec.name}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </aside>
-
-        {/* Mobile Dropdown Selector */}
-        <div className="info-mobile-selector">
-          <select 
-            className="info-mobile-select"
-            value={activeSection}
-            onChange={(e) => navigate(`/info/${e.target.value}`)}
-          >
-            <optgroup label="Company">
-              {sections.filter(s => s.group === 'Company').map(sec => (
-                <option key={sec.id} value={sec.id}>{sec.name}</option>
-              ))}
-            </optgroup>
-            <optgroup label="Support">
-              {sections.filter(s => s.group === 'Support').map(sec => (
-                <option key={sec.id} value={sec.id}>{sec.name}</option>
-              ))}
-            </optgroup>
-            <optgroup label="Legal">
-              {sections.filter(s => s.group === 'Legal').map(sec => (
-                <option key={sec.id} value={sec.id}>{sec.name}</option>
-              ))}
-            </optgroup>
-          </select>
-        </div>
-
-        {/* Main Content Area */}
-        <main className="info-main-content">
-          {renderContent()}
-        </main>
-      </div>
+      <main className="info-page-layout fade-in page-enter">
+        {renderContent()}
+      </main>
     </>
   );
 };
 
-export default InfoPage;
+export default React.memo(InfoPage);

@@ -1,5 +1,9 @@
 package com.app.zingbiteutils;
 
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.Properties;
+
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
@@ -25,15 +29,12 @@ import com.app.zingbitemodels.AnalyticsEvent;
 	private static SessionFactory sf;
 
 	static {
-		try {
-			String defaultPass = "Srinivas@192004";
-			String dbUser = System.getenv().getOrDefault("ZINGBITE_DB_USER", "root");
-			String dbPass = System.getenv().getOrDefault("ZINGBITE_DB_PASS", defaultPass);
-			String dbUrl = System.getenv().getOrDefault("ZINGBITE_DB_URL", "jdbc:mysql://localhost:3306/ZingBite");
+		loadEnvFile();
 
-			if (!System.getenv().containsKey("ZINGBITE_DB_PASS")) {
-				System.out.println("[DBUtils] WARNING: ZINGBITE_DB_PASS env var not set. Using default (hardcoded) password. Set ZINGBITE_DB_PASS in your environment for production security.");
-			}
+		try {
+			String dbUser = getEnvRequired("ZINGBITE_DB_USER");
+			String dbPass = getEnvRequired("ZINGBITE_DB_PASSWORD");
+			String dbUrl = getEnvRequired("ZINGBITE_DB_URL");
 
 			Configuration config = new Configuration().configure("hibernate.cfg.xml")
 									.setProperty("hibernate.connection.username", dbUser)
@@ -60,6 +61,66 @@ import com.app.zingbitemodels.AnalyticsEvent;
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+	}
+
+	private static void loadEnvFile() {
+		java.io.File envFile = null;
+		String[] searchPaths = {
+			System.getProperty("catalina.base"),
+			System.getProperty("wtp.deploy"),
+			System.getProperty("user.dir"),
+			".",
+			"..",
+			"../..",
+			"../../..",
+			System.getProperty("user.home") + System.getProperty("file.separator") + "ZingBite",
+			System.getenv("ZINGBITE_HOME"),
+			"D:\\ZingBite"
+		};
+		for (String path : searchPaths) {
+			if (path == null) continue;
+			envFile = new java.io.File(path, ".env");
+			if (envFile.exists()) break;
+		}
+		if (envFile == null || !envFile.exists()) {
+			envFile = new java.io.File(".." + System.getProperty("file.separator") + ".." + System.getProperty("file.separator") + ".." + System.getProperty("file.separator") + ".env");
+		}
+		if (envFile.exists()) {
+			try (InputStream is = new FileInputStream(envFile)) {
+				Properties props = new Properties();
+				props.load(is);
+				for (String key : props.stringPropertyNames()) {
+					if (System.getenv(key) == null) {
+						System.setProperty(key, props.getProperty(key));
+					}
+				}
+				System.out.println("[DBUtils] Loaded " + props.size() + " config entries from " + envFile.getAbsolutePath());
+			} catch (Exception e) {
+				System.err.println("[DBUtils] Could not load .env file: " + e.getMessage());
+			}
+		} else {
+			System.out.println("[DBUtils] No .env file found, using system env vars / defaults");
+		}
+	}
+
+	private static String getEnv(String key, String fallback) {
+		String val = System.getenv(key);
+		if (val == null || val.isEmpty()) {
+			val = System.getProperty(key);
+		}
+		return (val != null && !val.isEmpty()) ? val : fallback;
+	}
+
+	private static String getEnvRequired(String key) {
+		String val = System.getenv(key);
+		if (val == null || val.isEmpty()) {
+			val = System.getProperty(key);
+		}
+		if (val == null || val.isEmpty()) {
+			throw new RuntimeException("Required environment variable not set: " + key
+				+ ". Please set it in your .env file or system environment.");
+		}
+		return val;
 	}
 
 	public static SessionFactory getSessionFactory() {

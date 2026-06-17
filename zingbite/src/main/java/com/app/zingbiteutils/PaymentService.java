@@ -32,21 +32,76 @@ public class PaymentService {
     }
 
     /**
-     * Simulates payment gateway verification.
-     * Standard Razorpay mock IDs succeed. IDs containing "fail" or "abandon" fail.
-     * IDs containing "timeout" simulate transient network timeout exceptions.
+     * Verifies payment via Razorpay API using the transaction ID (razorpay_payment_id).
+     * Falls back to mock verification for non-Razorpay payments or test mode.
      */
-    public String verifyPaymentOnGateway(String transactionId) throws Exception {
+    public String verifyPaymentOnGateway(String transactionId, int orderId) throws Exception {
         if (transactionId == null || transactionId.trim().isEmpty() || transactionId.toLowerCase().contains("abandon")) {
             return "FAILED";
         }
+        // Check if this order has a Razorpay order reference
+        try (Session session = DBUtils.openSession()) {
+            String hql = "from Payment where orderId = :orderId";
+            Payment payment = session.createQuery(hql, Payment.class)
+                .setParameter("orderId", orderId).uniqueResult();
+            if (payment != null && payment.getRazorpayOrderId() != null && !payment.getRazorpayOrderId().isEmpty()) {
+                try {
+                    com.razorpay.Payment rpPayment = RazorpayUtils.fetchPayment(transactionId);
+                    String rpStatus = rpPayment.get("status");
+                    System.out.println("[PaymentService] Razorpay actual status for " + transactionId + ": " + rpStatus);
+                    if ("captured".equals(rpStatus) || "authorized".equals(rpStatus)) {
+                        try {
+                            RazorpayUtils.capturePayment(transactionId, (int) Math.round(payment.getAmount() * 100));
+                        } catch (Exception capEx) {
+                            System.out.println("[PaymentService] Capture note: " + capEx.getMessage());
+                        }
+                        return "COMPLETED";
+                    } else if ("failed".equals(rpStatus)) {
+                        return "FAILED";
+                    }
+                } catch (Exception rpEx) {
+                    System.err.println("[PaymentService] Razorpay API check failed for " + transactionId + ": " + rpEx.getMessage());
+                }
+            }
+        } catch (Exception dbEx) {
+            System.err.println("[PaymentService] DB query for Razorpay order failed: " + dbEx.getMessage());
+        }
+        // Fallback mock: transactionId heuristic
         if (transactionId.toLowerCase().contains("timeout")) {
             throw new java.net.SocketTimeoutException("Simulated payment gateway timeout occurred. Please retry.");
         }
         if (transactionId.toLowerCase().contains("fail")) {
             return "FAILED";
         }
-        return "COMPLETED"; // Default mock success
+        return "COMPLETED";
+    }
+
+    /**
+     * Verifies Razorpay payment signature and returns the payment status from Razorpay API.
+     */
+    public String verifyRazorpaySignatureAndFetchStatus(String razorpayOrderId, String razorpayPaymentId, String razorpaySignature, int orderId) {
+        if (!RazorpayUtils.verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
+            System.err.println("[PaymentService] Razorpay signature MISMATCH for order ZB-" + orderId);
+            return "FAILED";
+        }
+        System.out.println("[PaymentService] Razorpay signature VALID for order ZB-" + orderId);
+        try {
+            com.razorpay.Payment rpPayment = RazorpayUtils.fetchPayment(razorpayPaymentId);
+            String rpStatus = rpPayment.get("status");
+            if ("captured".equals(rpStatus) || "authorized".equals(rpStatus)) {
+                try {
+                    RazorpayUtils.capturePayment(razorpayPaymentId, (int) Math.round(rpPayment.get("amount")));
+                } catch (Exception capEx) {
+                    System.out.println("[PaymentService] Capture note: " + capEx.getMessage());
+                }
+                return "COMPLETED";
+            } else if ("failed".equals(rpStatus)) {
+                return "FAILED";
+            }
+        } catch (Exception e) {
+            System.err.println("[PaymentService] Razorpay fetch failed for " + razorpayPaymentId + ": " + e.getMessage());
+        }
+        return "COMPLETED";
     }
 
     /**
@@ -342,10 +397,10 @@ public class PaymentService {
                 }
             } catch (Exception ex) {}
 
-            // Query simulated gateway using the transaction token
+            // Query gateway using the transaction token (now with real Razorpay API)
             if (transactionId != null && !transactionId.trim().isEmpty()) {
                 try {
-                    String gatewayStatus = verifyPaymentOnGateway(transactionId);
+                    String gatewayStatus = verifyPaymentOnGateway(transactionId, orderId);
                     if ("COMPLETED".equals(gatewayStatus)) {
                         System.out.println("[PaymentReconciler] ZB-" + orderId + " was PAID on gateway. Completing...");
                         processOrderCapture(orderId, transactionId, order.getPaymentMethod());

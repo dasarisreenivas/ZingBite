@@ -82,6 +82,7 @@ public class RegisterServlet extends HttpServlet {
             String hashedPassword = PasswordUtils.hashPassword(password);
             User user = new User(userName, email, hashedPassword, mobileNumber, address);
             user.setRole("customer");
+            user.setCreatedOn(new java.util.Date());
             if (latitude != null) user.setLatitude(latitude);
             if (longitude != null) user.setLongitude(longitude);
             if (city != null) user.setCity(city);

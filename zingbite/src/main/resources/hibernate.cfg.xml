@@ -24,7 +24,10 @@
 
       <!-- JDBC Performance tuning -->
       <property name="hibernate.jdbc.batch_size">20</property>
-      <property name="hibernate.jdbc.fetch_size">50</property>
+      <property name="hibernate.jdbc.fetch_size">200</property>
+      <property name="hibernate.hikari.autoCommit">false</property>
+      <property name="hibernate.connection.provider_disables_autocommit">true</property>
+      <property name="hibernate.jdbc.batch_versioned_data">true</property>
 
    </session-factory>  
 </hibernate-configuration>

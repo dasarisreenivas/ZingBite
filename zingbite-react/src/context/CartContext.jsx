@@ -1,18 +1,20 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { trackEvent } from '../utils/analytics';
 
 export const CartContext = createContext();
 
+const INITIAL_CART = { items: [], total: 0, subtotal: 0, itemCount: 0, shipping: 0, tax: 0 };
+
 export const CartProvider = ({ children }) => {
-  const [cart, setCart] = useState({ items: [], total: 0, subtotal: 0, itemCount: 0, shipping: 0, tax: 0 });
+  const [cart, setCart] = useState(INITIAL_CART);
   const [loading, setLoading] = useState(true);
   const [conflictPopup, setConflictPopup] = useState(null);
   const [cartError, setCartError] = useState(null);
 
   const [coupon, setCoupon] = useState(null);
 
-  const fetchCart = async () => {
+  const fetchCart = useCallback(async () => {
     try {
       const res = await axios.get('/api/cart');
       if(res.data) setCart(res.data);
@@ -21,7 +23,7 @@ export const CartProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCart();
@@ -35,26 +37,26 @@ export const CartProvider = ({ children }) => {
     }
   }, [cart]);
 
-  const applyCoupon = (code) => {
+  const applyCoupon = useCallback((code) => {
     const uppercaseCode = code.toUpperCase().trim();
     if (uppercaseCode === 'ZING50') {
       setCoupon({ code: 'ZING50', type: 'percent', value: 50, cap: 150, description: '50% OFF up to ₹150' });
       return { success: true, message: 'Coupon ZING50 applied!' };
     } else if (uppercaseCode === 'FREEDEL') {
-      setCoupon({ code: 'FREEDEL', type: 'free_delivery', value: cart.shipping, description: 'Free Delivery Applied' });
+      setCoupon({ code: 'FREEDEL', type: 'free_delivery', value: 0, description: 'Free Delivery Applied' });
       return { success: true, message: 'Free Delivery coupon applied!' };
     } else if (uppercaseCode === 'WELCOME20') {
       setCoupon({ code: 'WELCOME20', type: 'flat', value: 20, description: 'Flat ₹20 OFF' });
       return { success: true, message: 'Flat ₹20 discount applied!' };
     }
     return { success: false, message: 'Invalid Coupon Code' };
-  };
+  }, []);
 
-  const removeCoupon = () => {
+  const removeCoupon = useCallback(() => {
     setCoupon(null);
-  };
+  }, []);
 
-  const getDiscountedCart = () => {
+  const getDiscountedCart = useCallback(() => {
     if (!cart) return { items: [], subtotal: 0, shipping: 0, tax: 0, total: 0, itemCount: 0, discount: 0 };
     
     let subtotal = cart.subtotal || 0;
@@ -72,7 +74,7 @@ export const CartProvider = ({ children }) => {
         discount = Math.min(coupon.value, subtotal);
       } else if (coupon.type === 'free_delivery') {
         discount = shipping;
-        shipping = 0; // zero out the shipping cost
+        shipping = 0;
       }
     }
 
@@ -86,9 +88,9 @@ export const CartProvider = ({ children }) => {
       discount,
       total
     };
-  };
+  }, [cart, coupon]);
 
-  const addToCart = async (itemId, quantity) => {
+  const addToCart = useCallback(async (itemId, quantity) => {
     try {
       const res = await axios.post('/api/cart', { action: 'add', itemId, quantity });
       if (res.data.restaurantConflict) {
@@ -106,41 +108,34 @@ export const CartProvider = ({ children }) => {
       setTimeout(() => setCartError(null), 4000);
       return false;
     }
-  };
+  }, []);
 
-  const updateQuantity = async (itemId, quantity) => {
-    if (quantity <= 0) return removeFromCart(itemId);
-    
-    const items = cart?.items ? (Array.isArray(cart.items) ? cart.items : Object.values(cart.items)) : [];
-    const existing = items.find(i => i.itemId === itemId || i.menuId === itemId);
-    const currentQty = existing ? existing.quantity : 0;
-    const isAdd = quantity > currentQty;
-
-    try {
-      const res = await axios.post('/api/cart', { action: 'updateQuantity', itemId, quantity });
-      setCart(res.data);
-      setCartError(null);
-      if (isAdd) {
-        trackEvent('ADD_TO_CART', { itemId, quantity: quantity - currentQty });
-      }
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Failed to update cart';
-      setCartError(msg);
-      console.error(err);
-      setTimeout(() => setCartError(null), 4000);
-    }
-  };
-
-  const removeFromCart = async (itemId) => {
+  const removeFromCart = useCallback(async (itemId) => {
     try {
       const res = await axios.post('/api/cart', { action: 'remove', itemId });
       setCart(res.data);
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
-  const clearAndAdd = async (itemId, quantity) => {
+  const updateQuantity = useCallback(async (itemId, quantity) => {
+    if (quantity <= 0) return removeFromCart(itemId);
+    
+    try {
+      const res = await axios.post('/api/cart', { action: 'updateQuantity', itemId, quantity });
+      setCart(res.data);
+      setCartError(null);
+      trackEvent('ADD_TO_CART', { itemId, quantity });
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to update cart';
+      setCartError(msg);
+      console.error(err);
+      setTimeout(() => setCartError(null), 4000);
+    }
+  }, [removeFromCart]);
+
+  const clearAndAdd = useCallback(async (itemId, quantity) => {
     try {
       const res = await axios.post('/api/cart', { action: 'clearAndAdd', itemId, quantity });
       setCart(res.data);
@@ -149,24 +144,27 @@ export const CartProvider = ({ children }) => {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
-  const clearCart = async () => {
+  const clearCart = useCallback(async () => {
     try {
       const res = await axios.post('/api/cart', { action: 'clear' });
       setCart(res.data);
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    cart: getDiscountedCart(), loading, addToCart, updateQuantity, removeFromCart,
+    conflictPopup, setConflictPopup, clearAndAdd, clearCart,
+    coupon, applyCoupon, removeCoupon,
+    cartError, setCartError
+  }), [getDiscountedCart, loading, addToCart, updateQuantity, removeFromCart,
+      conflictPopup, clearAndAdd, clearCart, coupon, applyCoupon, removeCoupon, cartError]);
 
   return (
-    <CartContext.Provider value={{ 
-      cart: getDiscountedCart(), loading, addToCart, updateQuantity, removeFromCart, 
-      conflictPopup, setConflictPopup, clearAndAdd, clearCart,
-      coupon, applyCoupon, removeCoupon,
-      cartError, setCartError
-    }}>
+    <CartContext.Provider value={contextValue}>
       {children}
     </CartContext.Provider>
   );

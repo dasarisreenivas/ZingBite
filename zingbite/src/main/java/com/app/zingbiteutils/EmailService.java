@@ -76,18 +76,6 @@ public class EmailService {
                     System.err.println("[EmailService] Failed to log initial EmailNotification in DB: " + e.getMessage());
                 }
 
-                boolean notificationsEnabled = true;
-                try (org.hibernate.Session dbSession = DBUtils.openSession()) {
-                    User userObj = dbSession.get(User.class, userId);
-                } catch (Exception e) {
-                    System.err.println("[EmailService] Failed to fetch user preferences: " + e.getMessage());
-                }
-
-                if (!notificationsEnabled) {
-                    updateStatus(notificationId, "DISABLED", null);
-                    return;
-                }
-
                 try {
                     Properties props = new Properties();
                     props.put("mail.smtp.auth", "true");
@@ -95,28 +83,46 @@ public class EmailService {
                     props.put("mail.smtp.host", SMTP_HOST);
                     props.put("mail.smtp.port", SMTP_PORT);
 
-                    Session session = Session.getInstance(props, new Authenticator() {
+                    Session mailSession = Session.getInstance(props, new Authenticator() {
                         @Override
                         protected PasswordAuthentication getPasswordAuthentication() {
                             return new PasswordAuthentication(SMTP_USER, SMTP_PASS);
                         }
                     });
 
-                    MimeMessage message = new MimeMessage(session);
+                    MimeMessage message = new MimeMessage(mailSession);
                     message.setFrom(new InternetAddress(SMTP_USER, "ZingBite Operations"));
                     message.setRecipient(Message.RecipientType.TO, new InternetAddress(recipientEmail));
                     message.setSubject(subject);
                     message.setContent(htmlBody, "text/html; charset=utf-8");
                     message.setSentDate(new Date());
 
-                    Transport.send(message);
-
-                    String sentDateStr = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
-                    updateStatus(notificationId, "SENT", sentDateStr);
-                    System.out.println("[EmailService] Email sent successfully to " + recipientEmail);
-
+                    // Retry up to 3 times with 2-second delay
+                    Exception lastException = null;
+                    int maxRetries = 3;
+                    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                        try {
+                            Transport.send(message);
+                            String sentDateStr = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+                            updateStatus(notificationId, "SENT", sentDateStr);
+                            System.out.println("[EmailService] Email sent successfully to " + recipientEmail + " on attempt " + attempt);
+                            lastException = null;
+                            break;
+                        } catch (Exception e) {
+                            lastException = e;
+                            System.err.println("[EmailService] Attempt " + attempt + "/" + maxRetries + " failed for " + recipientEmail + ": " + e.getMessage());
+                            if (attempt < maxRetries) {
+                                System.out.println("[EmailService] Retrying in 2 seconds...");
+                                try { Thread.sleep(2000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                            }
+                        }
+                    }
+                    if (lastException != null) {
+                        System.err.println("[EmailService] All " + maxRetries + " attempts failed for " + recipientEmail + ": " + lastException.getMessage());
+                        updateStatus(notificationId, "FAILED", null);
+                    }
                 } catch (Exception e) {
-                    System.err.println("[EmailService] Error sending email to " + recipientEmail + ": " + e.getMessage());
+                    System.err.println("[EmailService] Failed to prepare email for " + recipientEmail + ": " + e.getMessage());
                     updateStatus(notificationId, "FAILED", null);
                 }
             }

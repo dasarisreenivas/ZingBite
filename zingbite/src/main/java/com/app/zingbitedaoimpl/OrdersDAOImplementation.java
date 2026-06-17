@@ -61,8 +61,9 @@ public class OrdersDAOImplementation implements OrdersDAo {
 		Transaction tx = null;
 		try (Session session = DBUtils.openSession()) {
 			tx = session.beginTransaction();
-			String hql = "from Orders";
+			String hql = "from Orders order by orderId desc";
 			Query<Orders> query = session.createQuery(hql, Orders.class);
+			query.setMaxResults(200);
 			ordersList = query.list();
 			tx.commit();
 
@@ -72,6 +73,37 @@ public class OrdersDAOImplementation implements OrdersDAo {
 			e.printStackTrace();
 		}
 		return ordersList;
+	}
+
+	@Override
+	public List<Orders> getAllOrdersPaginated(int offset, int pageSize) {
+		List<Orders> ordersList = new ArrayList<>();
+		Transaction tx = null;
+		try (Session session = DBUtils.openSession()) {
+			tx = session.beginTransaction();
+			String hql = "from Orders order by orderId desc";
+			Query<Orders> query = session.createQuery(hql, Orders.class);
+			query.setFirstResult(offset);
+			query.setMaxResults(pageSize);
+			ordersList = query.list();
+			tx.commit();
+		} catch (Exception e) {
+			if (tx != null) tx.rollback();
+			e.printStackTrace();
+		}
+		return ordersList;
+	}
+
+	@Override
+	public long countOrders() {
+		try (Session session = DBUtils.openSession()) {
+			String hql = "select count(o) from Orders o";
+			Query<Long> query = session.createQuery(hql, Long.class);
+			return query.uniqueResult();
+		} catch (Exception e) {
+			e.printStackTrace();
+			return 0;
+		}
 	}
 
 	@Override

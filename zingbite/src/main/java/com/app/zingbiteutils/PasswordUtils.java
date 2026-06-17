@@ -54,19 +54,25 @@ public class PasswordUtils {
 
     /**
      * Verifies the given plain text password against a stored hashed password.
-     * Supports legacy PBKDF2 formats and plain-text fallback.
+     * Supports both custom argon2id:base64:base64 and standard $argon2id$... encoded formats,
+     * legacy PBKDF2 formats, and plain-text fallback.
      */
     public static boolean verifyPassword(String password, String storedPassword) {
         if (password == null || storedPassword == null) return false;
 
-        // 1. Plaintext fallback (legacy users)
+        // 1. Standard $argon2id$v=19$m=...,t=...,p=...$salt$hash format
+        if (storedPassword.startsWith("$argon2id$")) {
+            return verifyArgon2Standard(password, storedPassword);
+        }
+
+        // 2. Plaintext fallback (no ":" means it's not a hashed format)
         if (!storedPassword.contains(":")) {
             return password.equals(storedPassword);
         }
 
         String[] parts = storedPassword.split(":");
 
-        // 2. Argon2id verification
+        // 3. Custom argon2id:base64:base64 format
         if ("argon2id".equals(parts[0])) {
             if (parts.length != 3) return false;
             try {
@@ -93,7 +99,7 @@ public class PasswordUtils {
             }
         }
 
-        // 3. PBKDF2 verification (legacy hashed format)
+        // 4. PBKDF2 verification (legacy hashed format)
         try {
             byte[] salt;
             byte[] storedHash;
@@ -110,6 +116,57 @@ public class PasswordUtils {
             PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt, PBKDF2_ITERATIONS, PBKDF2_KEY_LENGTH);
             SecretKeyFactory skf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
             byte[] hash = skf.generateSecret(spec).getEncoded();
+
+            return MessageDigest.isEqual(storedHash, hash);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Verifies a password against the standard $argon2id$v=19$m=N,t=N,p=N$salt$hash encoding.
+     */
+    private static boolean verifyArgon2Standard(String password, String encoded) {
+        try {
+            // Format: $argon2id$v=19$m=65536,t=3,p=4$base64salt$base64hash
+            String[] parts = encoded.split("\\$");
+            if (parts.length < 6) return false;
+
+            String paramsStr = parts[3]; // "m=65536,t=3,p=4"
+            String saltB64 = parts[4];
+            String hashB64 = parts[5];
+
+            // Parse parameters
+            int memory = ARGON2_MEMORY_KB;
+            int iterations = ARGON2_ITERATIONS;
+            int parallelism = ARGON2_PARALLELISM;
+            for (String param : paramsStr.split(",")) {
+                String[] kv = param.split("=");
+                if (kv.length == 2) {
+                    switch (kv[0]) {
+                        case "m": memory = Integer.parseInt(kv[1]); break;
+                        case "t": iterations = Integer.parseInt(kv[1]); break;
+                        case "p": parallelism = Integer.parseInt(kv[1]); break;
+                    }
+                }
+            }
+
+            byte[] salt = Base64.getDecoder().decode(saltB64);
+            byte[] storedHash = Base64.getDecoder().decode(hashB64);
+
+            Argon2Parameters params = new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
+                .withVersion(Argon2Parameters.ARGON2_VERSION_13)
+                .withIterations(iterations)
+                .withMemoryAsKB(memory)
+                .withParallelism(parallelism)
+                .withSalt(salt)
+                .build();
+
+            Argon2BytesGenerator gen = new Argon2BytesGenerator();
+            gen.init(params);
+
+            byte[] hash = new byte[storedHash.length];
+            gen.generateBytes(password.getBytes(StandardCharsets.UTF_8), hash);
 
             return MessageDigest.isEqual(storedHash, hash);
         } catch (Exception e) {

@@ -44,6 +44,9 @@ public class ChatServlet extends HttpServlet {
         String orderIdStr = req.getParameter("orderId");
         String appIdStr = req.getParameter("applicationId");
 
+        // Check if unread count is requested
+        boolean unreadCount = "true".equalsIgnoreCase(req.getParameter("unreadCount"));
+
         // Parse pagination params
         int size = 100;
         try {
@@ -55,6 +58,16 @@ public class ChatServlet extends HttpServlet {
         }
 
         try (Session dbSession = DBUtils.openSession()) {
+            if (unreadCount) {
+                Query<Long> countQ = dbSession.createQuery(
+                    "select count(*) from ChatMessage where receiverId = :uid and isRead = false", Long.class
+                );
+                countQ.setParameter("uid", user.getUserID());
+                Long count = countQ.uniqueResult();
+                resp.getWriter().write("{\"unreadCount\":" + (count != null ? count : 0) + "}");
+                return;
+            }
+
             List<ChatMessage> list;
 
             if (orderIdStr != null) {
@@ -154,6 +167,50 @@ public class ChatServlet extends HttpServlet {
             e.printStackTrace();
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to send message.\"}");
+        }
+    }
+
+    @Override
+    protected void doPut(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
+
+        HttpSession session = req.getSession(false);
+        if (session == null || session.getAttribute("loggedInUser") == null) {
+            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            resp.getWriter().write("{\"error\":\"Please log in.\"}");
+            return;
+        }
+
+        User user = (User) session.getAttribute("loggedInUser");
+
+        try {
+            BufferedReader reader = req.getReader();
+            JsonObject jsonMsg = JsonParser.parseReader(reader).getAsJsonObject();
+            int messageId = jsonMsg.get("messageId").getAsInt();
+
+            Transaction tx = null;
+            try (Session dbSession = DBUtils.openSession()) {
+                tx = dbSession.beginTransaction();
+                ChatMessage msg = dbSession.get(ChatMessage.class, messageId);
+                if (msg != null && msg.getReceiverId() == user.getUserID()) {
+                    msg.setRead(true);
+                    msg.setReadAt(new Date());
+                    dbSession.merge(msg);
+                }
+                tx.commit();
+            } catch (Exception e) {
+                if (tx != null) tx.rollback();
+                throw e;
+            }
+
+            resp.getWriter().write("{\"success\":true}");
+        } catch (Exception e) {
+            e.printStackTrace();
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            resp.getWriter().write("{\"error\":\"Failed to mark message as read.\"}");
         }
     }
 }

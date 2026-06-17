@@ -7,12 +7,13 @@ import org.json.JSONObject;
 import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
 
-import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
+import com.google.gson.JsonObject;
 
 @WebServlet("/CreateOrderServlet")
 public class CreateOrderServlet extends HttpServlet {
@@ -20,6 +21,9 @@ public class CreateOrderServlet extends HttpServlet {
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
 
         try {
             String razorpayKey = System.getenv().getOrDefault("RAZORPAY_KEY_ID", "rzp_test_RU5HIdwTwlQNOw");
@@ -36,14 +40,15 @@ public class CreateOrderServlet extends HttpServlet {
 
             Order order = client.orders.create(orderRequest);
 
-            request.setAttribute("orderId", order.get("id"));
-            request.setAttribute("amount", amount);
-            RequestDispatcher rd = request.getRequestDispatcher("checkout.jsp");
-            rd.forward(request, response);
+            JsonObject json = new JsonObject();
+            json.addProperty("orderId", order.get("id").toString());
+            json.addProperty("amount", amount);
+            response.getWriter().write(json.toString());
 
         } catch (Exception e) {
             e.printStackTrace();
-            response.getWriter().write("Error creating Razorpay order: " + e.getMessage());
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.getWriter().write("{\"error\":\"Error creating Razorpay order: " + e.getMessage() + "\"}");
         }
     }
 }

@@ -10,4 +10,6 @@ public interface OrdersDAo {
 	Orders getOrdersById(int userId );
 	int updateOrders(Orders orders);
 	int deleteOrders(int userId);
+	List<Orders> getAllOrdersPaginated(int offset, int pageSize);
+	long countOrders();
 }

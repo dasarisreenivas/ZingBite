@@ -121,6 +121,22 @@ const SuperAdminDashboard = () => {
     }
   }, [activeTab]);
 
+  const handleUpdateRiderStatus = async (userId, riderStatus) => {
+    setActionLoading(`rider-${userId}`);
+    try {
+      await axios.post('/api/super-admin', {
+        action: 'changeRiderStatus',
+        userId,
+        riderStatus
+      });
+      await fetchAdminData();
+    } catch (err) {
+      showAlert('Failed to update rider status.', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleChangeRole = async (targetUserId, newRole) => {
     setActionLoading(`role-${targetUserId}`);
     try {
@@ -221,6 +237,22 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  // Separate pending requests — memoized to avoid re-filter on unrelated re-renders
+  const pendingRequests = useMemo(() => (data.restaurantRequests || []).filter(r => r.status === 'Pending'), [data.restaurantRequests]);
+  const reviewedRequests = useMemo(() => (data.restaurantRequests || []).filter(r => r.status !== 'Pending'), [data.restaurantRequests]);
+  const riderApps = useMemo(() => (data.applications || []).filter(app => app.jobTitle === 'Delivery Rider'), [data.applications]);
+  const generalApps = useMemo(() => (data.applications || []).filter(app => app.jobTitle !== 'Delivery Rider'), [data.applications]);
+  const visiblePendingRequests = useMemo(() => pendingRequests.slice(0, visiblePendingCount), [pendingRequests, visiblePendingCount]);
+  const visibleReviewedRequests = useMemo(() => reviewedRequests.slice(0, visibleReviewedCount), [reviewedRequests, visibleReviewedCount]);
+  const visibleUsers = useMemo(() => (data.users || []).slice(0, visibleUserCount), [data.users, visibleUserCount]);
+  const visibleRiderApps = useMemo(() => riderApps.slice(0, visibleRiderAppCount), [riderApps, visibleRiderAppCount]);
+  const visibleGeneralApps = useMemo(() => generalApps.slice(0, visibleGeneralAppCount), [generalApps, visibleGeneralAppCount]);
+  const hasMorePendingRequests = useMemo(() => visiblePendingCount < pendingRequests.length, [visiblePendingCount, pendingRequests.length]);
+  const hasMoreReviewedRequests = useMemo(() => visibleReviewedCount < reviewedRequests.length, [visibleReviewedCount, reviewedRequests.length]);
+  const hasMoreUsers = useMemo(() => visibleUserCount < (data.users || []).length, [visibleUserCount, data.users]);
+  const hasMoreRiderApps = useMemo(() => visibleRiderAppCount < riderApps.length, [visibleRiderAppCount, riderApps.length]);
+  const hasMoreGeneralApps = useMemo(() => visibleGeneralAppCount < generalApps.length, [visibleGeneralAppCount, generalApps.length]);
+
   if (authLoading || loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, minHeight: '400px' }}>
@@ -253,22 +285,6 @@ const SuperAdminDashboard = () => {
       </div>
     );
   }
-
-  // Separate pending requests — memoized to avoid re-filter on unrelated re-renders
-  const pendingRequests = useMemo(() => (data.restaurantRequests || []).filter(r => r.status === 'Pending'), [data.restaurantRequests]);
-  const reviewedRequests = useMemo(() => (data.restaurantRequests || []).filter(r => r.status !== 'Pending'), [data.restaurantRequests]);
-  const riderApps = useMemo(() => (data.applications || []).filter(app => app.jobTitle === 'Delivery Rider'), [data.applications]);
-  const generalApps = useMemo(() => (data.applications || []).filter(app => app.jobTitle !== 'Delivery Rider'), [data.applications]);
-  const visiblePendingRequests = useMemo(() => pendingRequests.slice(0, visiblePendingCount), [pendingRequests, visiblePendingCount]);
-  const visibleReviewedRequests = useMemo(() => reviewedRequests.slice(0, visibleReviewedCount), [reviewedRequests, visibleReviewedCount]);
-  const visibleUsers = useMemo(() => (data.users || []).slice(0, visibleUserCount), [data.users, visibleUserCount]);
-  const visibleRiderApps = useMemo(() => riderApps.slice(0, visibleRiderAppCount), [riderApps, visibleRiderAppCount]);
-  const visibleGeneralApps = useMemo(() => generalApps.slice(0, visibleGeneralAppCount), [generalApps, visibleGeneralAppCount]);
-  const hasMorePendingRequests = useMemo(() => visiblePendingCount < pendingRequests.length, [visiblePendingCount, pendingRequests.length]);
-  const hasMoreReviewedRequests = useMemo(() => visibleReviewedCount < reviewedRequests.length, [visibleReviewedCount, reviewedRequests.length]);
-  const hasMoreUsers = useMemo(() => visibleUserCount < (data.users || []).length, [visibleUserCount, data.users]);
-  const hasMoreRiderApps = useMemo(() => visibleRiderAppCount < riderApps.length, [visibleRiderAppCount, riderApps.length]);
-  const hasMoreGeneralApps = useMemo(() => visibleGeneralAppCount < generalApps.length, [visibleGeneralAppCount, generalApps.length]);
 
   return (
     <>
@@ -946,8 +962,8 @@ const SuperAdminDashboard = () => {
               </div>
             ) : (
               <div style={{ marginBottom: '32px' }}>
-                {visiblePendingRequests.map(req => (
-                  <div key={req.id} className="request-card">
+                {visiblePendingRequests.map((req, idx) => (
+                  <div key={`pending-${req.id}-${req.restaurantName || ''}-${idx}`} className="request-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1015,8 +1031,8 @@ const SuperAdminDashboard = () => {
               </div>
             ) : (
               <div>
-                {visibleReviewedRequests.map(req => (
-                  <div key={req.id} className="request-card" style={{ opacity: 0.8 }}>
+                {visibleReviewedRequests.map((req, idx) => (
+                  <div key={`reviewed-${req.id}-${req.restaurantName || ''}-${idx}`} className="request-card" style={{ opacity: 0.8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <h4 style={{ fontWeight: 800 }}>{req.restaurantName}</h4>
@@ -1054,12 +1070,13 @@ const SuperAdminDashboard = () => {
                   <th>Email</th>
                   <th>Phone Number</th>
                   <th>Rider Status</th>
+                  <th>Rider Actions</th>
                   <th>Role Control</th>
                 </tr>
               </thead>
               <tbody>
-                {visibleUsers.map((u) => (
-                  <tr key={u.userID}>
+                {visibleUsers.map((u, idx) => (
+                  <tr key={`user-${u.userID}-${u.email || ''}-${idx}`}>
                     <td style={{ fontWeight: 700 }}>#{u.userID}</td>
                     <td>{u.userName}</td>
                     <td>{u.email}</td>
@@ -1077,12 +1094,51 @@ const SuperAdminDashboard = () => {
                       )}
                     </td>
                     <td>
+                      {(u.role === 'delivery_partner' || u.riderStatus) ? (
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            disabled={actionLoading === `rider-${u.userID}` || u.riderStatus === 'Active'}
+                            onClick={() => handleUpdateRiderStatus(u.userID, 'Active')}
+                            style={{
+                              background: '#4bc0c0', color: 'white', border: 'none',
+                              padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem',
+                              fontWeight: 700, cursor: 'pointer',
+                              opacity: u.riderStatus === 'Active' ? 0.6 : 1
+                            }}
+                          >
+                            <Check size={10} /> Approve
+                          </button>
+                          <button
+                            disabled={actionLoading === `rider-${u.userID}` || u.riderStatus === 'Suspended'}
+                            onClick={() => handleUpdateRiderStatus(u.userID, 'Suspended')}
+                            style={{
+                              background: 'var(--danger)', color: 'white', border: 'none',
+                              padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem',
+                              fontWeight: 700, cursor: 'pointer',
+                              opacity: u.riderStatus === 'Suspended' ? 0.6 : 1
+                            }}
+                          >
+                            <X size={10} /> Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>—</span>
+                      )}
+                    </td>
+                    <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <select 
                           className="role-selector"
                           value={u.role || 'customer'}
                           disabled={actionLoading === `role-${u.userID}`}
-                          onChange={(e) => handleChangeRole(u.userID, e.target.value)}
+                          onChange={(e) => {
+                            const newRole = e.target.value;
+                            if (newRole === 'super_admin' && !window.confirm(`WARNING: Are you sure you want to promote user "${u.name || u.email || u.userID}" to Super Admin? This grants full system access.`)) {
+                              e.target.value = u.role || 'customer';
+                              return;
+                            }
+                            handleChangeRole(u.userID, newRole);
+                          }}
                         >
                           <option value="customer">Customer</option>
                           <option value="delivery_partner">Delivery Partner</option>
@@ -1133,17 +1189,19 @@ const SuperAdminDashboard = () => {
                       <th>Resume</th>
                       <th>Chat Review</th>
                       <th>Status</th>
+                      <th>Rider Status</th>
                       <th>Rider Onboarding Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleRiderApps.map((app) => (
+                    {visibleRiderApps.map((app, idx) => (
                       <RiderApplicationRow
-                        key={app.id}
+                        key={`rider-${app.id}-${app.userId || ''}-${idx}`}
                         app={app}
                         actionLoading={actionLoading}
                         onChat={setActiveChatAppId}
                         onUpdateStatus={handleUpdateAppStatus}
+                        onUpdateRiderStatus={handleUpdateRiderStatus}
                       />
                     ))}
                   </tbody>
@@ -1185,8 +1243,8 @@ const SuperAdminDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleGeneralApps.map((app) => (
-                      <tr key={app.id}>
+                    {visibleGeneralApps.map((app, idx) => (
+                      <tr key={`gen-${app.id}-${app.userId || ''}-${idx}`}>
                         <td style={{ fontWeight: 700 }}>{app.candidateName}</td>
                         <td>{app.jobTitle}</td>
                         <td>

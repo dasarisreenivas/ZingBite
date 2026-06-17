@@ -334,10 +334,10 @@ const Profile = () => {
     setRoleUpgrade({ action: targetRole, loading: true });
     try {
       if (targetRole === 'restaurant_admin') {
-        navigate('/info/partner-with-us');
+        navigate('/partner-with-us');
         return;
       } else if (targetRole === 'delivery_partner') {
-        navigate('/info/ride-with-us');
+        navigate('/ride-with-us');
         return;
       }
       const res = await axios.post('/api/profile', { action: 'upgradeRole', role: targetRole });

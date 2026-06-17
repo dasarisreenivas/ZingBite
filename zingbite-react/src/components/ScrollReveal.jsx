@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 function ScrollReveal({ children, className = '', style = {} }) {
   const ref = useRef(null);
@@ -27,4 +27,4 @@ function ScrollReveal({ children, className = '', style = {} }) {
   );
 }
 
-export default ScrollReveal;
+export default React.memo(ScrollReveal);

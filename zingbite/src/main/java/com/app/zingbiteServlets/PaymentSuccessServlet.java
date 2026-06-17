@@ -2,7 +2,6 @@ package com.app.zingbiteServlets;
 
 import java.io.IOException;
 
-import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -74,9 +73,6 @@ public class PaymentSuccessServlet extends HttpServlet {
             }
         }
 
-        // TODO: Save payment info to DB (userId, orderId, amount, status)
-        request.setAttribute("paymentId", paymentId);
-        RequestDispatcher rd = request.getRequestDispatcher("success.jsp");
-        rd.forward(request, response);
+        response.sendRedirect("/zingbite/track-order?paymentId=" + paymentId);
     }
 }

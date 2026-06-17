@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState, useRef } from 'react';
+import React, { useContext, useEffect, useState, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Bike,
@@ -65,7 +65,7 @@ const Header = () => {
   useEffect(() => {
     if (user && user.role && user.role !== 'customer') {
       const path = location.pathname;
-      const isCustomerPage = ['/', '/home', '/menu', '/cart', '/checkout', '/profile', '/track-order'].includes(path) || path.startsWith('/info/');
+      const isCustomerPage = ['/', '/home', '/menu', '/cart', '/checkout', '/profile', '/track-order'].includes(path);
       if (isCustomerPage) {
         if (user.role === 'delivery_partner') {
           navigate('/delivery');
@@ -613,4 +613,4 @@ const Header = () => {
   );
 };
 
-export default Header;
+export default React.memo(Header);

@@ -40,13 +40,21 @@ public class PaymentVerificationServlet extends HttpServlet {
 
             String transactionId = reqJson.has("transactionId") ? reqJson.get("transactionId").getAsString() : "";
             String paymentMethod = reqJson.has("paymentMethod") ? reqJson.get("paymentMethod").getAsString() : "Razorpay";
+            String razorpayPaymentId = reqJson.has("razorpayPaymentId") ? reqJson.get("razorpayPaymentId").getAsString() : "";
+            String razorpayOrderId = reqJson.has("razorpayOrderId") ? reqJson.get("razorpayOrderId").getAsString() : "";
+            String razorpaySignature = reqJson.has("razorpaySignature") ? reqJson.get("razorpaySignature").getAsString() : "";
 
             if ("/api/payment/verify".equals(path)) {
-                // Client-initiated verification
                 System.out.println("[PaymentVerification] Verifying payment for ZB-" + orderId + ", txn: " + transactionId);
                 
                 try {
-                    String gatewayStatus = PaymentService.getInstance().verifyPaymentOnGateway(transactionId);
+                    String gatewayStatus;
+                    // Use signature-based verification when Razorpay provides all three fields
+                    if (!razorpayPaymentId.isEmpty() && !razorpayOrderId.isEmpty() && !razorpaySignature.isEmpty()) {
+                        gatewayStatus = PaymentService.getInstance().verifyRazorpaySignatureAndFetchStatus(razorpayOrderId, razorpayPaymentId, razorpaySignature, orderId);
+                    } else {
+                        gatewayStatus = PaymentService.getInstance().verifyPaymentOnGateway(transactionId, orderId);
+                    }
                     
                     if ("COMPLETED".equals(gatewayStatus)) {
                         boolean captured = PaymentService.getInstance().processOrderCapture(orderId, transactionId, paymentMethod);
@@ -67,7 +75,38 @@ public class PaymentVerificationServlet extends HttpServlet {
                 }
 
             } else if ("/api/payment/webhook".equals(path)) {
-                // Server-to-server webhook simulation callback
+                String webhookSecret = System.getenv("RAZORPAY_WEBHOOK_SECRET");
+                if (webhookSecret == null || webhookSecret.isEmpty()) {
+                    webhookSecret = System.getProperty("RAZORPAY_WEBHOOK_SECRET");
+                }
+                if (webhookSecret != null && !webhookSecret.isEmpty()) {
+                    String receivedSignature = req.getHeader("X-Razorpay-Signature");
+                    if (receivedSignature == null || receivedSignature.isEmpty()) {
+                        resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        resp.getWriter().write("{\"success\":false,\"error\":\"Missing webhook signature\"}");
+                        return;
+                    }
+                    try {
+                        String payload = reqJson.toString();
+                        javax.crypto.Mac sha256Hmac = javax.crypto.Mac.getInstance("HmacSHA256");
+                        javax.crypto.spec.SecretKeySpec secretKey = new javax.crypto.spec.SecretKeySpec(webhookSecret.getBytes("UTF-8"), "HmacSHA256");
+                        sha256Hmac.init(secretKey);
+                        byte[] hash = sha256Hmac.doFinal(payload.getBytes("UTF-8"));
+                        StringBuilder hexString = new StringBuilder();
+                        for (byte b : hash) {
+                            String hex = Integer.toHexString(0xff & b);
+                            if (hex.length() == 1) hexString.append('0');
+                            hexString.append(hex);
+                        }
+                        if (!hexString.toString().equals(receivedSignature)) {
+                            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            resp.getWriter().write("{\"success\":false,\"error\":\"Invalid webhook signature\"}");
+                            return;
+                        }
+                    } catch (Exception sigEx) {
+                        System.err.println("[PaymentWebhook] Signature verification failed: " + sigEx.getMessage());
+                    }
+                }
                 String status = reqJson.has("status") ? reqJson.get("status").getAsString() : "COMPLETED";
                 System.out.println("[PaymentWebhook] Webhook triggered for ZB-" + orderId + ", status: " + status + ", txn: " + transactionId);
                 

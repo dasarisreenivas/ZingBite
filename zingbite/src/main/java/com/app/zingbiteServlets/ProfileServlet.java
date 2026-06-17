@@ -332,6 +332,30 @@ public class ProfileServlet extends HttpServlet {
                 if (orderId > 0) {
                     jsonResponse.addProperty("success", true);
                     jsonResponse.addProperty("orderId", "ZB-" + orderId);
+
+                    if ("Razorpay".equals(paymentMethod)) {
+                        try {
+                            int amountInPaise = (int) Math.round(total * 100);
+                            String razorpayOrderId = com.app.zingbiteutils.RazorpayUtils.createRazorpayOrder(amountInPaise, "ZB-" + orderId);
+                            jsonResponse.addProperty("razorpayOrderId", razorpayOrderId);
+
+                            try (Session dbSession2 = DBUtils.openSession()) {
+                                Transaction tx2 = dbSession2.beginTransaction();
+                                String payHql = "from Payment where orderId = :oid";
+                                com.app.zingbitemodels.Payment payRecord = dbSession2.createQuery(payHql, com.app.zingbitemodels.Payment.class)
+                                    .setParameter("oid", orderId).uniqueResult();
+                                if (payRecord != null) {
+                                    payRecord.setRazorpayOrderId(razorpayOrderId);
+                                    dbSession2.merge(payRecord);
+                                }
+                                tx2.commit();
+                            }
+                        } catch (Exception rpEx) {
+                            System.err.println("[ProfileServlet] Failed to create Razorpay Order: " + rpEx.getMessage());
+                            rpEx.printStackTrace();
+                            jsonResponse.addProperty("razorpayError", rpEx.getMessage());
+                        }
+                    }
                 } else {
                     resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                     jsonResponse.addProperty("error", "Failed to reserve order");

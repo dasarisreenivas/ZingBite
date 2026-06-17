@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { Bike, CheckCircle2, Navigation, IndianRupee, Loader, AlertTriangle, Map
 import ChatWidget from '../components/ChatWidget';
 
 const DELIVERY_LIST_PAGE_SIZE = 4;
+const FETCH_DEBOUNCE_MS = 5000;
 
 const interpolatePolyline = (points, progressPercent) => {
   if (!points || points.length === 0) return null;
@@ -42,7 +43,7 @@ const interpolatePolyline = (points, progressPercent) => {
   return points[points.length - 1];
 };
 
-const ActiveDeliveryMap = ({ order }) => {
+const ActiveDeliveryMap = React.memo(({ order }) => {
   const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
   const mapRef = React.useRef(null);
   const mapInstanceRef = React.useRef(null);
@@ -286,10 +287,14 @@ const ActiveDeliveryMap = ({ order }) => {
     ]);
     map.fitBounds(bounds, { padding: [40, 40] });
 
-  }, [leafletLoaded, order?.pathFM, order?.pathLM1, currentLat, currentLng]);
+  }, [leafletLoaded, order?.pathFM, order?.pathLM1, currentLat, currentLng, order?.orderId, order?.gpsCoordinates, order?.status, order?.gpsProgress]);
+
+  const mapWrapperStyle = useMemo(() => ({
+    height: '200px', position: 'relative', marginTop: '16px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-medium)'
+  }), []);
 
   return (
-    <div className="map-wrapper" style={{ height: '200px', position: 'relative', marginTop: '16px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-medium)' }}>
+    <div className="map-wrapper" style={mapWrapperStyle}>
       <div className="map-overlay-text" style={{ 
         position: 'absolute', 
         top: '8px', 
@@ -326,7 +331,7 @@ const ActiveDeliveryMap = ({ order }) => {
       )}
     </div>
   );
-};
+});
 
 const DeliveryDashboard = () => {
   const { user, logout, loading: authLoading } = useContext(AuthContext);
@@ -349,6 +354,7 @@ const DeliveryDashboard = () => {
   const latDiff = customerLat - restaurantLat;
   const lngDiff = customerLng - restaurantLng;
   const denom = latDiff * latDiff + lngDiff * lngDiff;
+  // denom used for GPS progress calculation
 
   const calculateProgressFromCoords = (lat, lng) => {
     if (denom === 0) return 0;
@@ -487,6 +493,17 @@ const DeliveryDashboard = () => {
     }
   };
 
+  const lastFetchRef = useRef(0);
+
+  const debouncedFetchDeliveryData = useCallback((isBackground = false) => {
+    const now = Date.now();
+    if (isBackground && (now - lastFetchRef.current < FETCH_DEBOUNCE_MS)) {
+      return;
+    }
+    lastFetchRef.current = now;
+    fetchDeliveryData(isBackground);
+  }, []);
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
@@ -503,8 +520,7 @@ const DeliveryDashboard = () => {
     const eventSource = new EventSource(ssePath);
     eventSource.onmessage = (event) => {
       try {
-        console.log("[ZingBite SSE] Received real-time rider dashboard update");
-        fetchDeliveryData(true);
+        debouncedFetchDeliveryData(true);
       } catch (err) {
         console.error("[ZingBite SSE] Error on message:", err);
       }
@@ -517,12 +533,12 @@ const DeliveryDashboard = () => {
     return () => {
       eventSource.close();
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, debouncedFetchDeliveryData]);
 
   const handleClaimRun = async (orderId) => {
-    setActionLoading(orderId);
     try {
-      await axios.post('/api/delivery', { action: 'acceptOrder', orderId });
+      setActionLoading(orderId);
+      await axios.post('/api/delivery', { action: 'acceptOrder', orderId }, { timeout: 15000 });
       showAlert("Delivery run claimed successfully! It is now in your active runs feed.", "success", "Claim Run Success");
       await fetchDeliveryData();
     } catch (err) {
@@ -533,12 +549,13 @@ const DeliveryDashboard = () => {
   };
 
   const handleUpdateStatus = async (orderId, nextStatus) => {
-    setActionLoading(orderId);
     try {
-      await axios.post('/api/delivery', { orderId, status: nextStatus });
+      setActionLoading(orderId);
+      await axios.post('/api/delivery', { orderId, status: nextStatus }, { timeout: 15000 });
       await fetchDeliveryData();
     } catch (err) {
-      showAlert('Failed to update status. Please try again.', "error", "Status Update Failed");
+      const msg = err.response?.data?.error || err.message || 'Request failed';
+      showAlert('Failed to update status: ' + msg, "error", "Status Update Failed");
     } finally {
       setActionLoading(null);
     }
@@ -552,9 +569,9 @@ const DeliveryDashboard = () => {
   const availableRuns = data?.available || [];
   const activeRuns = data?.active || [];
   const completedRuns = data?.completed || [];
-  const visibleAvailableRuns = availableRuns.slice(0, visibleAvailableCount);
-  const visibleActiveRuns = activeRuns.slice(0, visibleActiveCount);
-  const visibleCompletedRuns = completedRuns.slice(0, visibleCompletedCount);
+  const visibleAvailableRuns = useMemo(() => availableRuns.slice(0, visibleAvailableCount), [availableRuns, visibleAvailableCount]);
+  const visibleActiveRuns = useMemo(() => activeRuns.slice(0, visibleActiveCount), [activeRuns, visibleActiveCount]);
+  const visibleCompletedRuns = useMemo(() => completedRuns.slice(0, visibleCompletedCount), [completedRuns, visibleCompletedCount]);
   const hasMoreAvailableRuns = visibleAvailableCount < availableRuns.length;
   const hasMoreActiveRuns = visibleActiveCount < activeRuns.length;
   const hasMoreCompletedRuns = visibleCompletedCount < completedRuns.length;

@@ -1,6 +1,7 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
-class ErrorBoundary extends React.Component {
+class ErrorBoundaryInner extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };
@@ -34,7 +35,7 @@ class ErrorBoundary extends React.Component {
               Reload Page
             </button>
             <button 
-              onClick={() => window.location.href = '/zingbite'} 
+              onClick={() => this.props.navigate('/')} 
               style={{ padding: '10px 20px', background: 'none', border: '1px solid var(--border-medium)', color: 'var(--text-secondary)', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '0.9rem' }}
             >
               Go to Home
@@ -46,5 +47,10 @@ class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
+
+const ErrorBoundary = (props) => {
+  const navigate = useNavigate();
+  return <ErrorBoundaryInner {...props} navigate={navigate} />;
+};
 
 export default ErrorBoundary;
