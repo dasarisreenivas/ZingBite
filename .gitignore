@@ -4,6 +4,7 @@
 .env.development
 .env.production
 .env.staging
+.env.example
 
 # OS metadata
 .DS_Store
@@ -35,3 +36,6 @@ dist-ssr/
 
 # AI configuration folders
 .gemini/
+
+database-schema.sql
+
