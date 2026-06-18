@@ -22,9 +22,7 @@ public class CacheControlFilter implements Filter {
             // Assets have content-hashed filenames so can be cached long-term
             httpRes.setHeader("Cache-Control", "public, max-age=31536000, immutable");
         } else {
-            // Tell the browser to drop all cached data for this origin
-            httpRes.setHeader("Clear-Site-Data", "\"cache\"");
-            // HTML and everything else: never cache — forces browser to always
+            // HTML and API responses: never cache — forces browser to always
             // fetch the latest index.html which references the newest hashed assets
             httpRes.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
             httpRes.setHeader("Pragma", "no-cache");

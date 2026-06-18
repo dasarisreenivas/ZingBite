@@ -361,7 +361,14 @@ public class DeliveryServlet extends HttpServlet {
                 }
                 populateVRPPaths(ssePayload, order);
                 com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastUpdate(orderId, ssePayload.toString());
-                broadcastTopicUpdates(order, "updateGPS");
+                com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastOrderUpdate(
+                    order,
+                    "gps_update",
+                    order.getOrderStatus() != null ? order.getOrderStatus().name() : "PLACED",
+                    user.getUserID(),
+                    "delivery_partner",
+                    "GPS coordinates updated"
+                );
 
                 JsonObject jsonResponse = new JsonObject();
                 jsonResponse.addProperty("success", true);
@@ -421,17 +428,19 @@ public class DeliveryServlet extends HttpServlet {
                     ex.printStackTrace();
                 }
 
+                // Broadcast SSE & Log Status
+                com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastOrderUpdate(
+                    order,
+                    "rider_accepted",
+                    currentStatus.name(),
+                    user.getUserID(),
+                    "delivery_partner",
+                    "Order accepted by rider: " + user.getUserName()
+                );
+
                 JsonObject jsonResponse = new JsonObject();
                 jsonResponse.addProperty("success", true);
                 jsonResponse.addProperty("status", nextStatus);
-
-                JsonObject ssePayload = new JsonObject();
-                ssePayload.addProperty("orderId", orderId);
-                ssePayload.addProperty("status", nextStatus);
-                populateVRPPaths(ssePayload, order);
-                com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastUpdate(orderId, ssePayload.toString());
-                broadcastTopicUpdates(order, "acceptOrder");
-
                 resp.getWriter().write(jsonResponse.toString());
 
             } else {
@@ -507,21 +516,19 @@ public class DeliveryServlet extends HttpServlet {
                     ex.printStackTrace();
                 }
 
+                // Broadcast SSE & Log Status
+                com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastOrderUpdate(
+                    order,
+                    "status_update",
+                    currentStatus.name(),
+                    user.getUserID(),
+                    "delivery_partner",
+                    "Status updated by rider: " + user.getUserName()
+                );
+
                 JsonObject jsonResponse = new JsonObject();
                 jsonResponse.addProperty("success", true);
                 jsonResponse.addProperty("status", status);
-
-                JsonObject ssePayload = new JsonObject();
-                ssePayload.addProperty("orderId", orderId);
-                ssePayload.addProperty("status", status);
-                ssePayload.addProperty("gpsProgress", order.getGpsProgress() != null ? order.getGpsProgress() : 0.0);
-                if (order.getGpsCoordinates() != null) {
-                    ssePayload.addProperty("gpsCoordinates", order.getGpsCoordinates());
-                }
-                populateVRPPaths(ssePayload, order);
-                com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastUpdate(orderId, ssePayload.toString());
-                broadcastTopicUpdates(order, "status_update");
-
                 resp.getWriter().write(jsonResponse.toString());
             }
 

@@ -1,4 +1,4 @@
-import{g as e,m as t,n,r,t as i,u as ee}from"./createLucideIcon-DnU5s7Zs.js";import{t as a}from"./chevron-right-DJz7G5nn.js";import{t as o}from"./file-text-DKlaPzre.js";import{t as s}from"./lock-BudfzplA.js";import{n as te,t as c}from"./ChatWidget-C3LcoAOn.js";import{t as ne}from"./send-CBtMFMV_.js";import{d as l,f as u,l as d,n as f,v as p,w as m,y as h}from"./index-CLDdiuGX.js";var re=i(`key-round`,[[`path`,{d:`M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z`,key:`1s6t7t`}],[`circle`,{cx:`16.5`,cy:`7.5`,r:`.5`,fill:`currentColor`,key:`w0ekpg`}]]),g=e(t(),1),_=n(),v=5,y={jobs:null,timestamp:0},b=()=>{let{user:e}=(0,g.useContext)(m),t=ee(),{showAlert:n}=f(),[i,b]=(0,g.useState)(`jobs`),[x,S]=(0,g.useState)([]),[C,w]=(0,g.useState)([]),[T,ie]=(0,g.useState)([]),[E,D]=(0,g.useState)(!0),[O,k]=(0,g.useState)(!1),[ae,A]=(0,g.useState)(!1),[j,M]=(0,g.useState)(null),[N,P]=(0,g.useState)(v),[F,I]=(0,g.useState)(v),[L,R]=(0,g.useState)(v),[z,B]=(0,g.useState)(null),[V,H]=(0,g.useState)({name:``,email:``,phone:``,resumeUrl:``}),[U,W]=(0,g.useState)(!1),[G,K]=(0,g.useState)(!1),[q,J]=(0,g.useState)(``),[Y,oe]=(0,g.useState)(`1234`),[X,Z]=(0,g.useState)(``),se=async(e=!1)=>{let t=y.jobs!==null,n=t&&Date.now()-y.timestamp>3e4;if(t){if(S(y.jobs),e||D(!1),!n)return}else e||D(!0);try{let e=await r.get(`/api/careers?action=jobs`);S(e.data),y={jobs:e.data,timestamp:Date.now()}}catch(e){console.error(`Failed to load jobs:`,e)}finally{e||D(!1)}},Q=async(t=!1)=>{if(e){t||k(!0);try{w((await r.get(`/api/careers?action=applications`)).data)}catch(e){console.error(`Failed to load applications:`,e)}finally{t||k(!1)}}},$=async(t=!1)=>{if(e){t||A(!0);try{ie((await r.get(`/api/careers?action=notifications`)).data)}catch(e){console.error(`Failed to load notifications:`,e)}finally{t||A(!1)}}};(0,g.useEffect)(()=>{se(!1),e&&(Q(!1),$(!1))},[e]),(0,g.useEffect)(()=>{e&&H({name:e.userName||e.username||``,email:e.email||``,phone:String(e.phoneNumber||e.mobile||``),resumeUrl:``})},[e]),(0,g.useEffect)(()=>{P(v),I(v),R(v)},[i]);let ce=x.slice(0,N),le=C.slice(0,F),ue=T.slice(0,L),de=N<x.length,fe=F<C.length,pe=L<T.length;return E?(0,_.jsx)(`div`,{style:{display:`flex`,justifyContent:`center`,alignItems:`center`,height:`400px`},children:(0,_.jsx)(l,{size:36,style:{animation:`spin 1s linear infinite`,color:`var(--brand-red)`}})}):(0,_.jsxs)(_.Fragment,{children:[(0,_.jsx)(`style`,{children:`
+import{g as e,m as t,n,r,t as i,u as ee}from"./createLucideIcon-DnU5s7Zs.js";import{t as a}from"./chevron-right-DJz7G5nn.js";import{t as o}from"./file-text-DKlaPzre.js";import{t as s}from"./lock-BudfzplA.js";import{n as te,t as c}from"./ChatWidget-D3S61R09.js";import{t as ne}from"./send-CBtMFMV_.js";import{d as l,f as u,l as d,n as f,v as p,w as m,y as h}from"./index-DbXf8GKr.js";var re=i(`key-round`,[[`path`,{d:`M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z`,key:`1s6t7t`}],[`circle`,{cx:`16.5`,cy:`7.5`,r:`.5`,fill:`currentColor`,key:`w0ekpg`}]]),g=e(t(),1),_=n(),v=5,y={jobs:null,timestamp:0},b=()=>{let{user:e}=(0,g.useContext)(m),t=ee(),{showAlert:n}=f(),[i,b]=(0,g.useState)(`jobs`),[x,S]=(0,g.useState)([]),[C,w]=(0,g.useState)([]),[T,ie]=(0,g.useState)([]),[E,D]=(0,g.useState)(!0),[O,k]=(0,g.useState)(!1),[ae,A]=(0,g.useState)(!1),[j,M]=(0,g.useState)(null),[N,P]=(0,g.useState)(v),[F,I]=(0,g.useState)(v),[L,R]=(0,g.useState)(v),[z,B]=(0,g.useState)(null),[V,H]=(0,g.useState)({name:``,email:``,phone:``,resumeUrl:``}),[U,W]=(0,g.useState)(!1),[G,K]=(0,g.useState)(!1),[q,J]=(0,g.useState)(``),[Y,oe]=(0,g.useState)(`1234`),[X,Z]=(0,g.useState)(``),se=async(e=!1)=>{let t=y.jobs!==null,n=t&&Date.now()-y.timestamp>3e4;if(t){if(S(y.jobs),e||D(!1),!n)return}else e||D(!0);try{let e=await r.get(`/api/careers?action=jobs`);S(e.data),y={jobs:e.data,timestamp:Date.now()}}catch(e){console.error(`Failed to load jobs:`,e)}finally{e||D(!1)}},Q=async(t=!1)=>{if(e){t||k(!0);try{w((await r.get(`/api/careers?action=applications`)).data)}catch(e){console.error(`Failed to load applications:`,e)}finally{t||k(!1)}}},$=async(t=!1)=>{if(e){t||A(!0);try{ie((await r.get(`/api/careers?action=notifications`)).data)}catch(e){console.error(`Failed to load notifications:`,e)}finally{t||A(!1)}}};(0,g.useEffect)(()=>{se(!1),e&&(Q(!1),$(!1))},[e]),(0,g.useEffect)(()=>{e&&H({name:e.userName||e.username||``,email:e.email||``,phone:String(e.phoneNumber||e.mobile||``),resumeUrl:``})},[e]),(0,g.useEffect)(()=>{P(v),I(v),R(v)},[i]);let ce=x.slice(0,N),le=C.slice(0,F),ue=T.slice(0,L),de=N<x.length,fe=F<C.length,pe=L<T.length;return E?(0,_.jsx)(`div`,{style:{display:`flex`,justifyContent:`center`,alignItems:`center`,height:`400px`},children:(0,_.jsx)(l,{size:36,style:{animation:`spin 1s linear infinite`,color:`var(--brand-red)`}})}):(0,_.jsxs)(_.Fragment,{children:[(0,_.jsx)(`style`,{children:`
         .careers-container {
           max-width: 1200px;
           margin: 32px auto;
@@ -55,7 +55,7 @@ import{g as e,m as t,n,r,t as i,u as ee}from"./createLucideIcon-DnU5s7Zs.js";imp
           gap: 20px;
         }
         .job-card {
-          background: #fff;
+          background: var(--surface-card);
           border: 1px solid var(--border-medium);
           border-radius: var(--radius-md);
           padding: 24px;
@@ -124,7 +124,7 @@ import{g as e,m as t,n,r,t as i,u as ee}from"./createLucideIcon-DnU5s7Zs.js";imp
           backdrop-filter: blur(4px);
         }
         .modal-content {
-          background: white;
+          background: var(--surface-card);
           padding: 32px;
           border-radius: var(--radius-lg);
           max-width: 500px;
@@ -147,9 +147,13 @@ import{g as e,m as t,n,r,t as i,u as ee}from"./createLucideIcon-DnU5s7Zs.js";imp
           border-radius: var(--radius-sm);
           font-size: 0.95rem;
           outline: none;
+          background: var(--bg-surface);
+          color: var(--text-primary);
+          transition: all 0.2s;
         }
         .form-group input:focus {
           border-color: var(--brand-red);
+          background: var(--bg-main);
         }
         .inbox-list {
           display: flex;
@@ -157,7 +161,7 @@ import{g as e,m as t,n,r,t as i,u as ee}from"./createLucideIcon-DnU5s7Zs.js";imp
           gap: 16px;
         }
         .email-card {
-          background: white;
+          background: var(--surface-card);
           border: 1px solid var(--border-medium);
           border-radius: var(--radius-md);
           padding: 20px;

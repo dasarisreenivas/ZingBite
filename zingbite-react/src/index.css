@@ -1,4 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-brand-red: #F7374F;
+  --color-brand-red-hover: #e02f43;
+  --color-brand-red-dark: #ff4d6a;
+  --color-brand-red-dark-hover: #ff3355;
+}
 
 :root {
   --brand-red: #F7374F;
@@ -16,6 +24,12 @@
   --border-medium: #e0e0e0;
   --success: #60b246;
   --danger: #e23744;
+  
+  --surface-card: rgba(255, 255, 255, 0.94);
+  --card-border: rgba(247, 55, 79, 0.1);
+  --card-shadow: 0 14px 40px rgba(28, 28, 28, 0.07);
+  --surface-tab-bar: rgba(255, 255, 255, 0.9);
+  --surface-glass: rgba(255, 255, 255, 0.75);
   
   --shadow-sm: 0 2px 8px rgba(28, 28, 28, 0.08);
   --shadow-md: 0 4px 16px rgba(28, 28, 28, 0.08);
@@ -40,21 +54,27 @@
   --brand-tint: rgba(255, 77, 106, 0.08);
   --brand-tint-soft: rgba(255, 77, 106, 0.04);
   --brand-tint-medium: rgba(255, 77, 106, 0.12);
-  --bg-main: #0f0f13;
-  --bg-surface: #1a1a24;
-  --bg-surface-hover: #22222e;
+  --bg-main: #000000;
+  --bg-surface: #0a0a0c;
+  --bg-surface-hover: #121215;
   --text-primary: #f1f1f1;
   --text-secondary: #a0a0b0;
   --text-muted: #6b6b7d;
-  --border-light: #2a2a36;
-  --border-medium: #3a3a48;
+  --border-light: #16161a;
+  --border-medium: #222228;
   --success: #6fcf6f;
   --danger: #ff4757;
   
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
-  --shadow-hover: 0 8px 25px rgba(0, 0, 0, 0.5);
+  --surface-card: rgba(10, 10, 12, 0.94);
+  --card-border: rgba(255, 77, 106, 0.15);
+  --card-shadow: 0 14px 40px rgba(0, 0, 0, 0.85);
+  --surface-tab-bar: rgba(10, 10, 12, 0.9);
+  --surface-glass: rgba(0, 0, 0, 0.75);
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.8);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.95);
+  --shadow-hover: 0 8px 25px rgba(0, 0, 0, 0.95);
 }
 
 * {
@@ -677,14 +697,14 @@ body textarea:focus {
   gap: 8px;
   min-height: 42px;
   padding: 0 18px;
-  border: 1px solid rgba(247, 55, 79, 0.18);
+  border: 1px solid var(--card-border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--surface-card);
   color: var(--brand-red);
   font-size: 0.88rem;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 12px 30px rgba(247, 55, 79, 0.08);
+  box-shadow: var(--shadow-sm);
   transition:
     background 0.28s var(--ease-premium),
     color 0.28s var(--ease-premium),
@@ -1016,9 +1036,9 @@ body .tab-bar {
   padding: 6px !important;
   margin-bottom: 18px !important;
   border-radius: 8px !important;
-  background: rgba(255, 255, 255, 0.9) !important;
-  border: 1px solid rgba(247, 55, 79, 0.1) !important;
-  box-shadow: 0 12px 32px rgba(28, 28, 28, 0.06) !important;
+  background: var(--surface-tab-bar) !important;
+  border: 1px solid var(--card-border) !important;
+  box-shadow: var(--shadow-md) !important;
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
 }
@@ -1054,9 +1074,9 @@ body .summary-card,
 body .checkout-address-card,
 body .checkout-payment-card {
   border-radius: 8px !important;
-  background: rgba(255, 255, 255, 0.94) !important;
-  border-color: rgba(247, 55, 79, 0.1) !important;
-  box-shadow: 0 14px 40px rgba(28, 28, 28, 0.07) !important;
+  background: var(--surface-card) !important;
+  border-color: var(--card-border) !important;
+  box-shadow: var(--card-shadow) !important;
   transform-style: preserve-3d;
   backface-visibility: hidden;
 }
@@ -1180,7 +1200,7 @@ body .chat-panel-container {
 
 /* Skeleton Loading Animation */
 .skeleton {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 37%, #f0f0f0 63%);
+  background: linear-gradient(90deg, var(--border-light) 25%, var(--border-medium) 37%, var(--border-light) 63%);
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
   border-radius: var(--radius-md);
@@ -1477,9 +1497,9 @@ select option {
 }
 
 .premium-pill.active {
-  background: #fff;
+  background: var(--surface-card);
   color: var(--brand-red);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Selection */

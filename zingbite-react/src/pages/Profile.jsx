@@ -1,7 +1,8 @@
-import React, { useState, useContext, useEffect, useRef } from 'react';
+import React, { useState, useContext, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
+import useSSE from '../hooks/useSSE';
 import { useCart } from '../context/CartContext';
 import { useModal } from '../context/ModalContext';
 import { 
@@ -218,39 +219,41 @@ const Profile = () => {
     }
   }, [addresses, user?.email]);
 
+  const isFetchingOrdersRef = useRef(false);
+
+  const fetchPastOrders = useCallback(async (isBackground = false) => {
+    if (isFetchingOrdersRef.current) return;
+    isFetchingOrdersRef.current = true;
+    if (!isBackground) setOrdersLoading(true);
+    try {
+      const res = await axios.get('/api/profile?action=orders');
+      setPastOrders(res.data);
+    } catch (err) {
+      console.error("Error fetching past orders:", err);
+    } finally {
+      if (!isBackground) setOrdersLoading(false);
+      isFetchingOrdersRef.current = false;
+    }
+  }, []);
+
   useEffect(() => {
-    const fetchPastOrders = async (isBackground = false) => {
-      try {
-        const res = await axios.get('/api/profile?action=orders');
-        setPastOrders(res.data);
-      } catch (err) {
-        console.error("Error fetching past orders:", err);
-      } finally {
-        if (!isBackground) setOrdersLoading(false);
-      }
-    };
     if (user) {
       fetchPastOrders(false);
-      const ssePath = window.location.pathname.startsWith('/zingbite') ? '/zingbite/api/stream?topic=user_orders' : '/api/stream?topic=user_orders';
-      const eventSource = new EventSource(ssePath);
-      eventSource.onmessage = (event) => {
-        try {
-          console.log("[ZingBite SSE] Received real-time user profile orders update");
-          fetchPastOrders(true);
-        } catch (err) {
-          console.error("[ZingBite SSE] Error on message:", err);
-        }
-      };
-
-      eventSource.onerror = (err) => {
-        console.error("[ZingBite SSE] EventSource connection error:", err);
-      };
-
-      return () => {
-        eventSource.close();
-      };
     }
-  }, [user]);
+  }, [user, fetchPastOrders]);
+
+  const profileSsePath = window.location.pathname.startsWith('/zingbite') 
+    ? '/zingbite/api/stream?topic=user_orders' 
+    : '/api/stream?topic=user_orders';
+
+  useSSE(user ? profileSsePath : null, (event) => {
+    try {
+      console.log("[ZingBite SSE] Received real-time user profile orders update");
+      fetchPastOrders(true);
+    } catch (err) {
+      console.error("[ZingBite SSE] Error on message:", err);
+    }
+  }, { enabled: !!user });
 
   const handleTabSwitch = (tab) => {
     if (tab === activeTab) return;

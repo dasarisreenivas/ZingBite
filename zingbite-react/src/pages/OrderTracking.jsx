@@ -9,6 +9,7 @@ import {
 import { AuthContext } from '../context/AuthContext';
 import { useModal } from '../context/ModalContext';
 import ChatWidget from '../components/ChatWidget';
+import useSSE from '../hooks/useSSE';
 
 const TRACKING_ORDER_PAGE_SIZE = 5;
 
@@ -295,62 +296,61 @@ const OrderTracking = () => {
     fetchOrders();
   }, [user]);
 
-  // Establish SSE EventSource stream connection for the active tracked order
-  useEffect(() => {
-    if (!orderIdParam) return;
-    
-    const cleanId = String(orderIdParam).replace(/^ZB-/, '').trim();
-    const ssePath = window.location.pathname.startsWith('/zingbite')
+  const cleanId = orderIdParam ? String(orderIdParam).replace(/^ZB-/, '').trim() : '';
+  const ssePath = orderIdParam
+    ? (window.location.pathname.startsWith('/zingbite')
       ? `/zingbite/api/order/stream?orderId=${cleanId}`
-      : `/api/order/stream?orderId=${cleanId}`;
-    const eventSource = new EventSource(ssePath);
+      : `/api/order/stream?orderId=${cleanId}`)
+    : null;
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data && String(data.orderId) === cleanId) {
-          setOrders(prevOrders => {
-            const cleanNewOId = String(data.orderId).trim();
-            const exists = prevOrders.some(o => String(o.id || o.orderId || '').replace(/^ZB-/, '').trim() === cleanNewOId);
-            if (!exists) {
-              const newO = {
-                id: "ZB-" + data.orderId,
-                status: data.status,
-                gpsProgress: data.gpsProgress,
-                gpsCoordinates: data.gpsCoordinates,
-                pathFM: data.pathFM,
-                pathLM1: data.pathLM1
-              };
-              return [...prevOrders, newO];
+  useSSE(ssePath, (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data && String(data.orderId) === cleanId) {
+        // Play sound on status change
+        try {
+          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav');
+          audio.volume = 0.4;
+          audio.play();
+        } catch (audioErr) {}
+
+        setOrders(prevOrders => {
+          const cleanNewOId = String(data.orderId).trim();
+          const exists = prevOrders.some(o => String(o.id || o.orderId || '').replace(/^ZB-/, '').trim() === cleanNewOId);
+          if (!exists) {
+            const newO = {
+              id: "ZB-" + data.orderId,
+              status: data.status,
+              gpsProgress: data.gpsProgress,
+              gpsCoordinates: data.gpsCoordinates,
+              pathFM: data.pathFM,
+              pathLM1: data.pathLM1,
+              riderName: data.riderName,
+              riderId: data.riderId
+            };
+            return [...prevOrders, newO];
+          }
+          return prevOrders.map(o => {
+            const cleanOId = String(o.id || o.orderId || '').replace(/^ZB-/, '').trim();
+            if (cleanOId === cleanId) {
+              const updatedOrder = { ...o };
+              if (data.status) updatedOrder.status = data.status;
+              if (data.gpsProgress !== undefined) updatedOrder.gpsProgress = data.gpsProgress;
+              if (data.gpsCoordinates !== undefined) updatedOrder.gpsCoordinates = data.gpsCoordinates;
+              if (data.pathFM !== undefined) updatedOrder.pathFM = data.pathFM;
+              if (data.pathLM1 !== undefined) updatedOrder.pathLM1 = data.pathLM1;
+              if (data.riderName !== undefined) updatedOrder.riderName = data.riderName;
+              if (data.riderId !== undefined) updatedOrder.riderId = data.riderId;
+              return updatedOrder;
             }
-            return prevOrders.map(o => {
-              const cleanOId = String(o.id || o.orderId || '').replace(/^ZB-/, '').trim();
-              if (cleanOId === cleanId) {
-                const updatedOrder = { ...o };
-                if (data.status) updatedOrder.status = data.status;
-                if (data.gpsProgress !== undefined) updatedOrder.gpsProgress = data.gpsProgress;
-                if (data.gpsCoordinates !== undefined) updatedOrder.gpsCoordinates = data.gpsCoordinates;
-                if (data.pathFM !== undefined) updatedOrder.pathFM = data.pathFM;
-                if (data.pathLM1 !== undefined) updatedOrder.pathLM1 = data.pathLM1;
-                return updatedOrder;
-              }
-              return o;
-            });
+            return o;
           });
-        }
-      } catch (err) {
-        console.error("Failed to parse SSE update data:", err);
+        });
       }
-    };
-
-    eventSource.onerror = (err) => {
-      console.error("SSE connection error:", err);
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, [orderIdParam]);
+    } catch (err) {
+      console.error("Failed to parse SSE update data:", err);
+    }
+  }, { enabled: !!orderIdParam });
 
   useEffect(() => {
     if (orders.length === 0) {

@@ -65,8 +65,15 @@ public class GlobalSSEServlet extends HttpServlet {
         HttpSession session = request.getSession(false);
         User user = null;
         if (session != null) {
-            user = (User) session.getAttribute("loggedInUser");
+            try {
+                user = (User) session.getAttribute("loggedInUser");
+            } catch (ClassCastException e) {
+                try {
+                    session.invalidate();
+                } catch (Exception ignored) {}
+            }
         }
+        final User finalUser = user;
 
         String topicParam = request.getParameter("topic");
         if (topicParam == null || topicParam.trim().isEmpty()) {
@@ -97,6 +104,7 @@ public class GlobalSSEServlet extends HttpServlet {
         } else if ("admin_requests".equalsIgnoreCase(topicParam)) {
             if (user != null && "super_admin".equals(user.getRole())) {
                 topicsToSubscribe.add("topic:admin_requests");
+                topicsToSubscribe.add("topic:all_orders");
             } else {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden");
                 return;
@@ -113,6 +121,13 @@ public class GlobalSSEServlet extends HttpServlet {
             if (restIdParam != null && !restIdParam.trim().isEmpty()) {
                 topicsToSubscribe.add("topic:menu:" + restIdParam.trim());
             }
+        } else if ("vrp".equalsIgnoreCase(topicParam)) {
+            if (user != null && "super_admin".equals(user.getRole())) {
+                topicsToSubscribe.add("topic:vrp");
+            } else {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden");
+                return;
+            }
         } else {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid topic name");
             return;
@@ -123,6 +138,11 @@ public class GlobalSSEServlet extends HttpServlet {
 
         final PrintWriter writer = response.getWriter();
         activeWriters.add(writer);
+
+        // Log connection
+        String userRole = user != null ? user.getRole() : "anonymous";
+        int userId = user != null ? user.getUserID() : 0;
+        System.out.println("[GlobalSSEServlet] Client connected to topic '" + topicParam + "' (User ID: " + userId + ", Role: " + userRole + ")");
 
         // Send initial connection packet
         synchronized (writer) {
@@ -148,6 +168,8 @@ public class GlobalSSEServlet extends HttpServlet {
         asyncContext.addListener(new AsyncListener() {
             private void cleanUp() {
                 activeWriters.remove(writer);
+                int uId = finalUser != null ? finalUser.getUserID() : 0;
+                System.out.println("[GlobalSSEServlet] Client disconnected from topics " + topicsToSubscribe + " (User ID: " + uId + ")");
                 for (String topic : topicsToSubscribe) {
                     OrderEventBroker.getInstance().removeTopicListener(topic, listener);
                 }

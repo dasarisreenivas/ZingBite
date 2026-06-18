@@ -11,7 +11,7 @@ import jakarta.servlet.http.HttpSession;
 public class CsrfUtils {
 
     private static final int TOKEN_LENGTH = 32;
-    private static final long TOKEN_EXPIRY_MS = 1_800_000L;
+    private static final long TOKEN_EXPIRY_MS = 86_400_000L; // 24 hours
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final ConcurrentHashMap<String, CsrfToken> tokenStore = new ConcurrentHashMap<>();
 
@@ -60,6 +60,9 @@ public class CsrfUtils {
             return false;
         }
 
+        // Extend token expiry on each successful validation (sliding window)
+        stored.expiry = Instant.now().toEpochMilli() + TOKEN_EXPIRY_MS;
+
         return true;
     }
 
@@ -90,7 +93,7 @@ public class CsrfUtils {
     private static class CsrfToken {
         final String token;
         final String userId;
-        final long expiry;
+        volatile long expiry;
 
         CsrfToken(String token, String userId, long expiry) {
             this.token = token;

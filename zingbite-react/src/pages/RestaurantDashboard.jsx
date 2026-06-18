@@ -8,8 +8,21 @@ import {
   ToggleLeft, ToggleRight, CheckCircle2, ChevronRight, 
   MapPin, Phone, IndianRupee, Loader, AlertCircle, FileText, CheckCircle, LogOut 
 } from 'lucide-react';
+import useSSE from '../hooks/useSSE';
 
 const RESTAURANT_DASHBOARD_PAGE_SIZE = 6;
+
+const getNormalizedStatus = (status) => {
+  if (!status) return '';
+  return status.trim().toUpperCase().replace(/[\s-]+/g, '_');
+};
+
+const getStatusClass = (status) => {
+  const s = getNormalizedStatus(status);
+  if (s === 'READY_FOR_PICKUP' || s === 'WAITING_TO_DISPATCH') return 'waiting-to-dispatch';
+  if (s === 'OUT_FOR_DELIVERY' || s === 'PICKED_UP') return 'out-for-delivery';
+  return s.toLowerCase();
+};
 
 const RestaurantDashboard = () => {
   const { user, logout, loading: authLoading } = useContext(AuthContext);
@@ -67,39 +80,52 @@ const RestaurantDashboard = () => {
       return;
     }
     fetchRestaurantData(false);
-
-    const ssePath = window.location.pathname.startsWith('/zingbite') ? '/zingbite/api/stream?topic=restaurant_orders' : '/api/stream?topic=restaurant_orders';
-    const eventSource = new EventSource(ssePath);
-    eventSource.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        console.log("[ZingBite SSE] Received real-time restaurant dashboard update:", payload);
-        
-        // Play notification sound on new order
-        if (payload && (payload.event === 'new_order' || payload.event === 'new_request')) {
-          try {
-            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
-            audio.volume = 0.5;
-            audio.play();
-          } catch (audioErr) {
-            console.log("Audio play blocked by browser autoplay policy:", audioErr);
-          }
-        }
-        
-        fetchRestaurantData(true);
-      } catch (err) {
-        console.error("[ZingBite SSE] Error on message:", err);
-      }
-    };
-
-    eventSource.onerror = (err) => {
-      console.error("[ZingBite SSE] EventSource connection error:", err);
-    };
-
-    return () => {
-      eventSource.close();
-    };
   }, [user, authLoading]);
+
+  const ssePath = window.location.pathname.startsWith('/zingbite') ? '/zingbite/api/stream?topic=restaurant_orders' : '/api/stream?topic=restaurant_orders';
+  useSSE(user ? ssePath : null, (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      console.log("[ZingBite SSE] Received real-time restaurant dashboard update:", payload);
+      
+      // Play notification sound on new order
+      if (payload && (payload.event === 'new_order' || payload.event === 'new_request')) {
+        try {
+          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
+          audio.volume = 0.5;
+          audio.play();
+        } catch (audioErr) {
+          console.log("Audio play blocked by browser autoplay policy:", audioErr);
+        }
+        fetchRestaurantData(true);
+      } else if (payload && payload.orderId) {
+        // Play subtle sound on update
+        try {
+          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav');
+          audio.volume = 0.4;
+          audio.play();
+        } catch (audioErr) {}
+
+        // Incremental state update: map orders
+        setData(prev => ({
+          ...prev,
+          orders: prev.orders.map(o => {
+            if (o.orderId === payload.orderId) {
+              return {
+                ...o,
+                status: payload.status,
+                riderId: payload.riderId !== undefined ? payload.riderId : o.riderId,
+                riderName: payload.riderName !== undefined ? payload.riderName : o.riderName
+              };
+            }
+            return o;
+          })
+        }));
+      }
+    } catch (err) {
+      console.error("[ZingBite SSE] Error on message:", err);
+    }
+  }, { enabled: !!user });
 
   useEffect(() => {
     setVisibleMenuCount(RESTAURANT_DASHBOARD_PAGE_SIZE);
@@ -219,14 +245,36 @@ const RestaurantDashboard = () => {
     }
   };
 
+  const getNextAction = (status) => {
+    const s = getNormalizedStatus(status);
+    switch (s) {
+      case 'PLACED': return { label: 'Accept Order', nextStatus: 'ACCEPTED' };
+      case 'ACCEPTED': return { label: 'Start Cooking', nextStatus: 'PREPARING' };
+      case 'PREPARING': return { label: 'Mark Ready', nextStatus: 'READY_FOR_PICKUP' };
+      default: return null;
+    }
+  };
+
   const renderOrderStepper = (o) => {
     console.log('[REST] Order data:', JSON.stringify(o));
+    const norm = getNormalizedStatus(o.status);
+    if (norm === 'CANCELLED') {
+      return (
+        <div className="premium-stepper-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '16px', color: '#e23744', fontWeight: 'bold' }}>
+          <AlertCircle size={16} /> This order has been cancelled.
+        </div>
+      );
+    }
+
     const getStatusStep = (status) => {
-      switch (status) {
+      const normalized = getNormalizedStatus(status);
+      switch (normalized) {
         case 'PLACED': return 0;
         case 'ACCEPTED': return 1;
         case 'PREPARING': return 2;
-        case 'READY_FOR_PICKUP': return 3;
+        case 'READY_FOR_PICKUP':
+        case 'WAITING_TO_DISPATCH':
+          return 3;
         case 'PICKED_UP': return 4;
         case 'OUT_FOR_DELIVERY': return 5;
         case 'DELIVERED': return 6;
@@ -270,19 +318,22 @@ const RestaurantDashboard = () => {
                   {isActionable ? (
                     <button
                       disabled={actionLoading === o.orderId}
-                      onClick={() => handleUpdateOrderStatus(o.orderId, step.statusName)}
+                      onClick={() => {
+                        console.log('[REST] Clicked status update button for order:', o.orderId, 'targetStatus:', step.statusName);
+                        handleUpdateOrderStatus(o.orderId, step.statusName);
+                      }}
                       className="stepper-btn-node"
                       title={step.actionLabel}
                     >
                       {actionLoading === o.orderId ? (
-                        <Loader className="spin" size={14} />
+                        <Loader className="spin" size={14} style={{ pointerEvents: 'none' }} />
                       ) : (
-                        idx === 0 ? <ChevronRight size={14} /> :
-                        idx === 1 ? <Utensils size={14} /> : 
-                        idx === 2 ? <CheckCircle2 size={14} /> :
-                        <ChevronRight size={14} />
+                        idx === 0 ? <ChevronRight size={14} style={{ pointerEvents: 'none' }} /> :
+                        idx === 1 ? <Utensils size={14} style={{ pointerEvents: 'none' }} /> : 
+                        idx === 2 ? <CheckCircle2 size={14} style={{ pointerEvents: 'none' }} /> :
+                        <ChevronRight size={14} style={{ pointerEvents: 'none' }} />
                       )}
-                      <span className="stepper-btn-label">{step.actionLabel}</span>
+                      <span className="stepper-btn-label" style={{ pointerEvents: 'none' }}>{step.actionLabel}</span>
                     </button>
                   ) : (
                     <div className="stepper-circle">
@@ -334,8 +385,8 @@ const RestaurantDashboard = () => {
 
   const { restaurant, menu = [], orders = [], request } = data || {};
 
-  const deliveredOrders = (orders || []).filter(o => (o.status || '').toLowerCase() === 'delivered');
-  const activeOrdersCount = (orders || []).filter(o => (o.status || '').toLowerCase() !== 'delivered').length;
+  const deliveredOrders = (orders || []).filter(o => getNormalizedStatus(o.status) === 'DELIVERED');
+  const activeOrdersCount = (orders || []).filter(o => getNormalizedStatus(o.status) !== 'DELIVERED').length;
   const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (o.total || 0), 0);
   const avgOrderValue = deliveredOrders.length > 0 ? (totalRevenue / deliveredOrders.length) : 0;
 
@@ -537,7 +588,15 @@ const RestaurantDashboard = () => {
 
   const filteredOrders = (orders || []).filter(order => {
     if (orderFilter === 'All') return true;
-    return (order.status || '').toLowerCase() === orderFilter.toLowerCase();
+    const normOrder = getNormalizedStatus(order.status);
+    const normFilter = getNormalizedStatus(orderFilter);
+    if (normFilter === 'READY_FOR_PICKUP') {
+      return normOrder === 'READY_FOR_PICKUP' || normOrder === 'WAITING_TO_DISPATCH';
+    }
+    if (normFilter === 'OUT_FOR_DELIVERY') {
+      return normOrder === 'OUT_FOR_DELIVERY' || normOrder === 'PICKED_UP';
+    }
+    return normOrder === normFilter;
   });
   const visibleMenuItems = filteredMenu.slice(0, visibleMenuCount);
   const visibleOrders = filteredOrders.slice(0, visibleOrderCount);
@@ -1030,8 +1089,39 @@ const RestaurantDashboard = () => {
           flex-direction: column;
           align-items: flex-end;
           justify-content: space-between;
-          height: 100%;
           gap: 12px;
+          overflow: hidden;
+        }
+        .order-action-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          padding: 12px 20px;
+          margin-top: 12px;
+          background: linear-gradient(135deg, var(--brand-red) 0%, #ff6b7a 100%);
+          color: white;
+          border: none;
+          border-radius: var(--radius-sm);
+          font-weight: 700;
+          font-size: 0.9rem;
+          cursor: pointer;
+          transition: all 0.25s ease;
+          box-shadow: 0 4px 12px rgba(247, 55, 79, 0.25);
+        }
+        .order-action-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 18px rgba(247, 55, 79, 0.35);
+        }
+        .order-action-btn:active {
+          transform: translateY(0);
+        }
+        .order-action-btn:disabled {
+          background: var(--border-medium);
+          box-shadow: none;
+          cursor: not-allowed;
+          transform: none;
         }
         .customer-info-box {
           background: var(--bg-surface);
@@ -1209,6 +1299,8 @@ const RestaurantDashboard = () => {
           padding: 16px 8px 0;
           margin-top: 16px;
           border-top: 1px dashed var(--border-medium);
+          position: relative;
+          z-index: 2;
         }
         .premium-stepper {
           display: flex;
@@ -1224,6 +1316,7 @@ const RestaurantDashboard = () => {
           margin: 0 -8px;
           transform: translateY(-12px);
           transition: background-color 0.3s ease;
+          pointer-events: none;
         }
         .stepper-line.active {
           background: var(--success);
@@ -1249,6 +1342,7 @@ const RestaurantDashboard = () => {
           font-weight: 700;
           color: var(--text-muted);
           transition: all 0.3s ease;
+          pointer-events: none;
         }
         .stepper-node.completed .stepper-circle {
           background: var(--success);
@@ -1283,6 +1377,9 @@ const RestaurantDashboard = () => {
           box-shadow: 0 4px 10px rgba(75, 192, 192, 0.3);
           transition: all 0.2s ease;
           animation: actionPulseRider 2s infinite;
+          position: relative;
+          z-index: 10;
+          pointer-events: auto !important;
         }
         .stepper-btn-node:hover {
           transform: translateY(-14px) scale(1.05);
@@ -1294,6 +1391,7 @@ const RestaurantDashboard = () => {
         }
         .stepper-btn-label {
           white-space: nowrap;
+          pointer-events: none;
         }
         .stepper-label {
           font-size: 0.72rem;
@@ -1302,6 +1400,7 @@ const RestaurantDashboard = () => {
           margin-top: 6px;
           white-space: nowrap;
           text-align: center;
+          pointer-events: none;
         }
         .stepper-node.completed .stepper-label,
         .stepper-node.active .stepper-label {
@@ -1649,7 +1748,7 @@ const RestaurantDashboard = () => {
           <div className="dashboard-content-layout fade-in">
             <div className="main-content-area">
               <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none', msOverflowStyle: 'none' }} className="hide-scrollbar">
-                {['All', 'Placed', 'Accepted', 'Preparing', 'Out for Delivery', 'Delivered'].map(status => (
+                {['All', 'Placed', 'Accepted', 'Preparing', 'Ready for Pickup', 'Out for Delivery', 'Delivered'].map(status => (
                   <button 
                     key={status}
                     className={`pill-filter ${orderFilter === status ? 'active' : ''}`}
@@ -1667,11 +1766,11 @@ const RestaurantDashboard = () => {
               ) : (
                 <div className="order-list">
                   {visibleOrders.map((o) => (
-                    <div key={o.orderId} className={`order-card status-${(o.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
+                    <div key={o.orderId} className={`order-card status-${getStatusClass(o.status)}`}>
                       <div className="order-info-section">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
                           <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>ID: {o.formattedId}</h3>
-                          <span className={`badge ${(o.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
+                          <span className={`badge ${getStatusClass(o.status)}`}>
                             {o.status}
                           </span>
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ordered {o.time}</span>
@@ -1711,6 +1810,23 @@ const RestaurantDashboard = () => {
                           <div style={{ fontSize: '0.78rem', color: '#ff9f40', textAlign: 'right', marginTop: '8px', fontWeight: 600 }}>
                             Awaiting Rider Match...
                           </div>
+                        )}
+
+                        {getNextAction(o.status) && (
+                          <button
+                            className="order-action-btn"
+                            disabled={actionLoading === o.orderId}
+                            onClick={() => handleUpdateOrderStatus(o.orderId, getNextAction(o.status).nextStatus)}
+                          >
+                            {actionLoading === o.orderId ? (
+                              <Loader className="spin" size={16} />
+                            ) : (
+                              <>
+                                <ChevronRight size={16} />
+                                {getNextAction(o.status).label}
+                              </>
+                            )}
+                          </button>
                         )}
                       </div>
 
@@ -1764,11 +1880,20 @@ const RestaurantDashboard = () => {
                   <div className="progress-bar-stacked">
                     {orders.length > 0 ? (
                       (() => {
-                        const placed = orders.filter(o => ['placed', 'accepted'].includes((o.status || '').toLowerCase())).length;
-                        const cooking = orders.filter(o => (o.status || '').toLowerCase() === 'preparing').length;
-                        const ready = orders.filter(o => (o.status || '').toLowerCase() === 'waiting to dispatch').length;
-                        const shipping = orders.filter(o => (o.status || '').toLowerCase() === 'out for delivery').length;
-                        const delivered = orders.filter(o => (o.status || '').toLowerCase() === 'delivered').length;
+                        const placed = orders.filter(o => {
+                          const s = getNormalizedStatus(o.status);
+                          return s === 'PLACED' || s === 'ACCEPTED';
+                        }).length;
+                        const cooking = orders.filter(o => getNormalizedStatus(o.status) === 'PREPARING').length;
+                        const ready = orders.filter(o => {
+                          const s = getNormalizedStatus(o.status);
+                          return s === 'READY_FOR_PICKUP' || s === 'WAITING_TO_DISPATCH';
+                        }).length;
+                        const shipping = orders.filter(o => {
+                          const s = getNormalizedStatus(o.status);
+                          return s === 'OUT_FOR_DELIVERY' || s === 'PICKED_UP';
+                        }).length;
+                        const delivered = orders.filter(o => getNormalizedStatus(o.status) === 'DELIVERED').length;
 
                         const pct = (val) => ((val / orders.length) * 100).toFixed(1);
 

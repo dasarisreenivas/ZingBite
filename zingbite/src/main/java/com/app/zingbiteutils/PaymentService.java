@@ -206,8 +206,17 @@ public class PaymentService {
                 System.err.println("[PaymentService] Async Email dispatch failed: " + ex.getMessage());
             }
 
-            // Trigger Real-Time SSE Broadcaster
+            // Trigger Real-Time SSE Broadcaster & Log Status
             try {
+                OrderEventBroker.getInstance().broadcastOrderUpdate(
+                    order,
+                    "new_order",
+                    "PENDING_PAYMENT",
+                    fUser.getUserID(),
+                    "customer",
+                    "Order placed successfully after payment capture"
+                );
+                // Also broadcast to the general new_orders pool topic (for riders/restaurants)
                 JsonObject sseMsg = new JsonObject();
                 sseMsg.addProperty("event", "new_order");
                 sseMsg.addProperty("orderId", fOrderId);
@@ -215,19 +224,6 @@ public class PaymentService {
                     sseMsg.addProperty("restaurantId", fRestId);
                 }
                 OrderEventBroker.getInstance().broadcastTopicUpdate("topic:new_orders", sseMsg.toString());
-                if (fRestId > 0) {
-                    OrderEventBroker.getInstance().broadcastTopicUpdate("topic:restaurant_orders:" + fRestId, sseMsg.toString());
-                }
-                OrderEventBroker.getInstance().broadcastTopicUpdate("topic:rider_orders", sseMsg.toString());
-                
-                // Tickle user orders topic to reload tracking screen instantly
-                OrderEventBroker.getInstance().broadcastTopicUpdate("topic:user_orders:" + fUser.getUserID(), sseMsg.toString());
-
-                // Direct notification for the specific order tracking stream
-                JsonObject ordPayload = new JsonObject();
-                ordPayload.addProperty("orderId", fOrderId);
-                ordPayload.addProperty("status", "PLACED");
-                OrderEventBroker.getInstance().broadcastUpdate(fOrderId, ordPayload.toString());
             } catch (Exception ex) {
                 System.err.println("[PaymentService] Real-time SSE dispatch failed: " + ex.getMessage());
             }
@@ -288,19 +284,16 @@ public class PaymentService {
             tx.commit();
             System.out.println("[PaymentService] Successfully cancelled order ZB-" + orderId + " due to: " + reason);
 
-                // Tickle customer UI to update status
+                // Tickle customer UI to update status & Log status change
                 try {
-                    JsonObject sseMsg = new JsonObject();
-                    sseMsg.addProperty("event", "status_update");
-                    sseMsg.addProperty("orderId", orderId);
-                    sseMsg.addProperty("status", "Cancelled");
-                    OrderEventBroker.getInstance().broadcastTopicUpdate("topic:user_orders:" + order.getUserId(), sseMsg.toString());
-
-                    // Direct notification for the specific order tracking stream
-                    JsonObject ordPayload = new JsonObject();
-                    ordPayload.addProperty("orderId", orderId);
-                    ordPayload.addProperty("status", "CANCELLED");
-                    OrderEventBroker.getInstance().broadcastUpdate(orderId, ordPayload.toString());
+                    OrderEventBroker.getInstance().broadcastOrderUpdate(
+                        order,
+                        "status_update",
+                        "PENDING_PAYMENT",
+                        order.getUserId(),
+                        "system",
+                        "Order cancelled: " + reason
+                    );
                 } catch (Exception ex) {}
 
             return true;

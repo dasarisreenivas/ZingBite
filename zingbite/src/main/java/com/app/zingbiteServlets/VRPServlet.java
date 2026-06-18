@@ -336,6 +336,7 @@ public class VRPServlet extends HttpServlet {
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
             String action = requestBody.has("action") ? requestBody.get("action").getAsString() : "";
 
+            boolean actionResolved = true;
             if ("updateTraffic".equalsIgnoreCase(action)) {
                 String roadName = requestBody.get("roadName").getAsString();
                 String trafficLevel = requestBody.get("trafficLevel").getAsString();
@@ -390,8 +391,24 @@ public class VRPServlet extends HttpServlet {
                 jsonResponse.addProperty("success", true);
                 resp.getWriter().write(jsonResponse.toString());
             } else {
+                actionResolved = false;
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 resp.getWriter().write("{\"error\":\"Unknown VRP action\"}");
+            }
+
+            if (actionResolved) {
+                try {
+                    JsonObject sseMsg = new JsonObject();
+                    sseMsg.addProperty("type", "vrp_updated");
+                    sseMsg.addProperty("timestamp", System.currentTimeMillis());
+                    com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate(
+                        "topic:vrp",
+                        sseMsg.toString()
+                    );
+                    System.out.println("[VRPServlet] Broadcasted vrp_update event: " + sseMsg.toString());
+                } catch (Exception ex) {
+                    System.err.println("[VRPServlet] Failed to broadcast VRP update event: " + ex.getMessage());
+                }
             }
 
         } catch (Exception e) {

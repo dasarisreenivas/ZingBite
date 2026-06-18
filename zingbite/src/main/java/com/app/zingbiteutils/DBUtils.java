@@ -23,6 +23,7 @@ import com.app.zingbitemodels.ContactMessage;
 import com.app.zingbitemodels.OrderStatusConverter;
 import com.app.zingbitemodels.Payment;
 import com.app.zingbitemodels.AnalyticsEvent;
+import com.app.zingbitemodels.OrderStatusLog;
 
 	public class DBUtils {
 
@@ -54,7 +55,8 @@ import com.app.zingbitemodels.AnalyticsEvent;
 									.addAnnotatedClass(ContactMessage.class)
 									.addAnnotatedClass(OrderStatusConverter.class)
 									.addAnnotatedClass(Payment.class)
-									.addAnnotatedClass(AnalyticsEvent.class);
+									.addAnnotatedClass(AnalyticsEvent.class)
+									.addAnnotatedClass(OrderStatusLog.class);
 			sf = config.buildSessionFactory();
 			System.out.println("session factory created successfully");
 
