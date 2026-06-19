@@ -85,6 +85,12 @@ public class LoginServlet extends HttpServlet {
             User user = userDao.getUserById(email);
 
             if (user != null && PasswordUtils.verifyPassword(password, user.getPassword())) {
+                if (user.getBlocked() != null && user.getBlocked()) {
+                    jsonResponse.addProperty("error", "Your account has been blocked by an administrator.");
+                    resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    resp.getWriter().write(jsonResponse.toString());
+                    return;
+                }
                 LoginAttemptManager.recordSuccessfulAttempt(clientIp);
                 user.setLastLogin(new java.util.Date());
                 userDao.updateUser(user);
@@ -125,14 +131,20 @@ public class LoginServlet extends HttpServlet {
             UserDAO userDao = new UserDAOImplementation();
             User freshUser = userDao.getUserById(sessionUser.getEmail());
             if (freshUser != null) {
-                session.setAttribute("loggedInUser", freshUser);
-                String csrfToken = (String) session.getAttribute("csrfToken");
-                if (csrfToken == null) {
-                    csrfToken = CsrfUtils.generateToken(session);
+                if (freshUser.getBlocked() != null && freshUser.getBlocked()) {
+                    session.invalidate();
+                    jsonResponse.addProperty("loggedIn", false);
+                    jsonResponse.addProperty("error", "Your account has been blocked by an administrator.");
+                } else {
+                    session.setAttribute("loggedInUser", freshUser);
+                    String csrfToken = (String) session.getAttribute("csrfToken");
+                    if (csrfToken == null) {
+                        csrfToken = CsrfUtils.generateToken(session);
+                    }
+                    jsonResponse.addProperty("loggedIn", true);
+                    jsonResponse.addProperty("csrfToken", csrfToken);
+                    jsonResponse.add("user", gson.toJsonTree(freshUser));
                 }
-                jsonResponse.addProperty("loggedIn", true);
-                jsonResponse.addProperty("csrfToken", csrfToken);
-                jsonResponse.add("user", gson.toJsonTree(freshUser));
             } else {
                 session.invalidate();
                 jsonResponse.addProperty("loggedIn", false);

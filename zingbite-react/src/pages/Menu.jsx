@@ -65,7 +65,7 @@ const Menu = () => {
     ? `/zingbite/api/stream?topic=menu&restaurantId=${restaurantId}`
     : `/api/stream?topic=menu&restaurantId=${restaurantId}`;
 
-  useSSE(restaurantId ? menuSsePath : null, (event) => {
+  useSSE(restaurantId ? menuSsePath : null, () => {
     try {
       console.log("[ZingBite SSE] Real-time menu update");
       fetchMenu(true);
@@ -404,7 +404,14 @@ const Menu = () => {
                         <div className="qty-stepper">
                           <button className="step-btn" onClick={() => updateQuantity(item.menuId, qty - 1)}><Minus size={12} /></button>
                           <span className="step-val">{qty}</span>
-                          <button className="step-btn" onClick={() => updateQuantity(item.menuId, qty + 1)}><Plus size={12} /></button>
+                          <button 
+                            className="step-btn" 
+                            disabled={!item.isAvailable} 
+                            onClick={() => updateQuantity(item.menuId, qty + 1)}
+                            style={{ cursor: item.isAvailable ? 'pointer' : 'not-allowed', opacity: item.isAvailable ? 1 : 0.5 }}
+                          >
+                            <Plus size={12} />
+                          </button>
                         </div>
                       )}
                     </div>
@@ -468,7 +475,14 @@ const Menu = () => {
                           <div className="qty-stepper">
                             <button className="step-btn" onClick={() => updateQuantity(item.menuId, qty - 1)}><Minus size={12} /></button>
                             <span className="step-val">{qty}</span>
-                            <button className="step-btn" onClick={() => updateQuantity(item.menuId, qty + 1)}><Plus size={12} /></button>
+                            <button 
+                              className="step-btn" 
+                              disabled={!item.isAvailable} 
+                              onClick={() => updateQuantity(item.menuId, qty + 1)}
+                              style={{ cursor: item.isAvailable ? 'pointer' : 'not-allowed', opacity: item.isAvailable ? 1 : 0.5 }}
+                            >
+                              <Plus size={12} />
+                            </button>
                           </div>
                         )}
                       </div>

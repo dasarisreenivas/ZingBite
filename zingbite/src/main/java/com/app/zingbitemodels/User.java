@@ -43,6 +43,8 @@ public class User implements Serializable{
 	private String city;
 	@Column(name="rider_status")
 	private String riderStatus;
+	@Column(name="blocked")
+	private Boolean blocked = false;
 	@Column(name="vehicle_type")
 	private String vehicleType;
 	
@@ -51,6 +53,7 @@ public class User implements Serializable{
 		super();
 		this.role = "customer";
 		this.createdOn = new Date();
+		this.blocked = false;
 	}
 	
 	public User(String userName, String email, String password, long phoneNumber,String address) {
@@ -62,6 +65,7 @@ public class User implements Serializable{
 		this.address = address;
 		this.role = "customer";
 		this.createdOn = new Date();
+		this.blocked = false;
 	}
 
 	public User(int userID, String userName, String email, String password, long phoneNumber, String address) {
@@ -74,6 +78,7 @@ public class User implements Serializable{
 		this.address = address;
 		this.role = "customer";
 		this.createdOn = new Date();
+		this.blocked = false;
 	}
 
 	public int getUserID() {
@@ -186,6 +191,14 @@ public class User implements Serializable{
 
 	public void setVehicleType(String vehicleType) {
 		this.vehicleType = vehicleType;
+	}
+
+	public Boolean getBlocked() {
+		return blocked;
+	}
+
+	public void setBlocked(Boolean blocked) {
+		this.blocked = blocked;
 	}
 
 	@Override

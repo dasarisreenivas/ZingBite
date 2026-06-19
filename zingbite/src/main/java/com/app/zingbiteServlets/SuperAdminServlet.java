@@ -403,6 +403,30 @@ public class SuperAdminServlet extends HttpServlet {
                     if (tx != null) tx.rollback();
                     throw e;
                 }
+            } else if ("toggleBlockUser".equals(action)) {
+                int targetUserId = requestBody.get("userId").getAsInt();
+
+                try (Session hibernateSession = DBUtils.openSession()) {
+                    tx = hibernateSession.beginTransaction();
+                    User targetUser = hibernateSession.get(User.class, targetUserId);
+                    if (targetUser != null) {
+                        boolean isBlocked = targetUser.getBlocked() != null ? targetUser.getBlocked() : false;
+                        targetUser.setBlocked(!isBlocked);
+                        hibernateSession.merge(targetUser);
+                        tx.commit();
+
+                        JsonObject result = new JsonObject();
+                        result.addProperty("success", true);
+                        result.addProperty("blocked", !isBlocked);
+                        resp.getWriter().write(result.toString());
+                    } else {
+                        resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                        resp.getWriter().write("{\"error\":\"User not found\"}");
+                    }
+                } catch (Exception e) {
+                    if (tx != null) tx.rollback();
+                    throw e;
+                }
             } else if ("geocodeRestaurants".equals(action)) {
                 // One-time backfill: geocode all restaurants that have NULL coordinates
                 int geocoded = 0;

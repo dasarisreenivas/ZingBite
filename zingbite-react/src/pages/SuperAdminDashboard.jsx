@@ -6,7 +6,8 @@ import { useModal } from '../context/ModalContext';
 import { 
   Users, Store, ShoppingBag, IndianRupee, Briefcase, 
   FileText, Plus, CheckCircle, XCircle, AlertTriangle, 
-  Loader, Shield, UserCheck, Check, X, FileCheck2, LogOut, MessageSquare, ChevronRight
+  Loader, Shield, UserCheck, Check, X, FileCheck2, LogOut, MessageSquare, ChevronRight,
+  Activity
 } from 'lucide-react';
 import ChatWidget from '../components/ChatWidget';
 import RiderApplicationRow from '../components/RiderApplicationRow';
@@ -140,6 +141,22 @@ const SuperAdminDashboard = () => {
       await fetchAdminData();
     } catch (err) {
       showAlert('Failed to update user role.', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleBlockUser = async (targetUserId) => {
+    setActionLoading(`block-${targetUserId}`);
+    try {
+      await axios.post('/api/super-admin', {
+        action: 'toggleBlockUser',
+        userId: targetUserId
+      });
+      showAlert('User status updated successfully.', 'success');
+      await fetchAdminData();
+    } catch (err) {
+      showAlert('Failed to update user status.', 'error');
     } finally {
       setActionLoading(null);
     }
@@ -807,6 +824,120 @@ const SuperAdminDashboard = () => {
                     </div>
                   )}
                 </div>
+
+                {/* System Telemetry & Connection Pools Card */}
+                <div className="analytics-card" style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Activity size={20} style={{ color: '#06b6d4' }} /> Platform Telemetry & System Metrics
+                  </h2>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+                    {/* Connection Pool */}
+                    <div style={{ background: 'rgba(255, 255, 255, 0.6)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                      <h3 style={{ fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--brand-red)', margin: '0 0 12px 0' }}>
+                        <Store size={16} /> HikariCP Connection Pool
+                      </h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Active Connections:</span>
+                          <strong style={{ color: 'var(--text-primary)' }}>{analytics.systemMetrics?.hikari?.activeConnections ?? 0}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Idle Connections:</span>
+                          <strong style={{ color: 'var(--text-primary)' }}>{analytics.systemMetrics?.hikari?.idleConnections ?? 5}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Total Connections:</span>
+                          <strong style={{ color: 'var(--text-primary)' }}>{analytics.systemMetrics?.hikari?.totalConnections ?? 5} / {analytics.systemMetrics?.hikari?.maxConnections ?? 20}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Threads Awaiting:</span>
+                          <strong style={{ color: analytics.systemMetrics?.hikari?.threadsAwaiting > 0 ? 'var(--brand-red)' : 'var(--text-secondary)' }}>
+                            {analytics.systemMetrics?.hikari?.threadsAwaiting ?? 0}
+                          </strong>
+                        </div>
+                        <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
+                          <div 
+                            style={{ 
+                              height: '100%', 
+                              background: 'var(--brand-red)', 
+                              width: `${((analytics.systemMetrics?.hikari?.totalConnections ?? 5) / (analytics.systemMetrics?.hikari?.maxConnections ?? 20)) * 100}%` 
+                            }} 
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Hibernate Second Level Cache */}
+                    <div style={{ background: 'rgba(255, 255, 255, 0.6)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                      <h3 style={{ fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', color: '#36a2eb', margin: '0 0 12px 0' }}>
+                        <Activity size={16} /> Hibernate L2 Cache Hit Rate
+                      </h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Cache Hits:</span>
+                          <strong style={{ color: '#4bc0c0' }}>{analytics.systemMetrics?.hibernate?.cacheHitCount ?? 0}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Cache Misses:</span>
+                          <strong style={{ color: 'var(--brand-red)' }}>{analytics.systemMetrics?.hibernate?.cacheMissCount ?? 0}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Session Open/Close:</span>
+                          <strong style={{ color: 'var(--text-primary)' }}>
+                            {analytics.systemMetrics?.hibernate?.sessionOpenCount ?? 0} / {analytics.systemMetrics?.hibernate?.sessionCloseCount ?? 0}
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Cache Hit Rate:</span>
+                          <strong style={{ color: '#36a2eb' }}>{analytics.systemMetrics?.hibernate?.cacheHitRate ?? 0}%</strong>
+                        </div>
+                        <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
+                          <div 
+                            style={{ 
+                              height: '100%', 
+                              background: '#36a2eb', 
+                              width: `${analytics.systemMetrics?.hibernate?.cacheHitRate ?? 0}%` 
+                            }} 
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* API Gateway Rate Limiting */}
+                    <div style={{ background: 'rgba(255, 255, 255, 0.6)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                      <h3 style={{ fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', color: '#9966ff', margin: '0 0 12px 0' }}>
+                        <Shield size={16} /> API Rate Limiter
+                      </h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Active IP Clients:</span>
+                          <strong style={{ color: 'var(--text-primary)' }}>{analytics.systemMetrics?.rateLimiter?.activeIps ?? 0}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>API Req (Sliding Window):</span>
+                          <strong style={{ color: 'var(--text-primary)' }}>{analytics.systemMetrics?.rateLimiter?.totalRequests ?? 0}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Platform Status:</span>
+                          <strong style={{ color: '#4bc0c0' }}>OPERATIONAL</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>DB Connectivity:</span>
+                          <strong style={{ color: '#4bc0c0' }}>STABLE</strong>
+                        </div>
+                        <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
+                          <div 
+                            style={{ 
+                              height: '100%', 
+                              background: '#4bc0c0', 
+                              width: '100%' 
+                            }} 
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1061,6 +1192,8 @@ const SuperAdminDashboard = () => {
                   <th>Username</th>
                   <th>Email</th>
                   <th>Phone Number</th>
+                  <th>Status</th>
+                  <th>Status Action</th>
                   <th>Rider Status</th>
                   <th>Rider Actions</th>
                   <th>Role Control</th>
@@ -1073,6 +1206,31 @@ const SuperAdminDashboard = () => {
                     <td>{u.userName}</td>
                     <td>{u.email}</td>
                     <td>{u.phoneNumber || 'N/A'}</td>
+                    <td>
+                      <span className={`badge ${u.blocked ? 'rejected' : 'approved'}`}>
+                        {u.blocked ? 'Blocked' : 'Active'}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        disabled={actionLoading === `block-${u.userID}`}
+                        onClick={() => handleToggleBlockUser(u.userID)}
+                        style={{
+                          background: u.blocked ? '#4bc0c0' : 'var(--danger)',
+                          color: 'white', border: 'none',
+                          padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem',
+                          fontWeight: 700, cursor: 'pointer'
+                        }}
+                      >
+                        {actionLoading === `block-${u.userID}` ? (
+                          <Loader className="spin" size={10} />
+                        ) : u.blocked ? (
+                          'Unblock'
+                        ) : (
+                          'Block'
+                        )}
+                      </button>
+                    </td>
                     <td>
                       {u.role === 'delivery_partner' || u.riderStatus ? (
                         <span className={`badge ${

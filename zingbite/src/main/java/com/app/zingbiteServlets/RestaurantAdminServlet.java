@@ -155,10 +155,85 @@ public class RestaurantAdminServlet extends HttpServlet {
                 }
             }
 
+            JsonObject analyticsJson = new JsonObject();
+            try {
+                int restaurantId = restaurant.getRestaurantId();
+
+                // 1. Total Revenue query
+                String revHql = "select coalesce(sum(o.totalAmount), 0.0) from Orders o " +
+                                 "where o.restaurantId.restaurantId = :restaurantId " +
+                                 "  and o.orderStatus = com.app.zingbitemodels.OrderStatus.DELIVERED";
+                Double totalRevenueVal = hibernateSession.createQuery(revHql, Double.class)
+                    .setParameter("restaurantId", restaurantId)
+                    .uniqueResult();
+                double totalRevenue = totalRevenueVal != null ? totalRevenueVal : 0.0;
+
+                // 2. Order Volume query
+                String volHql = "select count(o.orderId) from Orders o " +
+                                 "where o.restaurantId.restaurantId = :restaurantId " +
+                                 "  and o.orderStatus != com.app.zingbitemodels.OrderStatus.PENDING_PAYMENT";
+                Long orderVolumeVal = hibernateSession.createQuery(volHql, Long.class)
+                    .setParameter("restaurantId", restaurantId)
+                    .uniqueResult();
+                long orderVolume = orderVolumeVal != null ? orderVolumeVal : 0L;
+
+                // 3. Bestselling items query
+                String bestHql = "select m.menuName, sum(oi.quantity), sum(oi.subTotal) " +
+                                 "from OrderItem oi, Orders o, Menu m " +
+                                 "where oi.orderId = o.orderId " +
+                                 "  and oi.menuId = m.menuId " +
+                                 "  and o.restaurantId.restaurantId = :restaurantId " +
+                                 "  and o.orderStatus = com.app.zingbitemodels.OrderStatus.DELIVERED " +
+                                 "group by m.menuName " +
+                                 "order by sum(oi.quantity) desc";
+                List<Object[]> bestsellingList = hibernateSession.createQuery(bestHql, Object[].class)
+                    .setParameter("restaurantId", restaurantId)
+                    .setMaxResults(5)
+                    .list();
+                    
+                JsonArray bestArray = new JsonArray();
+                for (Object[] row : bestsellingList) {
+                    JsonObject item = new JsonObject();
+                    item.addProperty("name", (String) row[0]);
+                    item.addProperty("quantity", ((Number) row[1]).intValue());
+                    item.addProperty("revenue", ((Number) row[2]).doubleValue());
+                    bestArray.add(item);
+                }
+
+                // 4. Daily Sales query
+                String dailyHql = "select o.orderTime, sum(o.totalAmount) " +
+                                  "from Orders o " +
+                                  "where o.restaurantId.restaurantId = :restaurantId " +
+                                  "  and o.orderStatus = com.app.zingbitemodels.OrderStatus.DELIVERED " +
+                                  "group by o.orderTime " +
+                                  "order by min(o.statusUpdatedAt) asc";
+                List<Object[]> dailyList = hibernateSession.createQuery(dailyHql, Object[].class)
+                    .setParameter("restaurantId", restaurantId)
+                    .setMaxResults(7)
+                    .list();
+
+                JsonArray dailyArray = new JsonArray();
+                for (Object[] row : dailyList) {
+                    JsonObject day = new JsonObject();
+                    day.addProperty("date", (String) row[0]);
+                    day.addProperty("revenue", ((Number) row[1]).doubleValue());
+                    dailyArray.add(day);
+                }
+
+                analyticsJson.addProperty("totalRevenue", totalRevenue);
+                analyticsJson.addProperty("orderVolume", orderVolume);
+                analyticsJson.add("bestsellingItems", bestArray);
+                analyticsJson.add("dailySales", dailyArray);
+            } catch (Exception ex) {
+                System.err.println("Failed to fetch restaurant analytics: " + ex.getMessage());
+                ex.printStackTrace();
+            }
+
             JsonObject responseJson = new JsonObject();
             responseJson.add("restaurant", gson.toJsonTree(restaurant));
             responseJson.add("menu", gson.toJsonTree(menuList));
             responseJson.add("orders", matchingOrders);
+            responseJson.add("analytics", analyticsJson);
 
             resp.getWriter().write(responseJson.toString());
 

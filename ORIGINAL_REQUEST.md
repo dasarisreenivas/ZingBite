@@ -108,3 +108,52 @@ The user notes: We are using Hibernate as the backend ORM database framework. Pl
 ## Follow-up — 2026-06-19T15:58:24Z
 
 The user has requested to pause all subagents and hold execution. Please temporarily halt all workflow iterations, code edits, and review steps immediately. Do not resume or launch new worker steps until a resume instruction is given.
+
+## Follow-up — 2026-06-19T22:35:44+05:30
+
+Optimize the management portals (Restaurant Admin, Delivery Partner, and Super Admin / VRP Dispatch) of the ZingBite application. Add advanced analytics, real-time interactivity, and administrative controls with full database persistence (MySQL and Hibernate ORM on the backend, React on the frontend).
+
+Working directory: d:/ZingBite
+Integrity mode: development
+
+## Requirements
+
+### R1. Restaurant Admin Portal Enhancements
+- **Sales Analytics Dashboard**: Render interactive charts showing sales revenue, order volumes, and a list of bestselling food items. Retrieve data dynamically using Hibernate aggregation queries.
+- **Inventory Control**: Enable restaurant admins to toggle the availability of menu items (out-of-stock / in-stock). These updates must persist in the database and immediately affect the guest-facing Menu page.
+- **Live Sound Alerts**: Trigger real-time visual alerts and sound effects in the restaurant dashboard when new orders arrive (via active SSE/WebSocket feeds).
+
+### R2. Delivery Partner Portal Enhancements
+- **Earnings Tracker**: A tab showing daily/weekly delivery payouts, active orders, and a searchable logs table of completed deliveries with earnings breakdown.
+- **Route & GPS Overlays**: Display a visual map overlay (integrating with the existing Leaflet setups) indicating the optimized delivery route and real-time GPS telemetry progress indicators.
+
+### R3. Super Admin & VRP Dashboard Upgrades
+- **System Metrics Panel**: A monitoring section showing active database connection pool stats (HikariCP), Hibernate cache hit rates, and API rate-limiter stats.
+- **Unified User Management**: An administrative grid allowing super admins to view all users, toggle their active status (block/unblock), and edit user roles (customer, delivery_partner, restaurant_admin, super_admin) with DB persistence.
+- **Visual VRP Scheduling**: Render visual paths and coordinates for the vehicle routing dispatcher with execution status logs.
+
+---
+
+## Acceptance Criteria
+
+### Compilation & Quality
+- [ ] React frontend builds successfully (`npm run build`) with zero compiler errors.
+- [ ] React frontend passes ESLint checks (`npm run lint`) with zero errors.
+- [ ] Java backend compiles successfully.
+
+### Restaurant Admin Verification
+- [ ] Sales analytics charts display accurate revenue calculations compiled from the database orders and menu items.
+- [ ] Toggling a menu item to "out-of-stock" in the dashboard immediately disables its "ADD" button on the customer-facing Menu page.
+- [ ] Simulating a new order triggers a visual card update and plays an audio ping on the dashboard.
+
+### Delivery Partner Verification
+- [ ] The earnings tracker lists payouts correctly computed from delivery commissions.
+- [ ] Map route lines overlay correctly on active deliveries and scale dynamically with coordinates.
+
+### Super Admin & VRP Verification
+- [ ] Super admins can successfully toggle the active state of users, blocking blocked users from logging in or placing orders.
+- [ ] Connection pool metrics display live, non-mocked data retrieved from Tomcat/Hikari status hooks.
+
+## Follow-up — 2026-06-19T17:45:36Z
+
+The user has requested to pause all subagents and their descendants. Please temporarily halt all active workflows and operations immediately. Do not resume or launch new steps until I send a follow-up message to resume.

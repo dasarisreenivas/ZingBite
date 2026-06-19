@@ -5,8 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { useModal } from '../context/ModalContext';
 import { 
   Store, Utensils, ClipboardList, Plus, Search, 
-  ToggleLeft, ToggleRight, CheckCircle2, ChevronRight, 
-  MapPin, Phone, IndianRupee, Loader, AlertCircle, FileText, CheckCircle, LogOut 
+  CheckCircle2, ChevronRight, 
+  MapPin, Phone, IndianRupee, Loader, AlertCircle, FileText 
 } from 'lucide-react';
 import useSSE from '../hooks/useSSE';
 
@@ -24,6 +24,203 @@ const getStatusClass = (status) => {
   return s.toLowerCase();
 };
 
+const playToneNotification = (type) => {
+  const isNewOrder = type === 'new';
+  const url = isNewOrder 
+    ? 'https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav'
+    : 'https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav';
+  
+  const audio = new Audio(url);
+  audio.volume = isNewOrder ? 0.5 : 0.4;
+  audio.play().catch(err => {
+    console.log("Audio play failed/blocked, falling back to Web Audio API: ", err);
+    // Synthesize tone
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      
+      const playChime = (time, freq, duration) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, time);
+        gain.gain.setValueAtTime(0.2, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + duration - 0.02);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(time);
+        osc.stop(time + duration);
+      };
+
+      const now = ctx.currentTime;
+      if (isNewOrder) {
+        // Double chime
+        playChime(now, 587.33, 0.3); // D5
+        playChime(now + 0.15, 880.00, 0.5); // A5
+      } else {
+        // Single subtle chime
+        playChime(now, 659.25, 0.2); // E5
+      }
+    } catch (synthErr) {
+      console.warn("Web Audio API chime failed: ", synthErr);
+    }
+  });
+};
+
+const DailySalesChart = ({ data }) => {
+  const [activePoint, setActivePoint] = React.useState(null);
+  
+  if (!data || data.length === 0) {
+    return (
+      <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-medium)', textAlign: 'center' }}>
+        <h4 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>Daily Sales Revenue (Last 7 Days)</h4>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>No sales data available yet.</p>
+      </div>
+    );
+  }
+
+  const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+  const width = 600;
+  const height = 250;
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+
+  const maxVal = Math.max(...data.map(d => d.revenue), 100);
+  const xStep = chartWidth / (data.length - 1 || 1);
+
+  const points = data.map((d, index) => {
+    const x = margin.left + index * xStep;
+    const y = margin.top + chartHeight - (d.revenue / maxVal) * chartHeight;
+    return { x, y, ...d };
+  });
+
+  const pathD = points.reduce((acc, p, i) => {
+    return i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`;
+  }, '');
+
+  const areaD = points.length > 0 
+    ? `${pathD} L ${points[points.length - 1].x} ${margin.top + chartHeight} L ${points[0].x} ${margin.top + chartHeight} Z`
+    : '';
+
+  return (
+    <div style={{ position: 'relative', width: '100%', background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-medium)', boxShadow: 'var(--shadow-sm)' }}>
+      <h4 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '20px', color: 'var(--text-primary)' }}>Daily Sales Revenue (Last 7 Days)</h4>
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <svg width={width} height={height} style={{ overflow: 'visible', margin: '0 auto', display: 'block' }}>
+          {/* Y-Axis dashed grids */}
+          {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+            const y = margin.top + chartHeight * ratio;
+            const val = maxVal * (1 - ratio);
+            return (
+              <g key={i}>
+                <line x1={margin.left} y1={y} x2={width - margin.right} y2={y} stroke="var(--border-light)" strokeDasharray="4 4" />
+                <text x={margin.left - 10} y={y + 4} textAnchor="end" fontSize="10" fontWeight="700" fill="var(--text-muted)">
+                  ₹{val.toFixed(0)}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Area gradient under line */}
+          {areaD && <path d={areaD} fill="rgba(247, 55, 79, 0.05)" />}
+
+          {/* Main Line path */}
+          {pathD && (
+            <path d={pathD} fill="none" stroke="var(--brand-red)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          )}
+
+          {/* X-axis date labels and data points */}
+          {points.map((p, i) => (
+            <g key={i}>
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={activePoint?.date === p.date ? 6 : 4}
+                fill={activePoint?.date === p.date ? 'var(--brand-red)' : '#fff'}
+                stroke="var(--brand-red)"
+                strokeWidth="2.5"
+                style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+                onMouseEnter={() => setActivePoint(p)}
+                onMouseLeave={() => setActivePoint(null)}
+              />
+              <text x={p.x} y={margin.top + chartHeight + 20} textAnchor="middle" fontSize="10" fontWeight="600" fill="var(--text-secondary)">
+                {p.date.split(',')[0]}
+              </text>
+            </g>
+          ))}
+        </svg>
+      </div>
+
+      {/* Tooltip Overlay */}
+      {activePoint && (
+        <div style={{
+          position: 'absolute',
+          top: activePoint.y - 45,
+          left: activePoint.x - 50,
+          background: 'rgba(30, 30, 36, 0.95)',
+          color: '#fff',
+          padding: '6px 12px',
+          borderRadius: '6px',
+          fontSize: '0.75rem',
+          fontWeight: 700,
+          pointerEvents: 'none',
+          boxShadow: 'var(--shadow-md)',
+          zIndex: 100,
+          textAlign: 'center',
+          whiteSpace: 'nowrap'
+        }}>
+          <div>{activePoint.date}</div>
+          <div style={{ color: '#ff6b7a', marginTop: '2px' }}>₹{activePoint.revenue.toFixed(2)}</div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const BestsellingItemsList = ({ items }) => {
+  if (!items || items.length === 0) {
+    return (
+      <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-medium)', boxShadow: 'var(--shadow-sm)' }}>
+        <h4 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '20px', color: 'var(--text-primary)' }}>Top Selling Dishes</h4>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>No bestselling data available yet.</p>
+      </div>
+    );
+  }
+
+  const maxQty = Math.max(...items.map(item => item.quantity), 1);
+
+  return (
+    <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-medium)', boxShadow: 'var(--shadow-sm)' }}>
+      <h4 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '20px', color: 'var(--text-primary)' }}>Top Selling Dishes</h4>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {items.map((item, idx) => {
+          const percentage = (item.quantity / maxQty) * 100;
+          return (
+            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700 }}>
+                <span>{item.name}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  {item.quantity} portions <span style={{ color: 'var(--brand-red)', marginLeft: '4px' }}>₹{(item.revenue || 0).toFixed(2)}</span>
+                </span>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: 'var(--bg-surface)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{
+                  width: `${percentage}%`,
+                  height: '100%',
+                  background: 'linear-gradient(to right, #ff6b7a, var(--brand-red))',
+                  borderRadius: '4px',
+                  transition: 'width 0.6s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const RestaurantDashboard = () => {
   const { user, logout, loading: authLoading } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -33,6 +230,7 @@ const RestaurantDashboard = () => {
   const [data, setData] = useState({ restaurant: null, menu: [], orders: [], request: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [alerts, setAlerts] = useState([]);
   
   // Onboarding Form state
   const [onboardForm, setOnboardForm] = useState({
@@ -90,21 +288,27 @@ const RestaurantDashboard = () => {
       
       // Play notification sound on new order
       if (payload && (payload.event === 'new_order' || payload.event === 'new_request')) {
-        try {
-          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
-          audio.volume = 0.5;
-          audio.play();
-        } catch (audioErr) {
-          console.log("Audio play blocked by browser autoplay policy:", audioErr);
-        }
+        playToneNotification('new');
+        
+        const newAlert = {
+          id: Date.now(),
+          type: payload.event,
+          title: payload.event === 'new_order' ? 'New Order Incoming!' : 'New Onboarding Request!',
+          body: payload.event === 'new_order' 
+            ? `Order ZB-${payload.orderId} received for ₹${payload.total || payload.amount || '0.00'}` 
+            : 'A new partner onboarding request is pending verification.'
+        };
+        
+        setAlerts(prev => [newAlert, ...prev]);
+        
+        setTimeout(() => {
+          setAlerts(prev => prev.filter(a => a.id !== newAlert.id));
+        }, 8000);
+
         fetchRestaurantData(true);
       } else if (payload && payload.orderId) {
         // Play subtle sound on update
-        try {
-          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav');
-          audio.volume = 0.4;
-          audio.play();
-        } catch (audioErr) {}
+        playToneNotification('update');
 
         // Incremental state update: map orders
         setData(prev => ({
@@ -164,17 +368,28 @@ const RestaurantDashboard = () => {
   };
 
   const handleToggleAvailability = async (menuId, currentAvailable) => {
+    // 1. Optimistic Update: Change status in state immediately
+    setData(prev => ({
+      ...prev,
+      menu: (prev.menu || []).map(item => 
+        item.menuId === menuId ? { ...item, isAvailable: !currentAvailable } : item
+      )
+    }));
+
     try {
       await axios.post('/api/restaurant-admin', {
         action: 'toggleAvailability',
         menuId,
         isAvailable: !currentAvailable
       }, { timeout: 15000 });
+    } catch (err) {
+      // 2. Rollback: If API call fails, revert state and show error toast
       setData(prev => ({
         ...prev,
-        menu: (prev.menu || []).map(item => item.menuId === menuId ? { ...item, isAvailable: !currentAvailable } : item)
+        menu: (prev.menu || []).map(item => 
+          item.menuId === menuId ? { ...item, isAvailable: currentAvailable } : item
+        )
       }));
-    } catch (err) {
       showAlert('Failed to update availability: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
@@ -1677,6 +1892,12 @@ const RestaurantDashboard = () => {
           >
             Menu Manager
           </button>
+          <button 
+            className={`tab-btn ${activeTab === 'analytics' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('analytics')}
+          >
+            Sales Analytics
+          </button>
         </div>
 
         {/* Content Tabs */}
@@ -1951,6 +2172,55 @@ const RestaurantDashboard = () => {
             )}
           </div>
         )}
+
+        {activeTab === 'analytics' && (
+          <div className="dashboard-content-layout fade-in">
+            <div className="main-content-area">
+              <DailySalesChart data={data.analytics?.dailySales} />
+            </div>
+            <div className="dashboard-sidebar">
+              <BestsellingItemsList items={data.analytics?.bestsellingItems} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Floating Visual Toast Alerts */}
+      <div style={{ position: 'fixed', top: '24px', right: '24px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '12px', pointerEvents: 'none' }}>
+        {alerts.map(alert => (
+          <div 
+            key={alert.id} 
+            style={{
+              pointerEvents: 'auto',
+              background: 'white', 
+              borderLeft: '6px solid var(--brand-red)',
+              padding: '16px 20px', 
+              borderRadius: '8px', 
+              boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+              minWidth: '320px', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'flex-start',
+              animation: 'slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}
+          >
+            <div>
+              <h4 style={{ margin: 0, fontWeight: 800, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--brand-red)', display: 'inline-block' }} />
+                {alert.title}
+              </h4>
+              <p style={{ margin: '6px 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                {alert.body}
+              </p>
+            </div>
+            <button 
+              onClick={() => setAlerts(prev => prev.filter(a => a.id !== alert.id))} 
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '1rem', padding: '0 0 0 12px' }}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
       </div>
 
       {/* Add MenuItem Modal */}

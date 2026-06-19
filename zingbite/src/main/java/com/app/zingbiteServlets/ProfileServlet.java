@@ -310,6 +310,14 @@ public class ProfileServlet extends HttpServlet {
                 try (Session dbSession = DBUtils.openSession()) {
                     tx = dbSession.beginTransaction();
 
+                    User dbUser = dbSession.get(User.class, user.getUserID());
+                    if (dbUser != null && dbUser.getBlocked() != null && dbUser.getBlocked()) {
+                        tx.rollback();
+                        resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        resp.getWriter().write("{\"error\":\"Your account has been blocked and you cannot place orders.\"}");
+                        return;
+                    }
+
                     Restaurant restaurant = null;
                     if (restaurantId != null) {
                         restaurant = dbSession.get(Restaurant.class, restaurantId);

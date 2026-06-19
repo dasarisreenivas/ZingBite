@@ -63,6 +63,20 @@ public class RateLimiter {
         requestCounts.entrySet().removeIf(entry -> now - entry.getValue().windowStart > WINDOW_MS);
     }
 
+    public static int getActiveIpsCount() {
+        return requestCounts.size();
+    }
+
+    public static int getTotalRequestCount() {
+        int total = 0;
+        for (RateLimitEntry entry : requestCounts.values()) {
+            if (entry != null && entry.count != null) {
+                total += entry.count.get();
+            }
+        }
+        return total;
+    }
+
     private static class RateLimitEntry {
         final long windowStart;
         final AtomicInteger count;

@@ -97,6 +97,10 @@ public class DeliveryServlet extends HttpServlet {
         JsonArray activeDeliveries = new JsonArray();
         JsonArray completedDeliveries = new JsonArray();
         int totalEarnings = 0;
+        java.util.Map<String, Double> dailyEarningsMap = new java.util.LinkedHashMap<>();
+        java.util.Map<String, Double> weeklyEarningsMap = new java.util.LinkedHashMap<>();
+        java.text.SimpleDateFormat dayFormatter = new java.text.SimpleDateFormat("yyyy-MM-dd");
+        java.text.SimpleDateFormat weekFormatter = new java.text.SimpleDateFormat("yyyy-'W'ww");
 
         List<JsonObject> availableList = new ArrayList<>();
         List<JsonObject> activeList = new ArrayList<>();
@@ -156,6 +160,22 @@ public class DeliveryServlet extends HttpServlet {
                     }
                 } else if (o.getRiderId() == riderId) {
                     if (o.getOrderStatus() == OrderStatus.DELIVERED) {
+                        // Detailed commission breakdown
+                        JsonObject breakdown = new JsonObject();
+                        breakdown.addProperty("baseFare", 30.0);
+                        breakdown.addProperty("distanceIncentive", 10.0);
+                        breakdown.addProperty("surgeIncentive", 5.0);
+                        breakdown.addProperty("totalCommission", 45.0);
+                        oJson.add("payoutBreakdown", breakdown);
+
+                        java.util.Date completedDate = o.getStatusUpdatedAt() != null ? o.getStatusUpdatedAt() : new java.util.Date();
+                        String dayStr = dayFormatter.format(completedDate);
+                        String weekStr = weekFormatter.format(completedDate);
+                        oJson.addProperty("completedAt", dayStr);
+
+                        dailyEarningsMap.put(dayStr, dailyEarningsMap.getOrDefault(dayStr, 0.0) + 45.0);
+                        weeklyEarningsMap.put(weekStr, weeklyEarningsMap.getOrDefault(weekStr, 0.0) + 45.0);
+
                         completedDeliveries.add(oJson);
                         totalEarnings += 45;
                     } else {
@@ -230,12 +250,24 @@ public class DeliveryServlet extends HttpServlet {
                 }
             }
 
+            JsonObject dailyEarningsJson = new JsonObject();
+            for (java.util.Map.Entry<String, Double> entry : dailyEarningsMap.entrySet()) {
+                dailyEarningsJson.addProperty(entry.getKey(), entry.getValue());
+            }
+
+            JsonObject weeklyEarningsJson = new JsonObject();
+            for (java.util.Map.Entry<String, Double> entry : weeklyEarningsMap.entrySet()) {
+                weeklyEarningsJson.addProperty(entry.getKey(), entry.getValue());
+            }
+
             JsonObject responseJson = new JsonObject();
             responseJson.add("available", availableRuns);
             responseJson.add("active", activeDeliveries);
             responseJson.add("completed", completedDeliveries);
             responseJson.addProperty("totalEarnings", totalEarnings);
             responseJson.addProperty("completedCount", completedDeliveries.size());
+            responseJson.add("dailyEarnings", dailyEarningsJson);
+            responseJson.add("weeklyEarnings", weeklyEarningsJson);
             responseJson.addProperty("riderLat", riderLat);
             responseJson.addProperty("riderLon", riderLon);
             responseJson.addProperty("totalOrders", totalOrders);

@@ -307,6 +307,9 @@ const DeliveryDashboard = () => {
   const [visibleAvailableCount, setVisibleAvailableCount] = useState(DELIVERY_LIST_PAGE_SIZE);
   const [visibleActiveCount, setVisibleActiveCount] = useState(DELIVERY_LIST_PAGE_SIZE);
   const [visibleCompletedCount, setVisibleCompletedCount] = useState(DELIVERY_LIST_PAGE_SIZE);
+  const [activeTab, setActiveTab] = useState('tasks');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedOrders, setExpandedOrders] = useState({});
 
   const restaurantLat = 12.9716;
   const restaurantLng = 77.5946;
@@ -1060,14 +1063,44 @@ const DeliveryDashboard = () => {
           </div>
         </div>
 
-        {/* Available Runs (Claim Feed) */}
-        <h2 className="section-title">Available Delivery Runs ({availableRuns.length})</h2>
-        {availableRuns.length === 0 ? (
-          <div className="empty-state">
-            <AlertTriangle size={32} style={{ margin: '0 auto 12px', color: 'var(--text-muted)' }} />
-            <p>No available delivery runs at the moment. Waiting for new customer orders...</p>
-          </div>
-        ) : (
+        {/* Tab Navigation */}
+        <div className="tab-bar" style={{ display: 'flex', borderBottom: '2px solid var(--border-light)', marginBottom: '24px', gap: '24px' }}>
+          <button 
+            className={`tab-btn ${activeTab === 'tasks' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('tasks')}
+            style={{
+              background: 'none', border: 'none', padding: '12px 4px', fontWeight: 700, fontSize: '1rem',
+              color: activeTab === 'tasks' ? 'var(--brand-red)' : 'var(--text-secondary)', cursor: 'pointer',
+              position: 'relative', borderBottom: activeTab === 'tasks' ? '2px solid var(--brand-red)' : 'none',
+              marginBottom: '-2px'
+            }}
+          >
+            Delivery Tasks
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === 'earnings' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('earnings')}
+            style={{
+              background: 'none', border: 'none', padding: '12px 4px', fontWeight: 700, fontSize: '1rem',
+              color: activeTab === 'earnings' ? 'var(--brand-red)' : 'var(--text-secondary)', cursor: 'pointer',
+              position: 'relative', borderBottom: activeTab === 'earnings' ? '2px solid var(--brand-red)' : 'none',
+              marginBottom: '-2px'
+            }}
+          >
+            Earnings Tracker
+          </button>
+        </div>
+
+        {activeTab === 'tasks' && (
+          <>
+            {/* Available Runs (Claim Feed) */}
+            <h2 className="section-title">Available Delivery Runs ({availableRuns.length})</h2>
+            {availableRuns.length === 0 ? (
+              <div className="empty-state">
+                <AlertTriangle size={32} style={{ margin: '0 auto 12px', color: 'var(--text-muted)' }} />
+                <p>No available delivery runs at the moment. Waiting for new customer orders...</p>
+              </div>
+            ) : (
           <div className="orders-grid">
             {visibleAvailableRuns.map((o) => (
               <div key={o.orderId} className="delivery-card">
@@ -1262,40 +1295,154 @@ const DeliveryDashboard = () => {
           </div>
         )}
 
-        {/* Completed Deliveries */}
-        <h2 className="section-title">Trip Log (Completed)</h2>
-        {completedRuns.length === 0 ? (
-          <div className="empty-state">
-            <p>Your completed delivery logs will show up here.</p>
-          </div>
-        ) : (
-          <div className="orders-grid">
-            {visibleCompletedRuns.map((o) => (
-              <div key={o.orderId} className="delivery-card" style={{ opacity: 0.8 }}>
-                <div>
-                  <div className="delivery-card-header">
-                    <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>ID: {o.formattedId}</span>
-                    <span className="badge delivered">{o.status}</span>
+          </>
+        )}
+
+        {activeTab === 'earnings' && (
+          <div className="fade-in">
+            {/* Daily/Weekly Summaries */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+              {/* Daily Earnings Card */}
+              <div style={{ background: '#fff', border: '1px solid var(--border-medium)', borderRadius: '12px', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+                  Daily Payouts History
+                </h3>
+                {data.dailyEarnings && Object.keys(data.dailyEarnings).length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {Object.entries(data.dailyEarnings).map(([date, amt]) => (
+                      <div key={date} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', fontSize: '0.9rem' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{date}</span>
+                        <strong style={{ color: 'var(--success)' }}>&#8377;{amt.toFixed(2)}</strong>
+                      </div>
+                    ))}
                   </div>
-                  <h4 style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 700 }}>{o.restaurantName}</h4>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>Total Amount: &#8377;{(o.total ?? 0).toFixed(2)}</p>
-                </div>
-                <div style={{ marginTop: '16px', fontSize: '0.78rem', color: '#4bc0c0', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <CheckCircle2 size={12} /> EARNINGS CREDITED (+&#8377;45.00)
-                </div>
+                ) : (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', textAlign: 'center', padding: '16px 0' }}>No daily payout history found.</p>
+                )}
               </div>
-            ))}
-            {hasMoreCompletedRuns && (
-              <div className="load-more-wrap" style={{ gridColumn: '1 / -1', margin: '4px auto 0' }}>
-                <button
-                  type="button"
-                  className="load-more-btn"
-                  onClick={() => setVisibleCompletedCount(count => count + DELIVERY_LIST_PAGE_SIZE)}
-                >
-                  Load more completed trips ({completedRuns.length - visibleCompletedCount} left) <ChevronRight className="load-more-icon" size={16} />
-                </button>
+
+              {/* Weekly Earnings Card */}
+              <div style={{ background: '#fff', border: '1px solid var(--border-medium)', borderRadius: '12px', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#36a2eb', display: 'inline-block' }} />
+                  Weekly Payouts History
+                </h3>
+                {data.weeklyEarnings && Object.keys(data.weeklyEarnings).length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {Object.entries(data.weeklyEarnings).map(([week, amt]) => (
+                      <div key={week} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', fontSize: '0.9rem' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Week #{week.substring(6)} ({week.substring(0, 4)})</span>
+                        <strong style={{ color: '#36a2eb' }}>&#8377;{amt.toFixed(2)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', textAlign: 'center', padding: '16px 0' }}>No weekly payout history found.</p>
+                )}
               </div>
-            )}
+            </div>
+
+            {/* Searchable Logs Table */}
+            <div style={{ background: '#fff', border: '1px solid var(--border-medium)', borderRadius: '12px', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Completed Trip Log & Earnings Breakdown</h3>
+                <input 
+                  type="text" 
+                  placeholder="Search by ID, restaurant, date..." 
+                  value={searchTerm} 
+                  onChange={(e) => setSearchTerm(e.target.value)} 
+                  style={{
+                    padding: '8px 16px', border: '1.5px solid var(--border-medium)', borderRadius: '8px',
+                    fontSize: '0.88rem', width: '280px', outline: 'none'
+                  }}
+                />
+              </div>
+
+              {completedRuns.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                  Your completed delivery logs will show up here.
+                </div>
+              ) : completedRuns.filter(o => {
+                  const idMatch = o.formattedId?.toLowerCase().includes(searchTerm.toLowerCase()) || String(o.orderId).includes(searchTerm);
+                  const restMatch = o.restaurantName?.toLowerCase().includes(searchTerm.toLowerCase());
+                  const dateMatch = o.completedAt?.toLowerCase().includes(searchTerm.toLowerCase());
+                  return idMatch || restMatch || dateMatch;
+                }).length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                  No completed runs matching the search criteria.
+                </div>
+              ) : (
+                <div className="admin-table-wrapper" style={{ boxShadow: 'none', border: 'none', margin: 0 }}>
+                  <table className="admin-table" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th>Trip ID</th>
+                        <th>Completed Date</th>
+                        <th>Restaurant</th>
+                        <th>Customer Area</th>
+                        <th>Payout</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {completedRuns.filter(o => {
+                        const idMatch = o.formattedId?.toLowerCase().includes(searchTerm.toLowerCase()) || String(o.orderId).includes(searchTerm);
+                        const restMatch = o.restaurantName?.toLowerCase().includes(searchTerm.toLowerCase());
+                        const dateMatch = o.completedAt?.toLowerCase().includes(searchTerm.toLowerCase());
+                        return idMatch || restMatch || dateMatch;
+                      }).map(o => (
+                        <React.Fragment key={o.orderId}>
+                          <tr>
+                            <td style={{ fontWeight: 700 }}>{o.formattedId}</td>
+                            <td>{o.completedAt || 'N/A'}</td>
+                            <td>{o.restaurantName}</td>
+                            <td>{o.customerAddress}</td>
+                            <td style={{ fontWeight: 700, color: 'var(--success)' }}>&#8377;{((o.payoutBreakdown?.totalCommission) ?? 45.00).toFixed(2)}</td>
+                            <td>
+                              <button 
+                                onClick={() => setExpandedOrders(prev => ({ ...prev, [o.orderId]: !prev[o.orderId] }))}
+                                style={{
+                                  background: 'none', border: '1px solid var(--border-medium)',
+                                  padding: '4px 10px', borderRadius: '4px', fontSize: '0.78rem',
+                                  fontWeight: 700, cursor: 'pointer', color: 'var(--text-secondary)'
+                                }}
+                              >
+                                {expandedOrders[o.orderId] ? 'Hide Breakdown' : 'View Breakdown'}
+                              </button>
+                            </td>
+                          </tr>
+                          {expandedOrders[o.orderId] && (
+                            <tr style={{ background: '#fafafc' }}>
+                              <td colSpan="6" style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-medium)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', fontSize: '0.85rem' }}>
+                                  <div>
+                                    <span style={{ color: 'var(--text-muted)' }}>Base Payout Fare:</span>
+                                    <div style={{ fontWeight: 700, marginTop: '4px' }}>&#8377;{((o.payoutBreakdown?.baseFare) ?? 30.00).toFixed(2)}</div>
+                                  </div>
+                                  <div>
+                                    <span style={{ color: 'var(--text-muted)' }}>Distance Incentive:</span>
+                                    <div style={{ fontWeight: 700, marginTop: '4px' }}>&#8377;{((o.payoutBreakdown?.distanceIncentive) ?? 10.00).toFixed(2)}</div>
+                                  </div>
+                                  <div>
+                                    <span style={{ color: 'var(--text-muted)' }}>Peak Hours Surge:</span>
+                                    <div style={{ fontWeight: 700, marginTop: '4px' }}>&#8377;{((o.payoutBreakdown?.surgeIncentive) ?? 5.00).toFixed(2)}</div>
+                                  </div>
+                                  <div style={{ borderLeft: '1px dashed var(--border-medium)', paddingLeft: '20px' }}>
+                                    <span style={{ color: 'var(--text-muted)' }}>Total Earnings:</span>
+                                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--success)', marginTop: '4px' }}>&#8377;{((o.payoutBreakdown?.totalCommission) ?? 45.00).toFixed(2)}</div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

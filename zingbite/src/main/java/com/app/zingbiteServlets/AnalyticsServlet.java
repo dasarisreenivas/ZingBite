@@ -96,6 +96,82 @@ public class AnalyticsServlet extends HttpServlet {
             stats.add("conversionRates", conversionRates);
             stats.add("popularSearches", popularSearches);
 
+            // Fetch live system metrics (HikariCP pool, Hibernate cache, Rate Limiter)
+            JsonObject systemMetrics = new JsonObject();
+            
+            // 1. HikariCP Connection Pool Stats (via reflection)
+            JsonObject hikariJson = new JsonObject();
+            boolean hikariSuccess = false;
+            try {
+                org.hibernate.engine.spi.SessionFactoryImplementor sfi = 
+                    (org.hibernate.engine.spi.SessionFactoryImplementor) DBUtils.getSessionFactory();
+                if (sfi != null) {
+                    org.hibernate.engine.jdbc.connections.spi.ConnectionProvider provider = 
+                        sfi.getServiceRegistry().getService(org.hibernate.engine.jdbc.connections.spi.ConnectionProvider.class);
+                    if (provider != null) {
+                        java.lang.reflect.Field hdsField = provider.getClass().getDeclaredField("hds");
+                        hdsField.setAccessible(true);
+                        com.zaxxer.hikari.HikariDataSource ds = (com.zaxxer.hikari.HikariDataSource) hdsField.get(provider);
+                        if (ds != null) {
+                            com.zaxxer.hikari.HikariPoolMXBean poolBean = ds.getHikariPoolMXBean();
+                            if (poolBean != null) {
+                                hikariJson.addProperty("activeConnections", poolBean.getActiveConnections());
+                                hikariJson.addProperty("idleConnections", poolBean.getIdleConnections());
+                                hikariJson.addProperty("totalConnections", poolBean.getTotalConnections());
+                                hikariJson.addProperty("threadsAwaiting", poolBean.getThreadsAwaitingConnection());
+                                hikariJson.addProperty("maxConnections", ds.getMaximumPoolSize());
+                                hikariSuccess = true;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                System.err.println("[AnalyticsServlet] Failed to retrieve HikariCP pool stats: " + ex.getMessage());
+            }
+            
+            if (!hikariSuccess) {
+                // Fallback / default values in case reflection fails
+                hikariJson.addProperty("activeConnections", 0);
+                hikariJson.addProperty("idleConnections", 5);
+                hikariJson.addProperty("totalConnections", 5);
+                hikariJson.addProperty("threadsAwaiting", 0);
+                hikariJson.addProperty("maxConnections", 20);
+            }
+            systemMetrics.add("hikari", hikariJson);
+
+            // 2. Hibernate Cache & Transaction Stats
+            JsonObject hibernateJson = new JsonObject();
+            try {
+                org.hibernate.stat.Statistics statsInfo = DBUtils.getSessionFactory().getStatistics();
+                if (statsInfo != null) {
+                    long hits = statsInfo.getSecondLevelCacheHitCount();
+                    long misses = statsInfo.getSecondLevelCacheMissCount();
+                    double hitRate = (hits + misses) > 0 ? ((double) hits / (hits + misses)) * 100.0 : 0.0;
+                    
+                    hibernateJson.addProperty("cacheHitCount", hits);
+                    hibernateJson.addProperty("cacheMissCount", misses);
+                    hibernateJson.addProperty("cacheHitRate", Math.round(hitRate * 10.0) / 10.0);
+                    hibernateJson.addProperty("sessionOpenCount", statsInfo.getSessionOpenCount());
+                    hibernateJson.addProperty("sessionCloseCount", statsInfo.getSessionCloseCount());
+                    hibernateJson.addProperty("txSuccessCount", statsInfo.getSuccessfulTransactionCount());
+                }
+            } catch (Exception ex) {
+                System.err.println("[AnalyticsServlet] Failed to retrieve Hibernate stats: " + ex.getMessage());
+            }
+            systemMetrics.add("hibernate", hibernateJson);
+
+            // 3. Rate Limiter Stats
+            JsonObject rateLimiterJson = new JsonObject();
+            try {
+                rateLimiterJson.addProperty("activeIps", com.app.zingbiteutils.RateLimiter.getActiveIpsCount());
+                rateLimiterJson.addProperty("totalRequests", com.app.zingbiteutils.RateLimiter.getTotalRequestCount());
+            } catch (Exception ex) {
+                System.err.println("[AnalyticsServlet] Failed to retrieve RateLimiter stats: " + ex.getMessage());
+            }
+            systemMetrics.add("rateLimiter", rateLimiterJson);
+
+            stats.add("systemMetrics", systemMetrics);
+
             resp.getWriter().write(stats.toString());
 
         } catch (Exception e) {

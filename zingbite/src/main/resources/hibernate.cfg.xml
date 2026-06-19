@@ -16,6 +16,7 @@
 
       <!-- HikariCP Connection Pool settings -->
       <property name="hibernate.connection.provider_class">org.hibernate.hikaricp.internal.HikariCPConnectionProvider</property>
+      <property name="hibernate.generate_statistics">true</property>
       <property name="hibernate.hikari.minimumIdle">5</property>
       <property name="hibernate.hikari.maximumPoolSize">20</property>
       <property name="hibernate.hikari.idleTimeout">300000</property>
