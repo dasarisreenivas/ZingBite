@@ -12,6 +12,16 @@ const HERO_IMAGE = 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?q=
 const RESTAURANT_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop';
 const RESTAURANT_PAGE_SIZE = 8;
 
+const CATEGORIES = [
+  { name: 'All', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Biryani', image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Burger', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Pizza', image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Chinese', image: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Indian', image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Desserts', image: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=600&auto=format&fit=crop' }
+];
+
 const getDeliveryMinutes = (value) => {
   const match = String(value ?? '').match(/\d+/);
   return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
@@ -733,39 +743,81 @@ const Home = () => {
           box-shadow: 0 0 0 3px rgba(247,55,79,0.1);
         }
 
-        /* ===== CUISINE FILTERS ===== */
+        /* ===== REDESIGNED CUISINE CATEGORIES ===== */
         .cuisine-filters {
           display: flex;
           justify-content: center;
-          gap: 10px;
+          gap: 16px;
           max-width: 1400px;
           width: 92%;
-          margin: 0 auto 20px;
+          margin: 0 auto 32px;
           overflow-x: auto;
-          padding: 4px 0;
+          padding: 8px 4px 16px;
+          scrollbar-width: none; /* Hide scrollbar Firefox */
         }
-        .cuisine-chip {
-          padding: 8px 18px;
-          background: rgba(255,255,255,0.94);
-          border: 1px solid rgba(247,55,79,0.12);
-          border-radius: 30px;
-          font-size: 0.85rem;
-          font-weight: 500;
-          color: var(--text-secondary);
+        .cuisine-filters::-webkit-scrollbar {
+          display: none; /* Hide scrollbar Chrome/Safari */
+        }
+        .category-card {
+          width: 130px;
+          height: 130px;
+          border-radius: 20px;
+          overflow: hidden;
+          position: relative;
           cursor: pointer;
-          transition: all 0.25s var(--ease-premium);
-          white-space: nowrap;
+          border: 2px solid transparent;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+          transition: all 0.4s var(--ease-premium);
+          flex-shrink: 0;
+          outline: none;
         }
-        .cuisine-chip:hover {
-          border-color: var(--brand-red);
-          color: var(--brand-red);
-          transform: translateY(-1px);
+        .category-card-img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.6s var(--ease-premium);
         }
-        .cuisine-chip.active {
-          background: var(--brand-red);
-          border-color: var(--brand-red);
+        .category-card:hover .category-card-img {
+          transform: scale(1.12);
+        }
+        .category-card-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 100%);
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          padding: 12px;
+          transition: background 0.3s;
+          z-index: 1;
+        }
+        .category-card:hover .category-card-overlay {
+          background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.85) 100%);
+        }
+        .category-card-name {
+          font-family: 'Outfit', sans-serif;
           color: #fff;
-          box-shadow: 0 4px 12px rgba(247,55,79,0.25);
+          font-weight: 800;
+          font-size: 0.95rem;
+          text-align: center;
+          margin: 0;
+          letter-spacing: -0.2px;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+          z-index: 2;
+          transition: transform 0.3s var(--ease-premium);
+        }
+        .category-card:hover .category-card-name {
+          transform: translateY(-2px);
+        }
+        .category-card.active {
+          border-color: var(--brand-red);
+          box-shadow: 0 8px 24px rgba(247,55,79,0.3);
+          transform: translateY(-2px);
+        }
+        .category-card.active .category-card-overlay {
+          background: linear-gradient(180deg, rgba(247,55,79,0.15) 0%, rgba(247,55,79,0.75) 100%);
         }
 
         @media (max-width: 768px) {
@@ -888,14 +940,21 @@ const Home = () => {
 
         {/* CUISINE FILTERS */}
         <div className="cuisine-filters page-enter" style={{animationDelay: '0.1s'}}>
-          {['All', 'Biryani', 'Burger', 'Pizza', 'Chinese', 'Indian', 'Desserts'].map((c, idx) => (
+          {CATEGORIES.map((c, idx) => (
             <button 
-              key={c} 
-              className={`cuisine-chip ${selectedCuisine === c ? 'active' : ''}`}
-              onClick={() => setSelectedCuisine(c)}
-              style={{ animation: `premiumFadeIn 0.4s var(--ease-premium) ${idx * 0.06}s both` }}
+              key={c.name} 
+              type="button"
+              className={`category-card ${selectedCuisine === c.name ? 'active' : ''}`}
+              onClick={() => setSelectedCuisine(c.name)}
+              style={{ 
+                animation: `premiumFadeIn 0.4s var(--ease-premium) ${idx * 0.06}s both`,
+                padding: 0
+              }}
             >
-              {c}
+              <img src={c.image} alt={c.name} className="category-card-img" loading="lazy" />
+              <div className="category-card-overlay">
+                <h3 className="category-card-name">{c.name}</h3>
+              </div>
             </button>
           ))}
         </div>

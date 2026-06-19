@@ -13,11 +13,13 @@ import {
   Store,
   User,
   X,
-  ChevronRight
+  ChevronRight,
+  Heart
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import MailboxModal from './MailboxModal';
+import NotificationCenter from './NotificationCenter';
 
 const Header = () => {
   const { user, logout } = useContext(AuthContext);
@@ -406,9 +408,17 @@ const Header = () => {
           from { opacity: 0; }
           to { opacity: 1; }
         }
+        .mobile-notification-wrap {
+          display: none;
+        }
         @media (max-width: 768px) {
           .nav-desktop { display: none; }
           .hamburger { display: block; }
+          .mobile-notification-wrap {
+            display: flex !important;
+            align-items: center;
+            margin-right: 12px;
+          }
         }
         @media (max-width: 1120px) {
           .header-inner { width: 96%; }
@@ -469,6 +479,11 @@ const Header = () => {
                 <Link to="/profile" onClick={closeMenus} className={`nav-link ${isActive('/profile') ? 'active' : ''}`}>
                   <User size={16} /> Profile
                 </Link>
+                {user && user.role === 'customer' && (
+                  <Link to="/wishlist" onClick={closeMenus} className={`nav-link ${isActive('/wishlist') ? 'active' : ''}`}>
+                    <Heart size={16} /> Wishlist
+                  </Link>
+                )}
                 {(!user || user.role === 'customer') && (
                   <Link to="/cart" onClick={closeMenus} className={`nav-link ${isActive('/cart') ? 'active' : ''}`}>
                     <ShoppingCart size={16} /> Cart
@@ -478,6 +493,7 @@ const Header = () => {
                 <button type="button" onClick={() => setShowMailbox(true)} className="nav-link" style={{background:'none',border:'none',cursor:'pointer',fontSize:'0.9rem',color:'inherit',display:'flex',alignItems:'center',gap:'6px',padding:'8px 12px'}}>
                   <Mail size={16} /> Mailbox
                 </button>
+                <NotificationCenter />
                 <button type="button" onClick={handleLogout} className="nav-btn-logout">Logout</button>
               </>
             ) : (
@@ -487,6 +503,12 @@ const Header = () => {
               </>
             )}
           </nav>
+
+          {user && (
+            <div className="mobile-notification-wrap">
+              <NotificationCenter />
+            </div>
+          )}
 
           <button
             type="button"
@@ -568,6 +590,11 @@ const Header = () => {
             <Link to="/profile" onClick={closeMobileMenu} className={`nav-link mobile-nav-item ${isActive('/profile') ? 'active' : ''}`}>
               <User size={16} /> Profile
             </Link>
+            {user && user.role === 'customer' && (
+              <Link to="/wishlist" onClick={closeMobileMenu} className={`nav-link mobile-nav-item ${isActive('/wishlist') ? 'active' : ''}`}>
+                <Heart size={16} /> Wishlist
+              </Link>
+            )}
             {(!user || user.role === 'customer') && (
               <Link to="/cart" onClick={closeMobileMenu} className={`nav-link mobile-nav-item ${isActive('/cart') ? 'active' : ''}`}>
                 <ShoppingCart size={16} /> Cart {cart?.itemCount > 0 && <span className="cart-badge">{cart.itemCount}</span>}

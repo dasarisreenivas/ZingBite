@@ -7,8 +7,10 @@ import { useCart } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
 import { 
   Minus, Plus, ArrowRight, AlertCircle,
-  Search, MapPin, Clock, Star, ShoppingBag, Flame, AlertTriangle
+  Search, MapPin, Clock, Star, ShoppingBag, Flame, AlertTriangle, Heart
 } from 'lucide-react';
+import { useWishlist } from '../context/WishlistContext';
+import ReviewsSection from '../components/ReviewsSection';
 
 const DEFAULT_RESTAURANT_IMAGE = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop';
 const DEFAULT_DISH_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop';
@@ -34,6 +36,7 @@ const Menu = () => {
   
   const { user } = useContext(AuthContext);
   const { cart, addToCart, updateQuantity, conflictPopup, clearAndAdd, setConflictPopup, cartError, setCartError } = useCart();
+  const { wishlistIds, toggleWishlist } = useWishlist();
 
   const isFetchingMenuRef = useRef(false);
 
@@ -261,6 +264,35 @@ const Menu = () => {
           .dish-card-title { font-size: 1.1rem; }
           .hero-glass-card h1 { font-size: 1.5rem; }
         }
+
+        .heart-toggle-btn {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          z-index: 15;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.9);
+          border: 1px solid var(--border-light);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          transition: all 0.25s var(--ease-premium);
+        }
+        .heart-toggle-btn:hover {
+          transform: scale(1.1);
+          background: #fff;
+          border-color: rgba(247, 55, 79, 0.3);
+        }
+        .heart-toggle-btn:active {
+          transform: scale(0.9);
+        }
+        .heart-toggle-btn svg {
+          transition: all 0.25s var(--ease-premium);
+        }
       `}</style>
 
       <div className="menu-page-container page-enter">
@@ -344,6 +376,24 @@ const Menu = () => {
                       <img src={item.imagePath || DEFAULT_DISH_IMAGE} alt={item.menuName} className="dish-card-img" loading="lazy"
                         onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_DISH_IMAGE; }}
                       />
+                      {user && user.role === 'customer' && (
+                        <button 
+                          type="button"
+                          className={`heart-toggle-btn ${wishlistIds.has(item.menuId) ? 'active' : ''}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleWishlist(item);
+                          }}
+                          aria-label={wishlistIds.has(item.menuId) ? "Remove from wishlist" : "Add to wishlist"}
+                        >
+                          <Heart 
+                            size={18} 
+                            fill={wishlistIds.has(item.menuId) ? "var(--brand-red)" : "transparent"} 
+                            color={wishlistIds.has(item.menuId) ? "var(--brand-red)" : "rgba(0,0,0,0.45)"}
+                          />
+                        </button>
+                      )}
                     </div>
                     <div className="dish-card-action">
                       {qty === 0 ? (
@@ -440,6 +490,8 @@ const Menu = () => {
             </div>
           </div>
         )}
+
+        {restaurantId && <ReviewsSection restaurantId={restaurantId} />}
 
         <div className="zingbite-promise-section">
           <div className="promise-header">

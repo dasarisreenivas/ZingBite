@@ -24,6 +24,9 @@ import com.app.zingbitemodels.OrderStatusConverter;
 import com.app.zingbitemodels.Payment;
 import com.app.zingbitemodels.AnalyticsEvent;
 import com.app.zingbitemodels.OrderStatusLog;
+import com.app.zingbitemodels.WishlistItem;
+import com.app.zingbitemodels.Review;
+import com.app.zingbitemodels.Notification;
 
 	public class DBUtils {
 
@@ -56,7 +59,10 @@ import com.app.zingbitemodels.OrderStatusLog;
 									.addAnnotatedClass(OrderStatusConverter.class)
 									.addAnnotatedClass(Payment.class)
 									.addAnnotatedClass(AnalyticsEvent.class)
-									.addAnnotatedClass(OrderStatusLog.class);
+									.addAnnotatedClass(OrderStatusLog.class)
+									.addAnnotatedClass(WishlistItem.class)
+									.addAnnotatedClass(Review.class)
+									.addAnnotatedClass(Notification.class);
 			sf = config.buildSessionFactory();
 			System.out.println("session factory created successfully");
 

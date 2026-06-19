@@ -93,9 +93,19 @@ public class OrderEventBroker {
                 );
                 OrderStatusLogDAOImplementation logDAO = new OrderStatusLogDAOImplementation();
                 logDAO.addLog(log);
+
+                // Create and persist user Notification
+                String restName = order.getRestaurantId() != null ? order.getRestaurantId().getRestaurantName() : "Restaurant";
+                String statusLabel = order.getOrderStatus() != null ? order.getOrderStatus().label() : "Placed";
+                String nTitle = "Order #" + order.getOrderId();
+                String nMessage = "Your order from " + restName + " is now: " + statusLabel + ".";
+
+                com.app.zingbitemodels.Notification notification = new com.app.zingbitemodels.Notification(order.getUserId(), nTitle, nMessage);
+                com.app.zingbitedao.NotificationDAO notificationDAO = new com.app.zingbitedaoimpl.NotificationDAOImplementation();
+                notificationDAO.addNotification(notification);
             }
         } catch (Exception ex) {
-            System.err.println("[OrderEventBroker] Failed to persist OrderStatusLog: " + ex.getMessage());
+            System.err.println("[OrderEventBroker] Failed to persist OrderStatusLog or Notification: " + ex.getMessage());
             ex.printStackTrace();
         }
 
