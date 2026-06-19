@@ -15,11 +15,19 @@ public class CsrfUtils {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final ConcurrentHashMap<String, CsrfToken> tokenStore = new ConcurrentHashMap<>();
 
+    private static String getUserIdFromSession(HttpSession session) {
+        if (session == null) return "";
+        Object loggedInUser = session.getAttribute("loggedInUser");
+        if (loggedInUser instanceof com.app.zingbitemodels.User) {
+            return String.valueOf(((com.app.zingbitemodels.User) loggedInUser).getUserID());
+        }
+        return "";
+    }
+
     public static String generateToken(HttpSession session) {
         if (session == null) return null;
         String sessionId = session.getId();
-        Object userIdAttr = session.getAttribute("userId");
-        String userId = userIdAttr != null ? userIdAttr.toString() : "";
+        String userId = getUserIdFromSession(session);
         byte[] bytes = new byte[TOKEN_LENGTH];
         RANDOM.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -52,8 +60,7 @@ public class CsrfUtils {
             return false;
         }
 
-        Object userIdAttr = session.getAttribute("userId");
-        String sessionUserId = userIdAttr != null ? userIdAttr.toString() : "";
+        String sessionUserId = getUserIdFromSession(session);
         if (!stored.userId.equals(sessionUserId)) {
             tokenStore.remove(sessionId);
             session.removeAttribute("csrfToken");
@@ -71,8 +78,7 @@ public class CsrfUtils {
         byte[] bytes = new byte[TOKEN_LENGTH];
         RANDOM.nextBytes(bytes);
         String newToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        Object userIdAttr = session.getAttribute("userId");
-        String userId = userIdAttr != null ? userIdAttr.toString() : "";
+        String userId = getUserIdFromSession(session);
         CsrfToken csrfToken = new CsrfToken(newToken, userId, Instant.now().toEpochMilli() + TOKEN_EXPIRY_MS);
         tokenStore.put(sessionId, csrfToken);
         session.setAttribute("csrfToken", newToken);

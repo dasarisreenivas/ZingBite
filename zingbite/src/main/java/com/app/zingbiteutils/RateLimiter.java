@@ -2,6 +2,9 @@ package com.app.zingbiteutils;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -13,6 +16,15 @@ public class RateLimiter {
     private static final Map<String, RateLimitEntry> requestCounts = new ConcurrentHashMap<>();
     private static final int MAX_REQUESTS = 100;
     private static final long WINDOW_MS = 60_000L; // 1 minute
+
+    static {
+        ScheduledExecutorService cleaner = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread t = new Thread(runnable, "RateLimitCleaner");
+            t.setDaemon(true);
+            return t;
+        });
+        cleaner.scheduleAtFixedRate(RateLimiter::cleanup, 1, 1, TimeUnit.MINUTES);
+    }
 
     private RateLimiter() {}
 
@@ -35,8 +47,20 @@ public class RateLimiter {
         return Math.max(0, MAX_REQUESTS - entry.count.get());
     }
 
+    public static long getResetTime(String clientIp) {
+        RateLimitEntry entry = requestCounts.get(clientIp);
+        long now = System.currentTimeMillis();
+        if (entry == null) return (now + WINDOW_MS) / 1000;
+        return (entry.windowStart + WINDOW_MS) / 1000;
+    }
+
     public static void reset(String clientIp) {
         requestCounts.remove(clientIp);
+    }
+
+    public static void cleanup() {
+        long now = System.currentTimeMillis();
+        requestCounts.entrySet().removeIf(entry -> now - entry.getValue().windowStart > WINDOW_MS);
     }
 
     private static class RateLimitEntry {

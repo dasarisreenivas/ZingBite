@@ -26,8 +26,21 @@ public class PaymentVerificationServlet extends HttpServlet {
         String path = req.getServletPath();
         
         try {
-            BufferedReader reader = req.getReader();
-            JsonObject reqJson = JsonParser.parseReader(reader).getAsJsonObject();
+            StringBuilder bodyBuilder = new StringBuilder();
+            try (BufferedReader reader = req.getReader()) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    bodyBuilder.append(line);
+                }
+            }
+            String rawBody = bodyBuilder.toString();
+            if (rawBody.trim().isEmpty()) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                resp.getWriter().write("{\"success\":false,\"error\":\"Empty request body\"}");
+                return;
+            }
+
+            JsonObject reqJson = JsonParser.parseString(rawBody).getAsJsonObject();
             
             if (reqJson == null || !reqJson.has("orderId")) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -87,7 +100,7 @@ public class PaymentVerificationServlet extends HttpServlet {
                         return;
                     }
                     try {
-                        String payload = reqJson.toString();
+                        String payload = rawBody;
                         javax.crypto.Mac sha256Hmac = javax.crypto.Mac.getInstance("HmacSHA256");
                         javax.crypto.spec.SecretKeySpec secretKey = new javax.crypto.spec.SecretKeySpec(webhookSecret.getBytes("UTF-8"), "HmacSHA256");
                         sha256Hmac.init(secretKey);

@@ -550,7 +550,11 @@ const RestaurantDashboard = () => {
                   <label>FSSAI Food License Number *</label>
                   <input 
                     type="text" required placeholder="14-digit FSSAI Number"
-                    value={onboardForm.licenseNo} onChange={e => setOnboardForm({...onboardForm, licenseNo: e.target.value})}
+                    maxLength={14}
+                    pattern="\d{14}"
+                    title="FSSAI License Number must be exactly 14 digits"
+                    value={onboardForm.licenseNo} 
+                    onChange={e => setOnboardForm({...onboardForm, licenseNo: e.target.value.replace(/\D/g, '')})}
                   />
                 </div>
                 <div className="form-row-2">
@@ -558,14 +562,22 @@ const RestaurantDashboard = () => {
                     <label>Owner Aadhaar Number *</label>
                     <input 
                       type="text" required placeholder="12-digit Aadhaar"
-                      value={onboardForm.aadhaarNo} onChange={e => setOnboardForm({...onboardForm, aadhaarNo: e.target.value})}
+                      maxLength={12}
+                      pattern="\d{12}"
+                      title="Owner Aadhaar Number must be exactly 12 digits"
+                      value={onboardForm.aadhaarNo} 
+                      onChange={e => setOnboardForm({...onboardForm, aadhaarNo: e.target.value.replace(/\D/g, '')})}
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>GSTIN Registration Number *</label>
                     <input 
                       type="text" required placeholder="15-digit GSTIN"
-                      value={onboardForm.gstNo} onChange={e => setOnboardForm({...onboardForm, gstNo: e.target.value})}
+                      maxLength={15}
+                      pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
+                      title="GSTIN must be a 15-character ID in standard format (e.g. 22AAAAA1111A1Z1)"
+                      value={onboardForm.gstNo} 
+                      onChange={e => setOnboardForm({...onboardForm, gstNo: e.target.value.toUpperCase()})}
                     />
                   </div>
                 </div>
@@ -1509,39 +1521,53 @@ const RestaurantDashboard = () => {
           .premium-stepper-container {
             padding: 12px 0 0;
           }
-          .stepper-label {
-            font-size: 0.65rem;
+        }
+        @media (max-width: 640px) {
+          .premium-stepper {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+          }
+          .stepper-line {
+            width: 3px !important;
+            height: 16px !important;
+            margin: 4px 0 4px 12px !important;
+            transform: none !important;
+            flex: none !important;
+          }
+          .stepper-node {
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 12px !important;
+            min-width: 0 !important;
           }
           .stepper-btn-node {
-            padding: 6px 10px;
-            font-size: 0.72rem;
+            transform: none !important;
+            margin: 0 !important;
+            animation: none !important;
+          }
+          .stepper-btn-node:hover {
+            transform: scale(1.05) !important;
+          }
+          .stepper-label {
+            margin: 0 !important;
+            text-align: left !important;
+            font-size: 0.8rem !important;
+            display: block !important;
           }
         }
         @media (max-width: 480px) {
-          .stepper-label {
-            display: none;
-          }
-          .stepper-node {
-            min-width: 32px;
-          }
           .stepper-circle {
-            width: 22px;
-            height: 22px;
-            font-size: 0.65rem;
+            width: 24px !important;
+            height: 24px !important;
+            font-size: 0.7rem !important;
           }
           .stepper-line {
-            transform: translateY(-9px);
-            height: 2px;
+            margin: 2px 0 2px 10px !important;
           }
           .stepper-btn-node {
-            transform: translateY(-9px);
-            padding: 4px 8px;
-            font-size: 0.68rem;
-          }
-          @keyframes actionPulseRider {
-            0% { transform: translateY(-9px) scale(1); }
-            50% { transform: translateY(-9px) scale(1.03); box-shadow: 0 4px 10px rgba(75, 192, 192, 0.3); }
-            100% { transform: translateY(-9px) scale(1); }
+            padding: 6px 10px !important;
+            font-size: 0.72rem !important;
           }
         }
       `}</style>

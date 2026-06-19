@@ -10,10 +10,12 @@ import { AuthContext } from '../context/AuthContext';
 import { useModal } from '../context/ModalContext';
 import ChatWidget from '../components/ChatWidget';
 import useSSE from '../hooks/useSSE';
+import useLeaflet from '../hooks/useLeaflet';
 
 const TRACKING_ORDER_PAGE_SIZE = 5;
 
-const ActiveOrderMap = ({ orderDetail, leafletLoaded, currentLat, currentLng, isRealGPS }) => {
+const ActiveOrderMap = ({ orderDetail, currentLat, currentLng, isRealGPS }) => {
+  const { leafletLoaded, L } = useLeaflet();
   const mapRef = React.useRef(null);
   const mapInstanceRef = React.useRef(null);
   const riderMarkerRef = React.useRef(null);
@@ -22,13 +24,14 @@ const ActiveOrderMap = ({ orderDetail, leafletLoaded, currentLat, currentLng, is
   const routePolylineRef = React.useRef(null);
   const polylineFMRef = React.useRef(null);
   const polylineLMRef = React.useRef(null);
+  const hasCenteredRef = React.useRef(false);
+  const [recenterCount, setRecenterCount] = useState(0);
 
   // Initialize Map Structure
   useEffect(() => {
     if (!leafletLoaded || !mapRef.current) return;
     if (mapInstanceRef.current) return;
 
-    const L = window.L;
     if (!L) return;
 
     const map = L.map(mapRef.current, {
@@ -48,6 +51,9 @@ const ActiveOrderMap = ({ orderDetail, leafletLoaded, currentLat, currentLng, is
       }
     }, 200);
 
+    // Reset centering ref when map is initialized/recreated
+    hasCenteredRef.current = false;
+
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
@@ -60,13 +66,30 @@ const ActiveOrderMap = ({ orderDetail, leafletLoaded, currentLat, currentLng, is
         polylineLMRef.current = null;
       }
     };
-  }, [leafletLoaded, orderDetail?.id]);
+  }, [leafletLoaded, orderDetail?.id, L]);
+
+  // Handle window resizing to prevent gray area
+  useEffect(() => {
+    let timeoutId;
+    const handleResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      }, 250);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   // Handle Markers & Path rendering dynamically
   useEffect(() => {
     if (!leafletLoaded || !mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
-    const L = window.L;
     if (!L) return;
 
     // 1. Setup Icons
@@ -160,32 +183,50 @@ const ActiveOrderMap = ({ orderDetail, leafletLoaded, currentLat, currentLng, is
       routePolylineRef.current = L.polyline(fallbackPoints, { color: '#8b5cf6', weight: 4, opacity: 0.7, dashArray: '8, 8' }).addTo(map);
     }
 
-    // 6. Fit map bounds to cover all points
-    const bounds = L.latLngBounds([
-      [currentLat, currentLng],
-      restCoords,
-      custCoords
-    ]);
-    map.fitBounds(bounds, { padding: [40, 40] });
+    // 6. Fit map bounds to cover all points only once on initial load
+    if (!hasCenteredRef.current) {
+      const bounds = L.latLngBounds([
+        [currentLat, currentLng],
+        restCoords,
+        custCoords
+      ]);
+      map.fitBounds(bounds, { padding: [40, 40] });
+      hasCenteredRef.current = true;
+    }
 
-  }, [leafletLoaded, orderDetail?.pathFM, orderDetail?.pathLM1, currentLat, currentLng]);
+  }, [leafletLoaded, orderDetail?.pathFM, orderDetail?.pathLM1, currentLat, currentLng, recenterCount, L]);
+
+  const handleRecenter = () => {
+    hasCenteredRef.current = false;
+    setRecenterCount(prev => prev + 1);
+  };
 
   return (
-    <div className="map-wrapper" style={{ height: '320px', position: 'relative' }}>
+    <div className="map-wrapper w-full h-56 md:h-96 rounded-xl border border-gray-200 dark:border-neutral-800 relative overflow-hidden mb-6 shadow-inner">
       <div className="map-overlay-text" style={{ zIndex: 10 }}>
         {isRealGPS ? '🔴 LIVE REAL-TIME MAP' : '📍 PROJECTED ROUTE MAP'}
       </div>
+
+      {leafletLoaded && (
+        <button 
+          onClick={handleRecenter}
+          className="absolute bottom-2 right-2 bg-white dark:bg-neutral-900 text-gray-800 dark:text-neutral-200 hover:bg-gray-100 dark:hover:bg-neutral-800 font-semibold py-1.5 px-3 rounded-lg shadow-md z-[10] text-xs border border-gray-200 dark:border-neutral-700 transition duration-150 ease-in-out cursor-pointer"
+        >
+          Recenter Map
+        </button>
+      )}
       
-      <div 
-        ref={mapRef} 
-        style={{ 
-          width: '100%', 
-          height: '100%', 
-          borderRadius: 'inherit', 
-          zIndex: 1, 
-          visibility: leafletLoaded ? 'visible' : 'hidden' 
-        }} 
-      />
+      {leafletLoaded && (
+        <div 
+          ref={mapRef} 
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            borderRadius: 'inherit', 
+            zIndex: 1
+          }} 
+        />
+      )}
 
       {!leafletLoaded && (
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f4f6f8', gap: '12px', zIndex: 5, borderRadius: 'inherit' }}>
@@ -198,6 +239,7 @@ const ActiveOrderMap = ({ orderDetail, leafletLoaded, currentLat, currentLng, is
     </div>
   );
 };
+
 
 const interpolatePolyline = (points, progressPercent) => {
   if (!points || points.length === 0) return null;
@@ -456,8 +498,6 @@ const OrderTracking = () => {
     }
   }, [orderDetail?.status]);
 
-  // Leaflet Interactive Maps Integration
-  const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
 
   // Coordinates mapping
   const getRiderPosition = (p) => {
@@ -523,46 +563,6 @@ const OrderTracking = () => {
       currentLng = (77.5946 + 0.0139 * (animationProgress / 100));
     }
   }
-
-  // Load Leaflet dynamically
-  useEffect(() => {
-    if (window.L) {
-      setLeafletLoaded(true);
-      return;
-    }
-
-    let link = document.querySelector('link[href*="leaflet.css"]');
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
-      document.head.appendChild(link);
-    }
-
-    let script = document.querySelector('script[src*="leaflet.js"]');
-    if (!script) {
-      script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
-      script.async = true;
-      script.onload = () => {
-        const interval = setInterval(() => {
-          if (window.L) {
-            setLeafletLoaded(true);
-            clearInterval(interval);
-          }
-        }, 50);
-      };
-      document.body.appendChild(script);
-    } else {
-      const interval = setInterval(() => {
-        if (window.L) {
-          setLeafletLoaded(true);
-          clearInterval(interval);
-        }
-      }, 50);
-      return () => clearInterval(interval);
-    }
-  }, []);
 
   // Map helper hooks and telemetry triggers are encapsulated in the ActiveOrderMap component below
 
@@ -735,7 +735,6 @@ const OrderTracking = () => {
           position: relative;
           overflow: hidden;
           margin-bottom: 24px;
-          height: 240px;
           box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
         }
         
@@ -1124,6 +1123,17 @@ const OrderTracking = () => {
           transform: translateY(0);
           opacity: 1;
           pointer-events: auto;
+        }
+        @media (max-width: 450px) {
+          .simulator-trigger-btn {
+            bottom: 80px !important;
+            right: 16px !important;
+          }
+          .simulator-panel {
+            bottom: 140px !important;
+            right: 16px !important;
+            width: calc(100% - 32px) !important;
+          }
         }
         .simulator-title {
           font-size: 0.95rem;
@@ -1709,7 +1719,6 @@ const OrderTracking = () => {
               {/* Interactive Leaflet Map */}
               <ActiveOrderMap 
                 orderDetail={orderDetail}
-                leafletLoaded={leafletLoaded}
                 currentLat={currentLat}
                 currentLng={currentLng}
                 isRealGPS={isRealGPS}

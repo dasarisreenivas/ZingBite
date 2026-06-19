@@ -1,9 +1,6 @@
 package com.app.zingbiteServlets;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -15,12 +12,12 @@ import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import com.app.zingbiteutils.RateLimiter;
+
 @WebFilter(urlPatterns = "/api/*", asyncSupported = true)
 public class RateLimitFilter implements Filter {
 
     private static final int MAX_REQUESTS = 100;
-    private static final long WINDOW_MS = 60_000L;
-    private static final Map<String, RateLimitEntry> requestCounts = new ConcurrentHashMap<>();
 
     @Override
     public void init(FilterConfig filterConfig) {}
@@ -38,22 +35,15 @@ public class RateLimitFilter implements Filter {
             return;
         }
 
-        long now = System.currentTimeMillis();
-        RateLimitEntry entry = requestCounts.compute(clientIp, (key, existing) -> {
-            if (existing == null || now - existing.windowStart > WINDOW_MS) {
-                return new RateLimitEntry(now, new AtomicInteger(1));
-            }
-            int newCount = existing.count.get() + 1;
-            return new RateLimitEntry(existing.windowStart, new AtomicInteger(newCount));
-        });
+        boolean allowed = RateLimiter.isAllowed(clientIp);
+        int remaining = RateLimiter.getRemainingRequests(clientIp);
+        long resetTime = RateLimiter.getResetTime(clientIp);
 
-        int current = entry.count.get();
-        int remaining = Math.max(0, MAX_REQUESTS - current);
         res.setHeader("X-RateLimit-Limit", String.valueOf(MAX_REQUESTS));
         res.setHeader("X-RateLimit-Remaining", String.valueOf(remaining));
-        res.setHeader("X-RateLimit-Reset", String.valueOf((entry.windowStart + WINDOW_MS) / 1000));
+        res.setHeader("X-RateLimit-Reset", String.valueOf(resetTime));
 
-        if (current > MAX_REQUESTS) {
+        if (!allowed) {
             res.setContentType("application/json");
             res.setCharacterEncoding("UTF-8");
             res.setStatus(429);
@@ -79,17 +69,5 @@ public class RateLimitFilter implements Filter {
     }
 
     @Override
-    public void destroy() {
-        requestCounts.clear();
-    }
-
-    private static class RateLimitEntry {
-        final long windowStart;
-        final AtomicInteger count;
-
-        RateLimitEntry(long windowStart, AtomicInteger count) {
-            this.windowStart = windowStart;
-            this.count = count;
-        }
-    }
+    public void destroy() {}
 }

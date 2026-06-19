@@ -191,7 +191,7 @@ const Profile = () => {
       reverseGeocode(e.latlng.lat, e.latlng.lng, targetField);
     });
 
-    reverseGeocode(defaultLat, defaultLng, targetField);
+    reverseGeocode(initLat, initLng, targetField);
 
     return () => {
       if (mapInstanceRef.current) {

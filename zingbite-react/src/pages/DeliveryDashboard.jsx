@@ -6,6 +6,7 @@ import { useModal } from '../context/ModalContext';
 import { Bike, CheckCircle2, Navigation, IndianRupee, Loader, AlertTriangle, MapPin, ClipboardCheck, LogOut, MessageSquare, ChevronRight } from 'lucide-react';
 import ChatWidget from '../components/ChatWidget';
 import useSSE from '../hooks/useSSE';
+import useLeaflet from '../hooks/useLeaflet';
 
 const DELIVERY_LIST_PAGE_SIZE = 4;
 const FETCH_DEBOUNCE_MS = 5000;
@@ -45,7 +46,7 @@ const interpolatePolyline = (points, progressPercent) => {
 };
 
 const ActiveDeliveryMap = React.memo(({ order }) => {
-  const [leafletLoaded, setLeafletLoaded] = useState(typeof window !== 'undefined' && !!window.L);
+  const { leafletLoaded, L } = useLeaflet();
   const mapRef = React.useRef(null);
   const mapInstanceRef = React.useRef(null);
   const riderMarkerRef = React.useRef(null);
@@ -55,52 +56,11 @@ const ActiveDeliveryMap = React.memo(({ order }) => {
   const polylineFMRef = React.useRef(null);
   const polylineLMRef = React.useRef(null);
 
-  // Load Leaflet dynamically
-  useEffect(() => {
-    if (window.L) {
-      setLeafletLoaded(true);
-      return;
-    }
-
-    let link = document.querySelector('link[href*="leaflet.css"]');
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
-      document.head.appendChild(link);
-    }
-
-    let script = document.querySelector('script[src*="leaflet.js"]');
-    if (!script) {
-      script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
-      script.async = true;
-      script.onload = () => {
-        const interval = setInterval(() => {
-          if (window.L) {
-            setLeafletLoaded(true);
-            clearInterval(interval);
-          }
-        }, 50);
-      };
-      document.body.appendChild(script);
-    } else {
-      const interval = setInterval(() => {
-        if (window.L) {
-          setLeafletLoaded(true);
-          clearInterval(interval);
-        }
-      }, 50);
-      return () => clearInterval(interval);
-    }
-  }, []);
-
   // Initialize Map
   useEffect(() => {
     if (!leafletLoaded || !mapRef.current) return;
     if (mapInstanceRef.current) return;
 
-    const L = window.L;
     if (!L) return;
 
     const map = L.map(mapRef.current, {
@@ -132,7 +92,7 @@ const ActiveDeliveryMap = React.memo(({ order }) => {
         polylineLMRef.current = null;
       }
     };
-  }, [leafletLoaded, order?.orderId]);
+  }, [leafletLoaded, order?.orderId, L]);
 
   // Resolve current coordinates
   const restaurantLat = 12.9716;
@@ -186,7 +146,6 @@ const ActiveDeliveryMap = React.memo(({ order }) => {
   useEffect(() => {
     if (!leafletLoaded || !mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
-    const L = window.L;
     if (!L) return;
 
     // 1. Setup Icons
@@ -288,7 +247,7 @@ const ActiveDeliveryMap = React.memo(({ order }) => {
     ]);
     map.fitBounds(bounds, { padding: [40, 40] });
 
-  }, [leafletLoaded, order?.pathFM, order?.pathLM1, currentLat, currentLng, order?.orderId, order?.gpsCoordinates, order?.status, order?.gpsProgress]);
+  }, [leafletLoaded, order?.pathFM, order?.pathLM1, currentLat, currentLng, order?.orderId, order?.gpsCoordinates, order?.status, order?.gpsProgress, L]);
 
   const mapWrapperStyle = useMemo(() => ({
     height: '200px', position: 'relative', marginTop: '16px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-medium)'
@@ -312,15 +271,16 @@ const ActiveDeliveryMap = React.memo(({ order }) => {
         {isRealGPS ? '🔴 LIVE GPS MAP' : '📍 PROJECTED ROUTE MAP'}
       </div>
       
-      <div 
-        ref={mapRef} 
-        style={{ 
-          width: '100%', 
-          height: '100%', 
-          zIndex: 1, 
-          visibility: leafletLoaded ? 'visible' : 'hidden' 
-        }} 
-      />
+      {leafletLoaded && (
+        <div 
+          ref={mapRef} 
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            zIndex: 1
+          }} 
+        />
+      )}
 
       {!leafletLoaded && (
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f4f6f8', gap: '8px', zIndex: 5 }}>
@@ -1008,16 +968,55 @@ const DeliveryDashboard = () => {
           100% { transform: translateY(-12px) scale(1); }
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 640px) {
           .premium-stepper-container {
             padding: 12px 0 0;
           }
-          .stepper-label {
-            font-size: 0.65rem;
+          .premium-stepper {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+          }
+          .stepper-line {
+            width: 3px !important;
+            height: 16px !important;
+            margin: 4px 0 4px 12px !important;
+            transform: none !important;
+            flex: none !important;
+          }
+          .stepper-node {
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 12px !important;
+            min-width: 0 !important;
           }
           .stepper-btn-node {
-            padding: 6px 10px;
-            font-size: 0.72rem;
+            transform: none !important;
+            margin: 0 !important;
+            animation: none !important;
+          }
+          .stepper-btn-node:hover {
+            transform: scale(1.05) !important;
+          }
+          .stepper-label {
+            margin: 0 !important;
+            text-align: left !important;
+            font-size: 0.8rem !important;
+            display: block !important;
+          }
+        }
+        @media (max-width: 480px) {
+          .stepper-circle {
+            width: 24px !important;
+            height: 24px !important;
+            font-size: 0.7rem !important;
+          }
+          .stepper-line {
+            margin: 2px 0 2px 10px !important;
+          }
+          .stepper-btn-node {
+            padding: 6px 10px !important;
+            font-size: 0.72rem !important;
           }
         }
       `}</style>

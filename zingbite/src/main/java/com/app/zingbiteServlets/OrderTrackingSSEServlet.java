@@ -48,6 +48,42 @@ public class OrderTrackingSSEServlet extends HttpServlet {
             return;
         }
 
+        jakarta.servlet.http.HttpSession httpSession = request.getSession(false);
+        if (httpSession == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: Active session required");
+            return;
+        }
+
+        com.app.zingbitemodels.User loggedInUser = (com.app.zingbitemodels.User) httpSession.getAttribute("loggedInUser");
+        if (loggedInUser == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: Active session required");
+            return;
+        }
+
+        final Orders order;
+        try {
+            OrdersDAo ordersDAO = new OrdersDAOImplementation();
+            order = ordersDAO.getOrdersById(orderId);
+        } catch (Exception ex) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database error");
+            return;
+        }
+
+        if (order == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Order not found");
+            return;
+        }
+
+        boolean authorized = loggedInUser.getUserID() == order.getUserId() ||
+                             "super_admin".equalsIgnoreCase(loggedInUser.getRole()) ||
+                             "restaurant_admin".equalsIgnoreCase(loggedInUser.getRole()) ||
+                             "delivery_partner".equalsIgnoreCase(loggedInUser.getRole());
+
+        if (!authorized) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden: You are not authorized to track this order");
+            return;
+        }
+
         final AsyncContext asyncContext = request.startAsync();
         asyncContext.setTimeout(0); // Infinite timeout for long-lived SSE connections
 
@@ -72,8 +108,6 @@ public class OrderTrackingSSEServlet extends HttpServlet {
 
         // Fetch order details and push current status & paths immediately to the connected client
         try {
-            OrdersDAo ordersDAO = new OrdersDAOImplementation();
-            Orders order = ordersDAO.getOrdersById(orderId);
             if (order != null) {
                 JsonObject initPayload = new JsonObject();
                 initPayload.addProperty("orderId", orderId);

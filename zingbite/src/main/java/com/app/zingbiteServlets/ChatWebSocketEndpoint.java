@@ -26,7 +26,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-@ServerEndpoint(value = "/api/ws/chat/{type}/{targetId}/{userId}")
+@ServerEndpoint(value = "/api/ws/chat/{type}/{targetId}/{userId}", configurator = com.app.zingbiteutils.GetHttpSessionConfigurator.class)
 public class ChatWebSocketEndpoint {
 
     // Keep track of active session sets grouped by room key "type:targetId"
@@ -43,10 +43,24 @@ public class ChatWebSocketEndpoint {
 
         System.out.println("[WebSocket] Connection attempt: type=" + type + ", targetId=" + targetId + ", userId=" + userId);
 
-        // 1. Authorization Validation
+        // 1. HTTP Session and Authorization Validation
         boolean authorized = false;
         String senderName = "User";
         int receiverId = 0;
+
+        jakarta.servlet.http.HttpSession httpSession = (jakarta.servlet.http.HttpSession) session.getUserProperties().get("httpSession");
+        if (httpSession == null) {
+            System.out.println("[WebSocket] Connection rejected: No active HTTP session for userId=" + userId);
+            session.close(new CloseReason(CloseCodes.VIOLATED_POLICY, "Unauthorized: Active HTTP session is required."));
+            return;
+        }
+
+        User loggedInUser = (User) httpSession.getAttribute("loggedInUser");
+        if (loggedInUser == null || loggedInUser.getUserID() != userId) {
+            System.out.println("[WebSocket] Connection rejected: Session user does not match path userId=" + userId);
+            session.close(new CloseReason(CloseCodes.VIOLATED_POLICY, "Unauthorized: Session user mismatch."));
+            return;
+        }
 
         try (org.hibernate.Session dbSession = DBUtils.openSession()) {
             User userObj = dbSession.get(User.class, userId);

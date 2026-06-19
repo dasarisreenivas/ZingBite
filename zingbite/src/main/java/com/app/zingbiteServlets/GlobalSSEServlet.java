@@ -84,18 +84,29 @@ public class GlobalSSEServlet extends HttpServlet {
         final List<String> topicsToSubscribe = new ArrayList<>();
 
         if ("rider_orders".equalsIgnoreCase(topicParam)) {
-            topicsToSubscribe.add("topic:rider_orders");
-            if (user != null && "delivery_partner".equals(user.getRole())) {
-                topicsToSubscribe.add("topic:rider_orders:" + user.getUserID());
+            if (user == null || (!"delivery_partner".equals(user.getRole()) && !"super_admin".equals(user.getRole()))) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden");
+                return;
             }
+            topicsToSubscribe.add("topic:rider_orders");
+            topicsToSubscribe.add("topic:rider_orders:" + user.getUserID());
         } else if ("restaurant_orders".equalsIgnoreCase(topicParam)) {
+            if (user == null || (!"restaurant_admin".equals(user.getRole()) && !"super_admin".equals(user.getRole()))) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden");
+                return;
+            }
             String restIdParam = request.getParameter("restaurantId");
             int restId = 0;
             if (restIdParam != null && !restIdParam.trim().isEmpty()) {
                 try { restId = Integer.parseInt(restIdParam); } catch (Exception e) {}
             }
-            if (restId == 0 && user != null && "restaurant_admin".equals(user.getRole())) {
-                restId = getRestaurantIdForAdmin(user.getUserID());
+            int adminRestId = getRestaurantIdForAdmin(user.getUserID());
+            if ("restaurant_admin".equals(user.getRole())) {
+                if (restId > 0 && restId != adminRestId) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden: Unauthorized restaurant subscription");
+                    return;
+                }
+                restId = adminRestId;
             }
             if (restId > 0) {
                 topicsToSubscribe.add("topic:restaurant_orders:" + restId);
