@@ -47,13 +47,26 @@ public class RestaurantAdminServlet extends HttpServlet {
         resp.setCharacterEncoding("UTF-8");
 
         HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
+        if (session == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Unauthorized\"}");
             return;
         }
 
-        User user = (User) session.getAttribute("loggedInUser");
+        User user = null;
+        try {
+            user = (User) session.getAttribute("loggedInUser");
+        } catch (ClassCastException e) {
+            try {
+                session.invalidate();
+            } catch (Exception ignored) {}
+        }
+
+        if (user == null) {
+            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            resp.getWriter().write("{\"error\":\"Unauthorized\"}");
+            return;
+        }
 
         // Refresh user from DB to pick up any role changes after admin approval
         try (Session refreshSession = DBUtils.openSession()) {
@@ -164,13 +177,26 @@ public class RestaurantAdminServlet extends HttpServlet {
         resp.setCharacterEncoding("UTF-8");
 
         HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
+        if (session == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Unauthorized\"}");
             return;
         }
 
-        User user = (User) session.getAttribute("loggedInUser");
+        User user = null;
+        try {
+            user = (User) session.getAttribute("loggedInUser");
+        } catch (ClassCastException e) {
+            try {
+                session.invalidate();
+            } catch (Exception ignored) {}
+        }
+
+        if (user == null) {
+            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            resp.getWriter().write("{\"error\":\"Unauthorized\"}");
+            return;
+        }
 
         try {
             // Refresh user from DB to pick up role changes
@@ -389,28 +415,15 @@ public class RestaurantAdminServlet extends HttpServlet {
                         ex.printStackTrace();
                     }
 
-                    // Broadcast SSE Update
-                    JsonObject ssePayload = new JsonObject();
-                    ssePayload.addProperty("orderId", orderId);
-                    ssePayload.addProperty("status", status);
-                    com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastUpdate(orderId, ssePayload.toString());
-                    // Broadcast Topic SSE Update
-                    try {
-                        JsonObject msg = new JsonObject();
-                        msg.addProperty("event", "status_update");
-                        msg.addProperty("orderId", orderId);
-                        msg.addProperty("status", status);
-                        com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:user_orders:" + order.getUserId(), msg.toString());
-                        if (order.getRestaurantId() != null) {
-                            com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:restaurant_orders:" + order.getRestaurantId().getRestaurantId(), msg.toString());
-                        }
-                        if (order.getRiderId() != null) {
-                            com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:rider_orders:" + order.getRiderId(), msg.toString());
-                        }
-                        com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:rider_orders", msg.toString());
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
+                    // Broadcast SSE & Log Status
+                    com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastOrderUpdate(
+                        order,
+                        "status_update",
+                        currentStatus.name(),
+                        user.getUserID(),
+                        "restaurant_admin",
+                        "Status updated by restaurant admin: " + user.getUserName()
+                    );
 
                     resp.getWriter().write("{\"success\":true}");
                 } else {

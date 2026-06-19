@@ -198,75 +198,56 @@ const ChatWindow = ({ type, targetId, onClose }) => {
           box-shadow: 0 0 0 3px rgba(247,55,79,0.1) !important;
         }
       `}</style>
-      <div className="chat-window-premium" style={{
-      display: 'flex', flexDirection: 'column', height: '500px', width: '384px',
-      backgroundColor: '#ffffff', border: '1px solid #e0e0e0', borderRadius: '12px',
-      boxShadow: '0 12px 32px rgba(28,28,28,0.12)', overflow: 'hidden', fontFamily: "'Inter', sans-serif"
-    }}>
+      <div className="chat-window-premium flex flex-col h-[500px] w-[384px] max-w-full bg-white dark:bg-black border border-gray-200 dark:border-neutral-800 rounded-xl shadow-lg overflow-hidden font-sans">
       {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px', backgroundColor: '#F7374F', color: '#fff'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="flex items-center justify-between p-3 bg-brand-red text-white">
+        <div className="flex items-center gap-2">
           <MessageSquare size={20} />
           <div>
-            <h3 style={{ fontSize: '14px', fontWeight: 700, margin: 0, lineHeight: 1.2 }}>ZingBite Chat</h3>
-            <span style={{ fontSize: '10px', opacity: 0.85, display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{
-                width: '6px', height: '6px', borderRadius: '50%',
-                backgroundColor: getStatusColor(), display: 'inline-block'
-              }} />
+            <h3 className="text-sm font-bold m-0 leading-tight">ZingBite Chat</h3>
+            <span className="text-[10px] text-white/80 flex items-center gap-1">
+              <span 
+                className="width-[6px] height-[6px] rounded-full inline-block" 
+                style={{ width: '6px', height: '6px', backgroundColor: getStatusColor() }} 
+              />
               {getStatusText()}
             </span>
           </div>
         </div>
-        <button onClick={onClose} style={{
-          background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer',
-          padding: '4px', borderRadius: '50%', display: 'flex', alignItems: 'center'
-        }}>
+        <button onClick={onClose} className="bg-transparent border-none color-white cursor-pointer p-1 rounded-full flex items-center hover:bg-white/10 transition-colors">
           <X size={18} />
         </button>
       </div>
 
       {/* Messages Area */}
-      <div style={{
-        flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column',
-        gap: '10px', backgroundColor: '#f8f9fa'
-      }}>
+      <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-2.5 bg-gray-50 dark:bg-neutral-950">
         {loading ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <Loader size={24} style={{ animation: 'spin 1s linear infinite' }} color="#F7374F" />
+          <div className="flex items-center justify-center h-full">
+            <Loader size={24} className="animate-spin text-brand-red" />
           </div>
         ) : error && messages.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9e9e9e', gap: '4px', textAlign: 'center', padding: '0 16px' }}>
-            <AlertTriangle size={32} color="#f5a623" />
-            <p style={{ fontSize: '12px', fontWeight: 600 }}>{error}</p>
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-neutral-500 gap-1 text-center px-4">
+            <AlertTriangle size={32} className="text-amber-500" />
+            <p className="text-xs font-semibold">{error}</p>
           </div>
         ) : messages.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9e9e9e', gap: '4px', textAlign: 'center' }}>
-            <MessageSquare size={32} style={{ opacity: 0.6 }} />
-            <p style={{ fontSize: '12px' }}>No messages yet. Say hello!</p>
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-neutral-500 gap-1 text-center">
+            <MessageSquare size={32} className="opacity-60" />
+            <p className="text-xs">No messages yet. Say hello!</p>
           </div>
         ) : (
           messages.map((msg, idx) => {
             const isMe = msg.senderId === user?.userID;
             return (
-              <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
-                <span style={{ fontSize: '10px', color: '#9e9e9e', marginBottom: '2px' }}>{msg.senderName}</span>
-                <div style={{
-                  padding: '8px 12px', borderRadius: isMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                  fontSize: '13px', maxWidth: '80%', lineHeight: 1.4, wordBreak: 'break-word',
-                  backgroundColor: isMe ? '#F7374F' : '#fff',
-                  color: isMe ? '#fff' : '#1c1c1c',
-                  border: isMe ? 'none' : '1px solid #f0f0f0',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
-                }}>
-                  <p style={{ margin: 0 }}>{msg.messageText}</p>
-                  <span style={{
-                    display: 'block', fontSize: '9px', marginTop: '4px', textAlign: 'right',
-                    color: isMe ? 'rgba(255,255,255,0.7)' : '#9e9e9e'
-                  }}>
+              <div key={msg.id || idx} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                <span className="text-[10px] text-gray-400 dark:text-neutral-500 mb-0.5">{msg.senderName}</span>
+                <div className={`p-2 px-3 rounded-2xl text-[13px] max-w-[80%] leading-normal break-word shadow-sm ${
+                  isMe 
+                    ? 'bg-brand-red text-white rounded-br-sm' 
+                    : 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-neutral-100 border border-gray-100 dark:border-neutral-800 rounded-bl-sm'
+                }`}>
+                  <p className="m-0">{msg.messageText}</p>
+                  <span className={`block text-[9px] mt-1 text-right ${isMe ? 'text-white/70' : 'text-gray-400 dark:text-neutral-500'}`}>
                     {formatTime(msg.timestamp)}
                   </span>
                 </div>
@@ -278,33 +259,22 @@ const ChatWindow = ({ type, targetId, onClose }) => {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSendMessage} style={{
-        padding: '10px 12px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: '8px',
-        alignItems: 'center', backgroundColor: '#fff'
-      }}>
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type your message..."
-            className="premium-input"
-            style={{
-              flex: 1, padding: '8px 12px', fontSize: '13px', border: '1px solid #e0e0e0',
-              borderRadius: '8px', outline: 'none', fontFamily: "'Inter', sans-serif",
-              transition: 'border-color 0.2s'
-            }}
-            onFocus={(e) => e.target.style.borderColor = '#F7374F'}
-            onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
-          />
+      <form onSubmit={handleSendMessage} className="p-2.5 border-t border-gray-100 dark:border-neutral-800 flex gap-2 items-center bg-white dark:bg-neutral-900">
+        <input
+          type="text"
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          placeholder="Type your message..."
+          className="flex-1 p-2 px-3 text-[13px] border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-950 text-gray-900 dark:text-neutral-100 rounded-lg outline-none transition-all focus:border-brand-red focus:ring-2 focus:ring-brand-red/10"
+        />
         <button
           type="submit"
           disabled={!newMessage.trim()}
-          style={{
-            padding: '8px', backgroundColor: newMessage.trim() ? '#F7374F' : '#e0e0e0',
-            color: newMessage.trim() ? '#fff' : '#9e9e9e', border: 'none', borderRadius: '8px',
-            cursor: newMessage.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center',
-            transition: 'background-color 0.2s'
-          }}
+          className={`p-2 rounded-lg flex items-center transition-colors ${
+            newMessage.trim() 
+              ? 'bg-brand-red text-white cursor-pointer hover:bg-brand-red-hover' 
+              : 'bg-gray-100 dark:bg-neutral-800 text-gray-400 dark:text-neutral-600 cursor-default'
+          }`}
         >
           <Send size={16} />
         </button>

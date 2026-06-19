@@ -106,16 +106,16 @@ const Header = () => {
           position: sticky;
           top: 0;
           z-index: 1000;
-          background: rgba(255, 255, 255, 0.75);
+          background: var(--surface-glass);
           backdrop-filter: blur(24px) saturate(200%);
           -webkit-backdrop-filter: blur(24px) saturate(200%);
-          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+          border-bottom: 1px solid var(--border-light);
           transition: all 0.35s var(--ease-premium);
           padding: 0 20px;
         }
         .header.scrolled {
-          background: rgba(255, 255, 255, 0.92);
-          box-shadow: 0 4px 30px rgba(0, 0, 0, 0.06);
+          background: var(--surface-card);
+          box-shadow: var(--shadow-sm);
         }
         .scroll-progress {
           position: absolute;
@@ -226,7 +226,7 @@ const Header = () => {
         }
         .nav-link.active {
           color: var(--brand-red);
-          background: rgba(247, 55, 79, 0.06);
+          background: var(--brand-tint-medium);
         }
         .nav-link.active::before {
           transform: scaleX(1);
@@ -350,10 +350,10 @@ const Header = () => {
           width: 320px;
           max-width: 85%;
           height: 100vh;
-          background: rgba(255, 255, 255, 0.97);
+          background: var(--surface-overlay);
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
-          box-shadow: -10px 0 40px rgba(0, 0, 0, 0.12);
+          box-shadow: -10px 0 40px rgba(0, 0, 0, 0.3);
           display: flex;
           flex-direction: column;
           gap: 6px;
@@ -361,7 +361,7 @@ const Header = () => {
           z-index: 1000;
           transform: translateX(100%);
           transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-          border-left: 1px solid rgba(0, 0, 0, 0.06);
+          border-left: 1px solid var(--border-light);
         }
         .mobile-menu.open {
           transform: translateX(0);
@@ -374,13 +374,13 @@ const Header = () => {
           border-radius: var(--radius-sm);
         }
         .mobile-menu .nav-link:hover {
-          background: rgba(247, 55, 79, 0.05);
+          background: var(--brand-tint-medium);
           transform: translateX(4px);
         }
         .sidebar-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.3);
+          background: rgba(0, 0, 0, 0.6);
           backdrop-filter: blur(6px);
           -webkit-backdrop-filter: blur(6px);
           z-index: 999;

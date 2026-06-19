@@ -7,7 +7,20 @@ Write-Host "Source: $distDir"
 Write-Host "Target 1 (Tomcat WTP): $targetDir1"
 Write-Host "Target 2 (Source Webapp): $targetDir2"
 
-# Ensure target directories exist
+# Clean target assets folders first
+$targetAssets1 = Join-Path $targetDir1 "assets"
+if (Test-Path $targetAssets1) {
+    Remove-Item -Path "$targetAssets1\*" -Recurse -Force
+    Write-Host "Cleaned old assets in Target 1: $targetAssets1"
+}
+
+$targetAssets2 = Join-Path $targetDir2 "assets"
+if (Test-Path $targetAssets2) {
+    Remove-Item -Path "$targetAssets2\*" -Recurse -Force
+    Write-Host "Cleaned old assets in Target 2: $targetAssets2"
+}
+
+# Ensure target directories exist and copy
 if (-not (Test-Path $targetDir1)) {
     Write-Warning "Target directory 1 does not exist. Skipping Tomcat copy."
 } else {

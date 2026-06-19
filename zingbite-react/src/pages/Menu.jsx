@@ -1,7 +1,8 @@
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import useSSE from '../hooks/useSSE';
 import { useCart } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
 import { 
@@ -34,27 +35,41 @@ const Menu = () => {
   const { user } = useContext(AuthContext);
   const { cart, addToCart, updateQuantity, conflictPopup, clearAndAdd, setConflictPopup, cartError, setCartError } = useCart();
 
-  useEffect(() => {
-    const fetchMenu = async (isBackground = false) => {
-      try {
-        const res = await axios.get(`/api/menu?restaurantId=${restaurantId}&restaurantName=${encodeURIComponent(restaurantNameParam)}`);
-        setMenuList(res.data.menuList || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (!isBackground) setLoading(false);
-      }
-    };
-    if (!restaurantId) return undefined;
-    fetchMenu(false);
-    const ssePath = window.location.pathname.startsWith('/zingbite')
-      ? `/zingbite/api/stream?topic=menu&restaurantId=${restaurantId}`
-      : `/api/stream?topic=menu&restaurantId=${restaurantId}`;
-    const eventSource = new EventSource(ssePath);
-    eventSource.onmessage = () => { try { console.log("[ZingBite SSE] Real-time menu update"); fetchMenu(true); } catch (err) { console.error(err); } };
-    eventSource.onerror = (err) => console.error("[ZingBite SSE] EventSource error:", err);
-    return () => eventSource.close();
+  const isFetchingMenuRef = useRef(false);
+
+  const fetchMenu = useCallback(async (isBackground = false) => {
+    if (isFetchingMenuRef.current) return;
+    isFetchingMenuRef.current = true;
+    if (!isBackground) setLoading(true);
+    try {
+      const res = await axios.get(`/api/menu?restaurantId=${restaurantId}&restaurantName=${encodeURIComponent(restaurantNameParam)}`);
+      setMenuList(res.data.menuList || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (!isBackground) setLoading(false);
+      isFetchingMenuRef.current = false;
+    }
   }, [restaurantId, restaurantNameParam]);
+
+  useEffect(() => {
+    if (restaurantId) {
+      fetchMenu(false);
+    }
+  }, [restaurantId, fetchMenu]);
+
+  const menuSsePath = window.location.pathname.startsWith('/zingbite')
+    ? `/zingbite/api/stream?topic=menu&restaurantId=${restaurantId}`
+    : `/api/stream?topic=menu&restaurantId=${restaurantId}`;
+
+  useSSE(restaurantId ? menuSsePath : null, (event) => {
+    try {
+      console.log("[ZingBite SSE] Real-time menu update");
+      fetchMenu(true);
+    } catch (err) {
+      console.error(err);
+    }
+  }, { enabled: !!restaurantId });
 
   const cartItemIds = useMemo(() => {
     if (!cart || !cart.items) return '';

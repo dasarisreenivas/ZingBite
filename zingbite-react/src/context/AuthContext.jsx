@@ -6,10 +6,12 @@ import axios from 'axios';
 axios.defaults.withCredentials = true; // Send cookies
 axios.defaults.baseURL = typeof window !== 'undefined' ? window.location.origin + '/zingbite' : '/zingbite';
 
-// CSRF token management (persisted in sessionStorage)
+// CSRF token management (persisted in sessionStorage with in-memory fallback)
 const CSRF_KEY = 'zingbite_csrf_token';
+let inMemoryCsrfToken = null;
 
 export const setCsrfToken = (token) => {
+  inMemoryCsrfToken = token;
   try {
     if (token) {
       sessionStorage.setItem(CSRF_KEY, token);
@@ -22,6 +24,9 @@ export const setCsrfToken = (token) => {
 };
 
 export const getCsrfToken = () => {
+  if (inMemoryCsrfToken) {
+    return inMemoryCsrfToken;
+  }
   try {
     return sessionStorage.getItem(CSRF_KEY);
   } catch (e) {
@@ -37,6 +42,33 @@ axios.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Response interceptor: auto-refresh CSRF token on 403 CSRF errors and retry once
+axios.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.error &&
+      error.response.data.error.toLowerCase().includes('csrf') &&
+      !originalRequest._csrfRetried
+    ) {
+      originalRequest._csrfRetried = true;
+      try {
+        const refreshRes = await axios.get('/api/login');
+        if (refreshRes.data?.csrfToken) {
+          setCsrfToken(refreshRes.data.csrfToken);
+          originalRequest.headers['X-CSRF-Token'] = refreshRes.data.csrfToken;
+          return axios(originalRequest);
+        }
+      } catch (refreshErr) {
+        console.error('[ZingBite] CSRF token refresh failed:', refreshErr);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const AuthContext = createContext();
 

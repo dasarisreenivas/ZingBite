@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useModal } from '../context/ModalContext';
 import { Bike, CheckCircle2, Navigation, IndianRupee, Loader, AlertTriangle, MapPin, ClipboardCheck, LogOut, MessageSquare, ChevronRight } from 'lucide-react';
 import ChatWidget from '../components/ChatWidget';
+import useSSE from '../hooks/useSSE';
 
 const DELIVERY_LIST_PAGE_SIZE = 4;
 const FETCH_DEBOUNCE_MS = 5000;
@@ -515,25 +516,53 @@ const DeliveryDashboard = () => {
       return;
     }
     fetchDeliveryData(false);
+  }, [user, authLoading]);
 
-    const ssePath = window.location.pathname.startsWith('/zingbite') ? '/zingbite/api/stream?topic=rider_orders' : '/api/stream?topic=rider_orders';
-    const eventSource = new EventSource(ssePath);
-    eventSource.onmessage = (event) => {
-      try {
-        debouncedFetchDeliveryData(true);
-      } catch (err) {
-        console.error("[ZingBite SSE] Error on message:", err);
+  const ssePath = window.location.pathname.startsWith('/zingbite') ? '/zingbite/api/stream?topic=rider_orders' : '/api/stream?topic=rider_orders';
+  useSSE(user ? ssePath : null, (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      console.log("[ZingBite SSE] Received real-time rider dashboard update:", payload);
+      
+      if (payload && (payload.event === 'new_order' || payload.event === 'new_request')) {
+        // Play notification sound on new order
+        try {
+          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
+          audio.volume = 0.5;
+          audio.play();
+        } catch (audioErr) {}
+        fetchDeliveryData(true);
+      } else if (payload && payload.orderId) {
+        if (payload.event === 'rider_accepted') {
+          if (user && payload.riderId === user.userID) {
+            fetchDeliveryData(true); // Full reload to initialize maps/VRP paths for the current rider
+          } else {
+            // Remove from available orders
+            setData(prev => ({
+              ...prev,
+              available: prev.available.filter(o => o.orderId !== payload.orderId)
+            }));
+          }
+        } else {
+          // Play subtle sound on update
+          try {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav');
+            audio.volume = 0.4;
+            audio.play();
+          } catch (audioErr) {}
+
+          // Update status in active and available list
+          setData(prev => ({
+            ...prev,
+            active: prev.active.map(o => o.orderId === payload.orderId ? { ...o, status: payload.status } : o),
+            available: prev.available.map(o => o.orderId === payload.orderId ? { ...o, status: payload.status } : o)
+          }));
+        }
       }
-    };
-
-    eventSource.onerror = (err) => {
-      console.error("[ZingBite SSE] EventSource connection error:", err);
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, [user, authLoading, debouncedFetchDeliveryData]);
+    } catch (err) {
+      console.error("[ZingBite SSE] Error on message:", err);
+    }
+  }, { enabled: !!user });
 
   const handleClaimRun = async (orderId) => {
     try {

@@ -50,13 +50,26 @@ public class ProfileServlet extends HttpServlet {
         resp.setCharacterEncoding("UTF-8");
 
         HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
+        if (session == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Please log in to view profile details\"}");
             return;
         }
 
-        User user = (User) session.getAttribute("loggedInUser");
+        User user = null;
+        try {
+            user = (User) session.getAttribute("loggedInUser");
+        } catch (ClassCastException e) {
+            try {
+                session.invalidate();
+            } catch (Exception ignored) {}
+        }
+
+        if (user == null) {
+            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            resp.getWriter().write("{\"error\":\"Please log in to view profile details\"}");
+            return;
+        }
         String action = req.getParameter("action");
 
         if ("orders".equals(action)) {
@@ -203,13 +216,26 @@ public class ProfileServlet extends HttpServlet {
         resp.setCharacterEncoding("UTF-8");
 
         HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
+        if (session == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Please log in\"}");
             return;
         }
 
-        User user = (User) session.getAttribute("loggedInUser");
+        User user = null;
+        try {
+            user = (User) session.getAttribute("loggedInUser");
+        } catch (ClassCastException e) {
+            try {
+                session.invalidate();
+            } catch (Exception ignored) {}
+        }
+
+        if (user == null) {
+            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            resp.getWriter().write("{\"error\":\"Please log in\"}");
+            return;
+        }
         JsonObject jsonResponse = new JsonObject();
 
         try {
@@ -269,7 +295,13 @@ public class ProfileServlet extends HttpServlet {
                 String paymentMethod = requestBody.has("paymentMethod") ? requestBody.get("paymentMethod").getAsString() : "UPI";
                 JsonArray itemsArray = requestBody.has("items") ? requestBody.getAsJsonArray("items") : new JsonArray();
 
-                Integer restaurantId = (Integer) session.getAttribute("restaurantId");
+                Integer restaurantId = null;
+                if (requestBody.has("restaurantId") && !requestBody.get("restaurantId").isJsonNull()) {
+                    restaurantId = requestBody.get("restaurantId").getAsInt();
+                }
+                if (restaurantId == null) {
+                    restaurantId = (Integer) session.getAttribute("restaurantId");
+                }
                 
                 int orderId = 0;
                 Transaction tx = null;

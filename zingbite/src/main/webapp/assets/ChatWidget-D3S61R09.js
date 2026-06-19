@@ -1,4 +1,4 @@
-import{g as e,m as t,n,r,t as i}from"./createLucideIcon-DnU5s7Zs.js";import{t as a}from"./send-CBtMFMV_.js";import{d as o,r as s}from"./index-C2WSPP5T.js";var c=i(`message-square`,[[`path`,{d:`M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z`,key:`18887p`}]]),l=e(t(),1),u=n(),d=({type:e,targetId:t,userId:n,userName:i,receiverId:d,placeholder:f=`Type a message...`,initialOpen:p=!1,onClose:m})=>{let[h,g]=(0,l.useState)(p),[_,v]=(0,l.useState)([]),[y,b]=(0,l.useState)(``),[x,S]=(0,l.useState)(!1),[C,w]=(0,l.useState)(!1),T=(0,l.useRef)(null),E=(0,l.useRef)(null),D=()=>{E.current?.scrollIntoView({behavior:`smooth`})};(0,l.useEffect)(()=>{h&&D()},[_,h]);let O=async()=>{S(!0);try{let n=`/api/chat?`;e===`order`?n+=`orderId=${t}`:n+=`applicationId=${t}`,v((await r.get(n)).data||[])}catch(e){console.error(`Failed to load chat history:`,e)}finally{S(!1)}},k=()=>{T.current&&T.current.close();let r=String(t).replace(/^ZB-/,``).trim(),i=`${window.location.protocol===`https:`?`wss://`:`ws://`}${window.location.host}/zingbite/api/ws/chat/${e}/${r}/${n}`;console.log(`[WebSocket] Connecting to:`,i);let a=new WebSocket(i);T.current=a,a.onopen=()=>{console.log(`[WebSocket] Connected successfully.`),w(!0)},a.onmessage=e=>{try{let t=JSON.parse(e.data);t&&!t.error&&v(e=>e.some(e=>e.id===t.id||e.timestamp===t.timestamp&&e.messageText===t.messageText)?e:[...e,t])}catch(e){console.error(`WebSocket message parse error:`,e)}},a.onclose=e=>{console.log(`[WebSocket] Connection closed:`,e.reason),w(!1)},a.onerror=e=>{console.error(`[WebSocket] Connection error:`,e),w(!1)}};return(0,l.useEffect)(()=>(h?(O(),k()):T.current&&=(T.current.close(),null),()=>{T.current&&T.current.close()}),[h,t]),(0,u.jsxs)(u.Fragment,{children:[(0,u.jsx)(`style`,{children:`
+import{g as e,m as t,n,r,t as i}from"./createLucideIcon-DnU5s7Zs.js";import{t as a}from"./send-CBtMFMV_.js";import{d as o,r as s}from"./index-DbXf8GKr.js";var c=i(`message-square`,[[`path`,{d:`M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z`,key:`18887p`}]]),l=e(t(),1),u=n(),d=({type:e,targetId:t,userId:n,userName:i,receiverId:d,placeholder:f=`Type a message...`,initialOpen:p=!1,onClose:m})=>{let[h,g]=(0,l.useState)(p),[_,v]=(0,l.useState)([]),[y,b]=(0,l.useState)(``),[x,S]=(0,l.useState)(!1),[C,w]=(0,l.useState)(!1),T=(0,l.useRef)(null),E=(0,l.useRef)(null),D=()=>{E.current?.scrollIntoView({behavior:`smooth`})};(0,l.useEffect)(()=>{h&&D()},[_,h]);let O=async()=>{S(!0);try{let n=`/api/chat?`;e===`order`?n+=`orderId=${t}`:n+=`applicationId=${t}`,v((await r.get(n)).data||[])}catch(e){console.error(`Failed to load chat history:`,e)}finally{S(!1)}},k=()=>{T.current&&T.current.close();let r=String(t).replace(/^ZB-/,``).trim(),i=`${window.location.protocol===`https:`?`wss://`:`ws://`}${window.location.host}/zingbite/api/ws/chat/${e}/${r}/${n}`;console.log(`[WebSocket] Connecting to:`,i);let a=new WebSocket(i);T.current=a,a.onopen=()=>{console.log(`[WebSocket] Connected successfully.`),w(!0)},a.onmessage=e=>{try{let t=JSON.parse(e.data);t&&!t.error&&v(e=>e.some(e=>e.id===t.id||e.timestamp===t.timestamp&&e.messageText===t.messageText)?e:[...e,t])}catch(e){console.error(`WebSocket message parse error:`,e)}},a.onclose=e=>{console.log(`[WebSocket] Connection closed:`,e.reason),w(!1)},a.onerror=e=>{console.error(`[WebSocket] Connection error:`,e),w(!1)}};return(0,l.useEffect)(()=>(h?(O(),k()):T.current&&=(T.current.close(),null),()=>{T.current&&T.current.close()}),[h,t]),(0,u.jsxs)(u.Fragment,{children:[(0,u.jsx)(`style`,{children:`
         .chat-widget-fab {
           position: fixed;
           bottom: 24px;
@@ -6,10 +6,10 @@ import{g as e,m as t,n,r,t as i}from"./createLucideIcon-DnU5s7Zs.js";import{t as
           width: 52px;
           height: 52px;
           border-radius: 50%;
-          background: #8b5cf6;
+          background: var(--brand-red);
           color: white;
           border: none;
-          box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
+          box-shadow: 0 4px 14px rgba(247, 55, 79, 0.4);
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -19,7 +19,7 @@ import{g as e,m as t,n,r,t as i}from"./createLucideIcon-DnU5s7Zs.js";import{t as
         }
         .chat-widget-fab:hover {
           transform: scale(1.08);
-          box-shadow: 0 6px 18px rgba(139, 92, 246, 0.5);
+          box-shadow: 0 6px 18px rgba(247, 55, 79, 0.5);
         }
         .chat-panel-container {
           position: fixed;
@@ -27,10 +27,10 @@ import{g as e,m as t,n,r,t as i}from"./createLucideIcon-DnU5s7Zs.js";import{t as
           right: 90px;
           width: 350px;
           height: 480px;
-          background: white;
+          background: var(--surface-overlay);
           border: 1px solid var(--border-medium);
           border-radius: var(--radius-md);
-          box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+          box-shadow: var(--shadow-lg);
           z-index: 998;
           display: flex;
           flex-direction: column;
@@ -42,12 +42,13 @@ import{g as e,m as t,n,r,t as i}from"./createLucideIcon-DnU5s7Zs.js";import{t as
           to { transform: translateY(0); opacity: 1; }
         }
         .chat-header {
-          background: #1a1625;
+          background: linear-gradient(135deg, #16161a, #000000);
           color: white;
           padding: 14px 18px;
           display: flex;
           justify-content: space-between;
           align-items: center;
+          border-bottom: 1px solid var(--border-light);
         }
         .chat-header h4 {
           margin: 0;
@@ -70,7 +71,7 @@ import{g as e,m as t,n,r,t as i}from"./createLucideIcon-DnU5s7Zs.js";import{t as
           flex: 1;
           padding: 16px;
           overflow-y: auto;
-          background: #f8f9fc;
+          background: var(--bg-surface);
           display: flex;
           flex-direction: column;
           gap: 12px;
@@ -86,13 +87,13 @@ import{g as e,m as t,n,r,t as i}from"./createLucideIcon-DnU5s7Zs.js";import{t as
         }
         .chat-bubble.sent {
           align-self: flex-end;
-          background: #8b5cf6;
+          background: linear-gradient(135deg, var(--brand-red), #ff6b7a);
           color: white;
           border-bottom-right-radius: 2px;
         }
         .chat-bubble.received {
           align-self: flex-start;
-          background: white;
+          background: var(--surface-card);
           color: var(--text-primary);
           border: 1px solid var(--border-medium);
           border-bottom-left-radius: 2px;
@@ -117,25 +118,27 @@ import{g as e,m as t,n,r,t as i}from"./createLucideIcon-DnU5s7Zs.js";import{t as
           border-top: 1px solid var(--border-light);
           display: flex;
           gap: 8px;
-          background: white;
+          background: var(--surface-overlay);
         }
         .chat-input {
           flex: 1;
           padding: 10px 14px;
           border: 1px solid var(--border-medium);
           border-radius: 20px;
+          background: var(--bg-main);
+          color: var(--text-primary);
           font-size: 0.88rem;
           outline: none;
         }
         .chat-input:focus {
-          border-color: #8b5cf6;
-          box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
+          border-color: var(--brand-red);
+          box-shadow: 0 0 0 3px var(--brand-tint-medium);
         }
         .chat-send-btn {
           width: 38px;
           height: 38px;
           border-radius: 50%;
-          background: #8b5cf6;
+          background: var(--brand-red);
           color: white;
           border: none;
           display: flex;
@@ -145,15 +148,9 @@ import{g as e,m as t,n,r,t as i}from"./createLucideIcon-DnU5s7Zs.js";import{t as
           transition: background 0.2s;
         }
         .chat-send-btn:hover {
-          background: #7c3aed;
+          background: var(--brand-red-hover);
           transform: scale(1.05);
-          box-shadow: 0 2px 8px rgba(139,92,246,0.4);
-        }
-        .chat-bubble.sent {
-          background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-        }
-        .chat-header {
-          background: linear-gradient(135deg, #1a1625, #2d1f5e);
+          box-shadow: 0 2px 8px rgba(247,55,79,0.4);
         }
         @media (max-width: 450px) {
           .chat-panel-container {

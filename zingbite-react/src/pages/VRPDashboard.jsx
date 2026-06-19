@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import useSSE from '../hooks/useSSE';
 import { 
   Compass, CloudRain, Sun, Sliders, BarChart3, Activity, RotateCcw, 
   MapPin, AlertTriangle, Thermometer, IndianRupee, Loader, ChevronRight, 
@@ -34,13 +35,18 @@ const VRPDashboard = () => {
   const markersRef = useRef([]);
   const polylinesRef = useRef([]);
   const circlesRef = useRef([]);
+  const isFetchingRef = useRef(false);
+  const debounceTimerRef = useRef(null);
 
   // Fetch VRP state from backend
-  const fetchVRPState = async () => {
+  const fetchVRPState = useCallback(async (isBackground = false) => {
     if (!user || user.role !== 'super_admin') {
       setLoading(false);
       return;
     }
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    if (!isBackground) setLoading(true);
     try {
       const res = await axios.get('/api/delivery/vrp');
       setData(res.data);
@@ -48,12 +54,37 @@ const VRPDashboard = () => {
       console.error("Failed to fetch VRP state:", err);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
-  };
+  }, [user]);
+
+  // Hook up SSE for real-time VRP updates
+  const ssePath = window.location.pathname.startsWith('/zingbite') ? '/zingbite/api/stream?topic=vrp' : '/api/stream?topic=vrp';
+  const { connected, reconnecting } = useSSE(user ? ssePath : null, (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      console.log("[ZingBite SSE] Received real-time VRP update:", payload);
+      if (payload && payload.type === 'vrp_updated') {
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = setTimeout(() => {
+          fetchVRPState(true);
+        }, 300);
+      }
+    } catch (err) {
+      console.error("[ZingBite SSE] Error parsing VRP update:", err);
+    }
+  }, { enabled: !!user });
 
   useEffect(() => {
-    fetchVRPState();
-  }, [user]);
+    fetchVRPState(false);
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [fetchVRPState]);
 
   // Load Leaflet dynamically if not loaded
   useEffect(() => {
@@ -452,6 +483,11 @@ const VRPDashboard = () => {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+        @keyframes pulse {
+          0% { opacity: 0.4; }
+          50% { opacity: 1; }
+          100% { opacity: 0.4; }
+        }
         .legend-indicator {
           width: 10px;
           height: 10px;
@@ -466,8 +502,30 @@ const VRPDashboard = () => {
             <h1 style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Compass className="spin" style={{ color: '#38bdf8' }} size={28} /> VRP Dispatch Control Room
             </h1>
-            <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+            <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '4px 0 0 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
               Dynamic Vehicle Routing Problem (VRP) optimization engine simulation under live constraints.
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                background: connected ? 'rgba(52, 211, 153, 0.1)' : (reconnecting ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)'),
+                color: connected ? '#34d399' : (reconnecting ? '#f59e0b' : '#ef4444'),
+                border: `1px solid ${connected ? 'rgba(52, 211, 153, 0.2)' : (reconnecting ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)')}`
+              }}>
+                <span style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: connected ? '#34d399' : (reconnecting ? '#f59e0b' : '#ef4444'),
+                  display: 'inline-block',
+                  animation: reconnecting ? 'pulse 1.5s infinite' : 'none'
+                }} />
+                {connected ? 'Live Sync' : (reconnecting ? 'Reconnecting' : 'Offline')}
+              </span>
             </p>
           </div>
           <button 

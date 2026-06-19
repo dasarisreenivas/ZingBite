@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import ChatWidget from '../components/ChatWidget';
 import RiderApplicationRow from '../components/RiderApplicationRow';
+import useSSE from '../hooks/useSSE';
 
 const ADMIN_LIST_PAGE_SIZE = 6;
 
@@ -83,37 +84,28 @@ const SuperAdminDashboard = () => {
       return;
     }
     fetchAdminData(false);
-
-    const ssePath = window.location.pathname.startsWith('/zingbite') ? '/zingbite/api/stream?topic=admin_requests' : '/api/stream?topic=admin_requests';
-    const eventSource = new EventSource(ssePath);
-    eventSource.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        console.log("[ZingBite SSE] Received real-time admin update:", payload);
-        
-        // Play notification sound on new onboarding request
-        if (payload && payload.event === 'new_request') {
-          try {
-            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
-            audio.volume = 0.5;
-            audio.play();
-          } catch (audioErr) {}
-        }
-        
-        fetchAdminData(true);
-      } catch (err) {
-        console.error("[ZingBite SSE] Error on message:", err);
-      }
-    };
-
-    eventSource.onerror = (err) => {
-      console.error("[ZingBite SSE] EventSource connection error:", err);
-    };
-
-    return () => {
-      eventSource.close();
-    };
   }, [user, authLoading]);
+
+  const ssePath = window.location.pathname.startsWith('/zingbite') ? '/zingbite/api/stream?topic=admin_requests' : '/api/stream?topic=admin_requests';
+  useSSE(user ? ssePath : null, (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      console.log("[ZingBite SSE] Received real-time admin update:", payload);
+      
+      // Play notification sound on new onboarding request
+      if (payload && payload.event === 'new_request') {
+        try {
+          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav');
+          audio.volume = 0.5;
+          audio.play();
+        } catch (audioErr) {}
+      }
+      
+      fetchAdminData(true);
+    } catch (err) {
+      console.error("[ZingBite SSE] Error on message:", err);
+    }
+  }, { enabled: !!user });
 
   useEffect(() => {
     if (activeTab === 'metrics') {

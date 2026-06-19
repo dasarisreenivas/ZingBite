@@ -146,10 +146,10 @@ const ChatWidget = ({ type, targetId, userId, userName, receiverId, placeholder 
           width: 52px;
           height: 52px;
           border-radius: 50%;
-          background: #8b5cf6;
+          background: var(--brand-red);
           color: white;
           border: none;
-          box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
+          box-shadow: 0 4px 14px rgba(247, 55, 79, 0.4);
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -159,7 +159,7 @@ const ChatWidget = ({ type, targetId, userId, userName, receiverId, placeholder 
         }
         .chat-widget-fab:hover {
           transform: scale(1.08);
-          box-shadow: 0 6px 18px rgba(139, 92, 246, 0.5);
+          box-shadow: 0 6px 18px rgba(247, 55, 79, 0.5);
         }
         .chat-panel-container {
           position: fixed;
@@ -167,10 +167,10 @@ const ChatWidget = ({ type, targetId, userId, userName, receiverId, placeholder 
           right: 90px;
           width: 350px;
           height: 480px;
-          background: white;
+          background: var(--surface-overlay);
           border: 1px solid var(--border-medium);
           border-radius: var(--radius-md);
-          box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+          box-shadow: var(--shadow-lg);
           z-index: 998;
           display: flex;
           flex-direction: column;
@@ -182,12 +182,13 @@ const ChatWidget = ({ type, targetId, userId, userName, receiverId, placeholder 
           to { transform: translateY(0); opacity: 1; }
         }
         .chat-header {
-          background: #1a1625;
+          background: linear-gradient(135deg, #16161a, #000000);
           color: white;
           padding: 14px 18px;
           display: flex;
           justify-content: space-between;
           align-items: center;
+          border-bottom: 1px solid var(--border-light);
         }
         .chat-header h4 {
           margin: 0;
@@ -210,7 +211,7 @@ const ChatWidget = ({ type, targetId, userId, userName, receiverId, placeholder 
           flex: 1;
           padding: 16px;
           overflow-y: auto;
-          background: #f8f9fc;
+          background: var(--bg-surface);
           display: flex;
           flex-direction: column;
           gap: 12px;
@@ -226,13 +227,13 @@ const ChatWidget = ({ type, targetId, userId, userName, receiverId, placeholder 
         }
         .chat-bubble.sent {
           align-self: flex-end;
-          background: #8b5cf6;
+          background: linear-gradient(135deg, var(--brand-red), #ff6b7a);
           color: white;
           border-bottom-right-radius: 2px;
         }
         .chat-bubble.received {
           align-self: flex-start;
-          background: white;
+          background: var(--surface-card);
           color: var(--text-primary);
           border: 1px solid var(--border-medium);
           border-bottom-left-radius: 2px;
@@ -257,25 +258,27 @@ const ChatWidget = ({ type, targetId, userId, userName, receiverId, placeholder 
           border-top: 1px solid var(--border-light);
           display: flex;
           gap: 8px;
-          background: white;
+          background: var(--surface-overlay);
         }
         .chat-input {
           flex: 1;
           padding: 10px 14px;
           border: 1px solid var(--border-medium);
           border-radius: 20px;
+          background: var(--bg-main);
+          color: var(--text-primary);
           font-size: 0.88rem;
           outline: none;
         }
         .chat-input:focus {
-          border-color: #8b5cf6;
-          box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
+          border-color: var(--brand-red);
+          box-shadow: 0 0 0 3px var(--brand-tint-medium);
         }
         .chat-send-btn {
           width: 38px;
           height: 38px;
           border-radius: 50%;
-          background: #8b5cf6;
+          background: var(--brand-red);
           color: white;
           border: none;
           display: flex;
@@ -285,15 +288,9 @@ const ChatWidget = ({ type, targetId, userId, userName, receiverId, placeholder 
           transition: background 0.2s;
         }
         .chat-send-btn:hover {
-          background: #7c3aed;
+          background: var(--brand-red-hover);
           transform: scale(1.05);
-          box-shadow: 0 2px 8px rgba(139,92,246,0.4);
-        }
-        .chat-bubble.sent {
-          background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-        }
-        .chat-header {
-          background: linear-gradient(135deg, #1a1625, #2d1f5e);
+          box-shadow: 0 2px 8px rgba(247,55,79,0.4);
         }
         @media (max-width: 450px) {
           .chat-panel-container {

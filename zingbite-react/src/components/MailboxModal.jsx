@@ -82,66 +82,52 @@ const MailboxModal = ({ onClose }) => {
   };
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', fontFamily: "'Inter', sans-serif"
-    }}>
-      <div style={{
-        backgroundColor: '#fff', borderRadius: '16px', boxShadow: '0 24px 64px rgba(28,28,28,0.2)',
-        width: '100%', maxWidth: '900px', height: '600px', display: 'flex', flexDirection: 'column', overflow: 'hidden'
-      }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm font-sans">
+      <div className="bg-white dark:bg-black rounded-2xl shadow-2xl w-full max-w-[900px] h-[600px] flex flex-col overflow-hidden border border-gray-100 dark:border-neutral-800">
         {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '16px 24px', borderBottom: '1px solid #f0f0f0', backgroundColor: '#F7374F', color: '#fff'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="flex items-center justify-between p-4 px-6 border-b border-gray-100 dark:border-neutral-800 bg-brand-red text-white">
+          <div className="flex items-center gap-2.5">
             <Mail size={22} />
-            <h2 style={{ fontSize: '17px', fontWeight: 700, margin: 0 }}>ZingBite Notification Mailbox</h2>
+            <h2 className="text-lg font-bold m-0 font-outfit">ZingBite Notification Mailbox</h2>
           </div>
-          <button onClick={onClose} style={{
-            background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '4px',
-            borderRadius: '50%', display: 'flex', alignItems: 'center', transition: 'background-color 0.2s'
-          }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(0,0,0,0.15)'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}>
+          <button 
+            onClick={onClose} 
+            className="bg-transparent border-none text-white cursor-pointer p-1 rounded-full flex items-center hover:bg-white/15 transition-colors"
+          >
             <X size={20} />
           </button>
         </div>
 
         {/* Super Admin Toggle */}
         {user?.role === 'super_admin' && (
-          <div style={{
-            padding: '8px 24px', borderBottom: '1px solid #f0f0f0', backgroundColor: '#f8f9fa',
-            display: 'flex', alignItems: 'center', gap: '8px'
-          }}>
+          <div className="p-2 px-6 border-b border-gray-100 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900 flex items-center gap-2">
             <input
               type="checkbox"
               id="show-all-system"
               checked={showAllSystem}
               onChange={(e) => setShowAllSystem(e.target.checked)}
-              style={{ accentColor: '#F7374F', cursor: 'pointer' }}
+              className="accent-brand-red cursor-pointer"
             />
-            <label htmlFor="show-all-system" style={{ fontSize: '11px', color: '#696969', fontWeight: 600, cursor: 'pointer' }}>
+            <label htmlFor="show-all-system" className="text-[11px] text-gray-500 dark:text-neutral-400 font-semibold cursor-pointer select-none">
               Show all system notification logs (Super Admin)
             </label>
           </div>
         )}
 
         {/* Content: Sidebar + Detail */}
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <div className="flex-1 flex overflow-hidden">
           {/* Email List Sidebar */}
-          <div style={{ width: '40%', borderRight: '1px solid #f0f0f0', overflowY: 'auto', backgroundColor: '#fff' }}>
+          <div className="w-[40%] border-r border-gray-100 dark:border-neutral-800 overflow-y-auto bg-white dark:bg-neutral-950">
             {loading ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                <Loader size={24} style={{ animation: 'spin 1s linear infinite' }} color="#F7374F" />
+              <div className="flex items-center justify-center h-full">
+                <Loader size={24} className="animate-spin text-brand-red" />
               </div>
             ) : error ? (
-              <div style={{ padding: '16px', textAlign: 'center', fontSize: '13px', color: '#e23744' }}>{error}</div>
+              <div className="p-4 text-center text-[13px] text-red-500 font-medium">{error}</div>
             ) : emails.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9e9e9e', gap: '4px' }}>
-                <Inbox size={40} style={{ opacity: 0.5 }} />
-                <p style={{ fontSize: '13px' }}>Mailbox is empty</p>
+              <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-neutral-500 gap-1">
+                <Inbox size={40} className="opacity-50" />
+                <p className="text-[13px]">Mailbox is empty</p>
               </div>
             ) : (
               emails.map((email) => {
@@ -151,37 +137,30 @@ const MailboxModal = ({ onClose }) => {
                   <button
                     key={email.id}
                     onClick={() => setSelectedEmail(email)}
-                    style={{
-                      width: '100%', textAlign: 'left', padding: '14px 16px',
-                      borderBottom: '1px solid #f8f9fa', cursor: 'pointer', display: 'flex', flexDirection: 'column',
-                      gap: '3px', border: 'none', outline: 'none', fontFamily: "'Inter', sans-serif",
-                      backgroundColor: isSelected ? 'rgba(247,55,79,0.06)' : '#fff',
-                      borderLeft: isSelected ? '3px solid #F7374F' : '3px solid transparent',
-                      transition: 'background-color 0.15s, border-left 0.15s'
-                    }}
-                    onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = '#f8f9fa'; }}
-                    onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = '#fff'; }}
+                    className={`w-full text-left p-3.5 px-4 border-b border-gray-50 dark:border-neutral-900/50 cursor-pointer flex flex-col gap-1 border-none outline-none font-sans transition-all border-l-[3px] ${
+                      isSelected 
+                        ? 'bg-brand-red/5 dark:bg-brand-red/10 border-brand-red' 
+                        : 'bg-white dark:bg-neutral-950 border-transparent hover:bg-gray-50 dark:hover:bg-neutral-900/40'
+                    }`}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
-                      <span style={{ fontWeight: 600, fontSize: '11px', color: '#9e9e9e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
+                    <div className="flex justify-between items-start w-full">
+                      <span className="font-semibold text-[11px] text-gray-400 dark:text-neutral-500 truncate max-w-[65%]">
                         To: {email.recipientEmail || `User #${email.userId}`}
                       </span>
-                      <span style={{ fontSize: '10px', color: '#9e9e9e', display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                      <span className="text-[10px] text-gray-400 dark:text-neutral-500 flex items-center gap-1 shrink-0">
                         <Calendar size={10} />
                         {formatDate(email.sentDate)}
                       </span>
                     </div>
-                    <span style={{ fontWeight: 700, fontSize: '13px', color: '#1c1c1c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                    <span className="font-bold text-[13px] text-gray-900 dark:text-neutral-100 truncate w-full">
                       {email.subject}
                     </span>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                      <span style={{ fontSize: '11px', color: '#9e9e9e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
+                    <div className="flex justify-between items-center w-full">
+                      <span className="text-[11px] text-gray-400 dark:text-neutral-500 truncate max-w-[70%]">
                         {stripHtml(email.body)}
                       </span>
-                      <span style={{
-                        fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '9999px',
-                        backgroundColor: statusStyle.backgroundColor, color: statusStyle.color,
-                        display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0
+                      <span className="text-[9px] font-bold p-0.5 px-2 rounded-full flex items-center gap-1 shrink-0" style={{
+                        backgroundColor: statusStyle.backgroundColor, color: statusStyle.color
                       }}>
                         {statusStyle.icon} {email.status}
                       </span>
@@ -193,29 +172,25 @@ const MailboxModal = ({ onClose }) => {
           </div>
 
           {/* Email Detail Pane */}
-          <div style={{ width: '60%', overflowY: 'auto', backgroundColor: '#f8f9fa', padding: '24px', display: 'flex', flexDirection: 'column' }}>
+          <div className="w-[60%] overflow-y-auto bg-gray-50 dark:bg-neutral-950 p-6 flex flex-col">
             {selectedEmail ? (
-              <div style={{
-                backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #f0f0f0',
-                boxShadow: '0 2px 8px rgba(28,28,28,0.05)', padding: '24px', flex: 1, display: 'flex', flexDirection: 'column'
-              }}>
+              <div className="bg-white dark:bg-neutral-900 rounded-xl border border-gray-100 dark:border-neutral-800/80 shadow-sm p-6 flex-1 display: flex flex-col">
                 {/* Email Header */}
-                <div style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: '16px', marginBottom: '16px' }}>
-                  <h3 style={{ fontWeight: 700, fontSize: '16px', color: '#1c1c1c', margin: '0 0 10px 0', fontFamily: "'Outfit', sans-serif" }}>
+                <div className="border-b border-gray-100 dark:border-neutral-800/80 pb-4 mb-4">
+                  <h3 className="font-bold text-base text-gray-900 dark:text-neutral-100 m-0 mb-2.5 font-outfit">
                     {selectedEmail.subject}
                   </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '11px', color: '#696969' }}>
-                    <div><span style={{ fontWeight: 700 }}>From:</span> ZingBite Operations &lt;support@zingbite.com&gt;</div>
-                    <div><span style={{ fontWeight: 700 }}>To:</span> {selectedEmail.recipientEmail || `User #${selectedEmail.userId}`}</div>
-                    <div><span style={{ fontWeight: 700 }}>Date:</span> {formatDate(selectedEmail.sentDate)}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontWeight: 700 }}>Status:</span>
+                  <div className="flex flex-col gap-1 text-[11px] text-gray-500 dark:text-neutral-400">
+                    <div><span className="font-bold">From:</span> ZingBite Operations &lt;support@zingbite.com&gt;</div>
+                    <div><span className="font-bold">To:</span> {selectedEmail.recipientEmail || `User #${selectedEmail.userId}`}</div>
+                    <div><span className="font-bold">Date:</span> {formatDate(selectedEmail.sentDate)}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold">Status:</span>
                       {(() => {
                         const st = getStatusStyle(selectedEmail.status);
                         return (
-                          <span style={{
-                            padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700,
-                            backgroundColor: st.backgroundColor, color: st.color, display: 'inline-flex', alignItems: 'center', gap: '3px'
+                          <span className="p-0.5 px-2 rounded-full text-[10px] font-bold inline-flex items-center gap-1" style={{
+                            backgroundColor: st.backgroundColor, color: st.color
                           }}>
                             {st.icon} {selectedEmail.status}
                           </span>
@@ -227,21 +202,15 @@ const MailboxModal = ({ onClose }) => {
 
                 {/* Email Body (rendered HTML) */}
                 <div
-                  style={{
-                    flex: 1, fontSize: '13px', color: '#1c1c1c', overflowY: 'auto',
-                    border: '1px solid #f0f0f0', borderRadius: '8px', padding: '16px', backgroundColor: '#fff', lineHeight: 1.6
-                  }}
+                  className="flex-1 text-[13px] text-gray-900 dark:text-neutral-100 overflow-y-auto border border-gray-100 dark:border-neutral-800/60 rounded-lg p-4 bg-white dark:bg-neutral-950 leading-relaxed"
                   dangerouslySetInnerHTML={{ __html: selectedEmail.body }}
                 />
               </div>
             ) : (
-              <div style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                height: '100%', color: '#9e9e9e', gap: '6px', textAlign: 'center'
-              }}>
-                <Mail size={48} style={{ opacity: 0.5 }} />
-                <p style={{ fontSize: '14px', fontWeight: 600 }}>No Email Selected</p>
-                <p style={{ fontSize: '12px', maxWidth: '260px', lineHeight: 1.4 }}>
+              <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-neutral-500 gap-1.5 text-center">
+                <Mail size={48} className="opacity-50" />
+                <p className="text-sm font-bold text-gray-800 dark:text-neutral-200">No Email Selected</p>
+                <p className="text-xs max-w-[260px] leading-normal">
                   Select a simulated notification email from the left pane to preview its rendered markup styling.
                 </p>
               </div>

@@ -31,14 +31,14 @@
   contain: layout style paint;
 }
 .stat-card {
-  background: #23213a;
+  background: var(--surface-card);
   border-radius: 16px;
   padding: 22px 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.10);
-  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
   transition: transform 0.35s var(--ease-premium), box-shadow 0.35s var(--ease-premium), border-color 0.35s var(--ease-premium);
   transform: translateZ(0);
   position: relative;
@@ -79,12 +79,12 @@
 .stat-number {
   font-size: 1.7rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-primary);
   line-height: 1.1;
 }
 .stat-label {
   font-size: 0.85rem;
-  color: #a0aec0;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
@@ -122,16 +122,16 @@
 .form-group label {
   font-weight: 600;
   font-size: 0.92rem;
-  color: #cbd5e1;
+  color: var(--text-secondary);
 }
 .form-group input,
 .form-group select,
 .form-group textarea {
   padding: 11px 14px;
   border-radius: 10px;
-  border: 1.5px solid rgba(255,255,255,0.10);
-  background: #1a1830;
-  color: #fff;
+  border: 1.5px solid var(--border-medium);
+  background: var(--bg-main);
+  color: var(--text-primary);
   font-size: 0.97rem;
   transition: border 0.3s var(--ease-premium), background 0.3s var(--ease-premium), box-shadow 0.3s var(--ease-premium);
   transform: translateZ(0);
@@ -141,8 +141,8 @@
 .form-group textarea:focus {
   border-color: #F7374F;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(247,55,79,0.12);
-  background: #201d3a;
+  box-shadow: 0 0 0 3px var(--brand-tint-medium);
+  background: var(--bg-surface-hover);
 }
 
 /* Primary Button */
@@ -300,7 +300,7 @@
 .section-title {
   font-size: 1.18rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   margin: 24px 0 14px 0;
   display: flex;
   align-items: center;
@@ -312,7 +312,8 @@
   display: flex;
   gap: 6px;
   margin-bottom: 22px;
-  background: #1a1830;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
   border-radius: 14px;
   padding: 5px;
   flex-wrap: wrap;
@@ -322,7 +323,7 @@
   border-radius: 10px;
   border: none;
   background: transparent;
-  color: #a0aec0;
+  color: var(--text-secondary);
   font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;
@@ -357,9 +358,10 @@
 }
 .data-table td {
   padding: 12px;
-  background: rgba(255,255,255,0.03);
-  border-top: 1px solid rgba(255,255,255,0.04);
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
   transition: background 0.25s var(--ease-premium);
 }
 .data-table tr:hover td {
@@ -368,16 +370,16 @@
 
 /* Dashboard Cards */
 .dashboard-card {
-  background: #1e1c36;
+  background: var(--surface-card);
   border-radius: 16px;
   padding: 20px;
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid var(--border-light);
   transition: transform 0.35s var(--ease-premium), box-shadow 0.35s var(--ease-premium), border-color 0.35s var(--ease-premium);
 }
 .dashboard-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-  border-color: rgba(247,55,79,0.15);
+  box-shadow: var(--shadow-md);
+  border-color: var(--card-border);
 }
 
 /* Notification toast */

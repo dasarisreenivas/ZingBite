@@ -147,7 +147,9 @@ const Checkout = () => {
           const upRes = await axios.post('/api/profile', { action: 'update', username: user.userName || user.username || 'User', mobile: String(user.phoneNumber || user.mobile || ''), address: finalAddress, latitude: finalAddress === manualAddress ? manualLat : null, longitude: finalAddress === manualAddress ? manualLng : null, city: finalAddress === manualAddress ? manualCity : '' });
           if (upRes.data.success && typeof updateUser === 'function') updateUser(upRes.data.user);
         }
-        const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'COD', items: formattedItems });
+        const firstItem = itemsList[0];
+        const restaurantId = firstItem ? firstItem.restaurantId : null;
+        const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'COD', items: formattedItems, restaurantId });
         if (!res.data.success) { showAlert(res.data.error || "Failed to place order.", "error"); setPaying(false); return; }
         trackEvent('ORDER_PLACED', { orderId: res.data.orderId, amount: cart.total, method: 'COD' });
         clearCart();
@@ -170,7 +172,9 @@ const Checkout = () => {
         const upRes = await axios.post('/api/profile', { action: 'update', username: user.userName || user.username || 'User', mobile: String(user.phoneNumber || user.mobile || ''), address: finalAddress, latitude: finalAddress === manualAddress ? manualLat : null, longitude: finalAddress === manualAddress ? manualLng : null, city: finalAddress === manualAddress ? manualCity : '' });
         if (upRes.data.success && typeof updateUser === 'function') updateUser(upRes.data.user);
       }
-      const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'Razorpay', items: formattedItems });
+      const firstItem = itemsList[0];
+      const restaurantId = firstItem ? firstItem.restaurantId : null;
+      const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'Razorpay', items: formattedItems, restaurantId });
       if (!res.data.success) { showAlert(res.data.error || "Failed to reserve order.", "error"); setPaying(false); return; }
       const orderId = res.data.orderId;
       const razorpayOrderId = res.data.razorpayOrderId;

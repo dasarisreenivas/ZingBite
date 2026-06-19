@@ -9,9 +9,9 @@ const Footer = () => {
       <style>{`
         .site-footer {
           background:
-            radial-gradient(circle at 20% 0%, rgba(247,55,79,0.15), transparent 40%),
-            radial-gradient(circle at 80% 100%, rgba(247,55,79,0.08), transparent 30%),
-            linear-gradient(180deg, #161616 0%, #0a0a0a 100%);
+            radial-gradient(circle at 20% 0%, rgba(247,55,79,0.12), transparent 40%),
+            radial-gradient(circle at 80% 100%, rgba(247,55,79,0.05), transparent 30%),
+            linear-gradient(180deg, #09090b 0%, #000000 100%);
           color: #fff;
           padding: 64px 20px 30px;
           margin-top: auto;
