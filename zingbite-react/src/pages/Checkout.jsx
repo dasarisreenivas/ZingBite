@@ -8,7 +8,7 @@ import { MapPin, CreditCard, Smartphone, Banknote, Truck, Percent, Shield, Lock 
 import { trackEvent } from '../utils/analytics';
 
 const Checkout = () => {
-  const { cart, clearCart } = useCart();
+  const { cart, clearCart, fetchSurge, fetchCart } = useCart();
   const { user, updateUser } = React.useContext(AuthContext);
   const navigate = useNavigate();
   const { showAlert } = useModal();
@@ -92,6 +92,11 @@ const Checkout = () => {
     const map = L.map(mapRef.current).setView([defaultLat, defaultLng], 14);
     mapInstanceRef.current = map;
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+    setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 200);
     const customIcon = L.divIcon({
       html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">📍</div>`,
       className: 'custom-checkout-marker', iconSize: [24, 24], iconAnchor: [12, 12]
@@ -105,6 +110,23 @@ const Checkout = () => {
       if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; markerRef.current = null; }
     };
   }, [leafletLoaded, addressChoice]);
+
+  useEffect(() => {
+    const updateSurgeForCheckout = async () => {
+      if (addressChoice === 'profile') {
+        if (user && user.latitude && user.longitude) {
+          await fetchSurge(user.latitude, user.longitude);
+          await fetchCart();
+        }
+      } else if (addressChoice === 'manual') {
+        if (manualLat !== null && manualLng !== null) {
+          await fetchSurge(manualLat, manualLng);
+          await fetchCart();
+        }
+      }
+    };
+    updateSurgeForCheckout();
+  }, [addressChoice, user?.latitude, user?.longitude, manualLat, manualLng, fetchSurge, fetchCart]);
 
   const detectLocation = () => {
     if (!navigator.geolocation) { showAlert("Geolocation is not supported by your browser.", "error"); return; }
@@ -149,7 +171,9 @@ const Checkout = () => {
         }
         const firstItem = itemsList[0];
         const restaurantId = firstItem ? firstItem.restaurantId : null;
-        const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'COD', items: formattedItems, restaurantId });
+        const latitude = addressChoice === 'profile' ? (user?.latitude || null) : manualLat;
+        const longitude = addressChoice === 'profile' ? (user?.longitude || null) : manualLng;
+        const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'COD', items: formattedItems, restaurantId, latitude, longitude });
         if (!res.data.success) { showAlert(res.data.error || "Failed to place order.", "error"); setPaying(false); return; }
         trackEvent('ORDER_PLACED', { orderId: res.data.orderId, amount: cart.total, method: 'COD' });
         clearCart();
@@ -174,7 +198,9 @@ const Checkout = () => {
       }
       const firstItem = itemsList[0];
       const restaurantId = firstItem ? firstItem.restaurantId : null;
-      const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'Razorpay', items: formattedItems, restaurantId });
+      const latitude = addressChoice === 'profile' ? (user?.latitude || null) : manualLat;
+      const longitude = addressChoice === 'profile' ? (user?.longitude || null) : manualLng;
+      const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'Razorpay', items: formattedItems, restaurantId, latitude, longitude });
       if (!res.data.success) { showAlert(res.data.error || "Failed to reserve order.", "error"); setPaying(false); return; }
       const orderId = res.data.orderId;
       const razorpayOrderId = res.data.razorpayOrderId;
@@ -368,14 +394,23 @@ const Checkout = () => {
 
           <div className="chk-summary">
             <div className="chk-row"><span>Item Total</span><span>&#8377;{cart.subtotal.toFixed(2)}</span></div>
-            <div className="chk-row"><span><Truck size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Delivery Fee</span><span>&#8377;{cart.shipping.toFixed(2)}</span></div>
-            <div className="chk-row"><span>Taxes</span><span>&#8377;{cart.tax.toFixed(2)}</span></div>
-            {cart.discount > 0 && (
-              <div className="chk-row" style={{ color: 'var(--success)', fontWeight: 700 }}>
-                <span><Percent size={12} style={{ marginRight: 2, verticalAlign: 'middle' }} /> Discount</span>
-                <span>-&#8377;{cart.discount.toFixed(2)}</span>
-              </div>
-            )}
+             <div className="chk-row">
+               <span><Truck size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Delivery Fee</span>
+               <span>&#8377;{cart.surgeMultiplier > 1.0 ? Math.max(0, cart.shipping - cart.surgeFee).toFixed(2) : cart.shipping.toFixed(2)}</span>
+             </div>
+             {cart.surgeMultiplier > 1.0 && (
+               <div className="chk-row" style={{ color: 'var(--brand-red)', fontWeight: 600 }}>
+                 <span>⚡ Surge Charge ({cart.surgeReason})</span>
+                 <span>+&#8377;{cart.surgeFee.toFixed(2)}</span>
+               </div>
+             )}
+             <div className="chk-row"><span>Taxes</span><span>&#8377;{cart.tax.toFixed(2)}</span></div>
+             {cart.discount > 0 && (
+               <div className="chk-row" style={{ color: 'var(--success)', fontWeight: 700 }}>
+                 <span><Percent size={12} style={{ marginRight: 2, verticalAlign: 'middle' }} /> Discount</span>
+                 <span>-&#8377;{cart.discount.toFixed(2)}</span>
+               </div>
+             )}
             <hr className="chk-divider" />
             <div className="chk-row chk-total">
               <strong>TO PAY</strong>

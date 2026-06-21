@@ -229,6 +229,34 @@ const RestaurantDashboard = () => {
   const [activeTab, setActiveTab] = useState('orders');
   const [data, setData] = useState({ restaurant: null, menu: [], orders: [], request: null });
   const [loading, setLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(true);
+  const [toggleStatusLoading, setToggleStatusLoading] = useState(false);
+
+  useEffect(() => {
+    if (data?.restaurant) {
+      setIsOpen(data.restaurant.isOpen);
+    }
+  }, [data?.restaurant]);
+
+  const handleToggleRestaurantStatus = async () => {
+    try {
+      setToggleStatusLoading(true);
+      const res = await axios.post('/api/restaurant-admin', { action: 'toggleRestaurantStatus' });
+      if (res.data && res.data.success) {
+        const newStatus = res.data.isOpen;
+        setIsOpen(newStatus);
+        setData(prev => ({
+          ...prev,
+          restaurant: prev.restaurant ? { ...prev.restaurant, isOpen: newStatus } : null
+        }));
+        showAlert(`Restaurant is now ${newStatus ? 'Open' : 'Closed'}`, "success", "Status Updated");
+      }
+    } catch (err) {
+      showAlert(err.response?.data?.error || 'Failed to toggle status', "error", "Update Failed");
+    } finally {
+      setToggleStatusLoading(false);
+    }
+  };
   const [error, setError] = useState(null);
   const [alerts, setAlerts] = useState([]);
   
@@ -1811,9 +1839,38 @@ const RestaurantDashboard = () => {
                 loading="lazy"
               />
               <div className="banner-details">
-                <div className="banner-title-row">
-                  <h1 className="banner-title">{restaurant.restaurantName}</h1>
-                  <span className="banner-badge">Portal Admin</span>
+                <div className="banner-title-row" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                  <h1 className="banner-title" style={{ margin: 0 }}>{restaurant.restaurantName}</h1>
+                  <span className="banner-badge" style={{ margin: 0 }}>Portal Admin</span>
+                  <button
+                    onClick={handleToggleRestaurantStatus}
+                    disabled={toggleStatusLoading}
+                    style={{
+                      background: isOpen ? 'var(--success)' : '#e2e8f0',
+                      color: isOpen ? '#fff' : '#475569',
+                      border: 'none',
+                      padding: '6px 12px',
+                      borderRadius: '12px',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s ease',
+                      textTransform: 'uppercase',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    <span style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: isOpen ? '#fff' : '#475569',
+                      display: 'inline-block'
+                    }} />
+                    {isOpen ? 'Open' : 'Closed'}
+                  </button>
                 </div>
                 <p className="banner-subtext">
                   <MapPin size={16} /> <span>{restaurant.address}</span>

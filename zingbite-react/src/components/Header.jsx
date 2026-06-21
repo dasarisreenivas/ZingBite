@@ -30,7 +30,16 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showMailbox, setShowMailbox] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const headerRef = useRef(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -417,7 +426,9 @@ const Header = () => {
           .mobile-notification-wrap {
             display: flex !important;
             align-items: center;
-            margin-right: 12px;
+            justify-content: center;
+            margin-right: 8px;
+            margin-left: auto;
           }
         }
         @media (max-width: 1120px) {
@@ -493,7 +504,7 @@ const Header = () => {
                 <button type="button" onClick={() => setShowMailbox(true)} className="nav-link" style={{background:'none',border:'none',cursor:'pointer',fontSize:'0.9rem',color:'inherit',display:'flex',alignItems:'center',gap:'6px',padding:'8px 12px'}}>
                   <Mail size={16} /> Mailbox
                 </button>
-                <NotificationCenter />
+                {!isMobile && <NotificationCenter />}
                 <button type="button" onClick={handleLogout} className="nav-btn-logout">Logout</button>
               </>
             ) : (
@@ -504,7 +515,7 @@ const Header = () => {
             )}
           </nav>
 
-          {user && (
+          {user && isMobile && (
             <div className="mobile-notification-wrap">
               <NotificationCenter />
             </div>

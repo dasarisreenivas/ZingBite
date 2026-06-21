@@ -142,6 +142,11 @@ const Register = () => {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
+    setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 200);
     const customIcon = L.divIcon({
       html: '<div style="font-size:24px;text-align:center;line-height:24px;">📍</div>',
       className: 'custom-register-marker', iconSize: [24, 24], iconAnchor: [12, 12]
@@ -174,7 +179,7 @@ const Register = () => {
         markerRef.current = null;
       }
     };
-  }, [leafletLoaded]);
+  }, [leafletLoaded, formData.latitude, formData.longitude]);
 
   return (
     <>

@@ -169,6 +169,12 @@ const Profile = () => {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
+    setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 200);
+
     const customIcon = L.divIcon({
       html: `<div style="font-size: 24px; text-align: center; line-height: 24px;">📍</div>`,
       className: 'custom-profile-marker',

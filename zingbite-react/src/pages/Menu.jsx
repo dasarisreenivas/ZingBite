@@ -65,12 +65,31 @@ const Menu = () => {
     ? `/zingbite/api/stream?topic=menu&restaurantId=${restaurantId}`
     : `/api/stream?topic=menu&restaurantId=${restaurantId}`;
 
-  useSSE(restaurantId ? menuSsePath : null, () => {
+  useSSE(restaurantId ? menuSsePath : null, (event) => {
     try {
-      console.log("[ZingBite SSE] Real-time menu update");
+      console.log("[ZingBite SSE] Real-time menu update", event?.data);
+      if (event && event.data) {
+        const data = JSON.parse(event.data);
+        if (data.event === "restaurant_status_update" && Number(data.restaurantId) === Number(restaurantId)) {
+          setMenuList(prev => prev.map(item => {
+            if (item.restaurant) {
+              return {
+                ...item,
+                restaurant: {
+                  ...item.restaurant,
+                  isOpen: data.isOpen
+                }
+              };
+            }
+            return item;
+          }));
+          return;
+        }
+      }
       fetchMenu(true);
     } catch (err) {
       console.error(err);
+      fetchMenu(true);
     }
   }, { enabled: !!restaurantId });
 
@@ -86,7 +105,7 @@ const Menu = () => {
       try {
         setRecommendationsLoading(true);
         const res = await axios.get(`/api/recommendations?restaurantId=${restaurantId}&cartItems=${cartItemIds}`);
-        setRecommendations(res.data.recommendations || []);
+        setRecommendations(Array.isArray(res.data) ? res.data : (res.data.recommendations || []));
       } catch (err) {
         console.error("[ZingBite] Error fetching recommendations:", err);
       } finally { setRecommendationsLoading(false); }
@@ -103,6 +122,10 @@ const Menu = () => {
 
   const handleAddClick = async (itemId) => {
     if (!user) { navigate(`/login?redirect=/menu?restaurantId=${restaurantId}&restaurantName=${encodeURIComponent(restaurantNameParam)}`); return; }
+    if (dynRestaurant && !dynRestaurant.isOpen) {
+      setCartError("Restaurant is currently closed");
+      return;
+    }
     setCartError(null);
     await addToCart(itemId, 1);
   };
@@ -306,7 +329,23 @@ const Menu = () => {
           </div>
           <div className="hero-overlay">
             <div className="hero-glass-card">
-              <h1>{restName}</h1>
+              <h1 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                {restName}
+                {dynRestaurant && !dynRestaurant.isOpen && (
+                  <span className="closed-badge-header" style={{
+                    fontSize: '1rem',
+                    background: 'var(--danger)',
+                    color: 'white',
+                    padding: '4px 12px',
+                    borderRadius: '8px',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Closed
+                  </span>
+                )}
+              </h1>
               <div className="hero-info-row">
                 <span className="hero-info-item"><Star size={14} fill="#ffb703" color="#ffb703" /> <strong>4.2</strong> (100+)</span>
                 <span className="hero-separator">|</span>
@@ -397,18 +436,25 @@ const Menu = () => {
                     </div>
                     <div className="dish-card-action">
                       {qty === 0 ? (
-                        <button className="add-btn" disabled={!item.isAvailable} onClick={() => handleAddClick(item.menuId)}>
-                          {item.isAvailable ? 'ADD' : 'SOLD OUT'}
+                        <button className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>
+                          {(!item.isAvailable) ? 'SOLD OUT' : (dynRestaurant && !dynRestaurant.isOpen) ? 'CLOSED' : 'ADD'}
                         </button>
                       ) : (
-                        <div className="qty-stepper">
-                          <button className="step-btn" onClick={() => updateQuantity(item.menuId, qty - 1)}><Minus size={12} /></button>
+                        <div className="qty-stepper" style={{ opacity: (dynRestaurant && !dynRestaurant.isOpen) ? 0.6 : 1, borderColor: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--border-medium)' : 'var(--success)' }}>
+                          <button 
+                            className="step-btn" 
+                            disabled={dynRestaurant && !dynRestaurant.isOpen} 
+                            onClick={() => updateQuantity(item.menuId, qty - 1)}
+                            style={{ cursor: (dynRestaurant && !dynRestaurant.isOpen) ? 'not-allowed' : 'pointer', color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
+                          >
+                            <Minus size={12} />
+                          </button>
                           <span className="step-val">{qty}</span>
                           <button 
                             className="step-btn" 
-                            disabled={!item.isAvailable} 
+                            disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} 
                             onClick={() => updateQuantity(item.menuId, qty + 1)}
-                            style={{ cursor: item.isAvailable ? 'pointer' : 'not-allowed', opacity: item.isAvailable ? 1 : 0.5 }}
+                            style={{ cursor: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 'not-allowed' : 'pointer', opacity: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 0.5 : 1, color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
                           >
                             <Plus size={12} />
                           </button>
@@ -470,16 +516,23 @@ const Menu = () => {
                       </div>
                       <div className="dish-card-action">
                         {qty === 0 ? (
-                          <button className="add-btn" disabled={!item.isAvailable} onClick={() => handleAddClick(item.menuId)}>{item.isAvailable ? 'ADD' : 'SOLD OUT'}</button>
+                          <button className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>{(!item.isAvailable) ? 'SOLD OUT' : (dynRestaurant && !dynRestaurant.isOpen) ? 'CLOSED' : 'ADD'}</button>
                         ) : (
-                          <div className="qty-stepper">
-                            <button className="step-btn" onClick={() => updateQuantity(item.menuId, qty - 1)}><Minus size={12} /></button>
+                          <div className="qty-stepper" style={{ opacity: (dynRestaurant && !dynRestaurant.isOpen) ? 0.6 : 1, borderColor: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--border-medium)' : 'var(--success)' }}>
+                            <button 
+                              className="step-btn" 
+                              disabled={dynRestaurant && !dynRestaurant.isOpen} 
+                              onClick={() => updateQuantity(item.menuId, qty - 1)}
+                              style={{ cursor: (dynRestaurant && !dynRestaurant.isOpen) ? 'not-allowed' : 'pointer', color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
+                            >
+                              <Minus size={12} />
+                            </button>
                             <span className="step-val">{qty}</span>
                             <button 
                               className="step-btn" 
-                              disabled={!item.isAvailable} 
+                              disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} 
                               onClick={() => updateQuantity(item.menuId, qty + 1)}
-                              style={{ cursor: item.isAvailable ? 'pointer' : 'not-allowed', opacity: item.isAvailable ? 1 : 0.5 }}
+                              style={{ cursor: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 'not-allowed' : 'pointer', opacity: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 0.5 : 1, color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
                             >
                               <Plus size={12} />
                             </button>

@@ -1,0 +1,90 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-service
+  session:
+    store-type: redis
+    servlet:
+      cookie-name: JSESSIONID
+  data:
+    redis:
+      host: ${ZINGBITE_REDIS_HOST:127.0.0.1}
+      port: ${ZINGBITE_REDIS_PORT:6379}
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:5173"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+      routes:
+        # Auth Service
+        - id: auth-service
+          uri: http://127.0.0.1:8081
+          predicates:
+            - Path=/zingbite/api/register, /zingbite/api/login, /zingbite/api/logout, /zingbite/checkData, /zingbite/api/profile, /zingbite/api/notifications
+          filters:
+            - StripPrefix=1
+
+        # Orders Service
+        - id: orders-service
+          uri: http://127.0.0.1:8082
+          predicates:
+            - Path=/zingbite/api/cart, /zingbite/CreateOrderServlet, /zingbite/paymentSuccess, /zingbite/api/payment/verify, /zingbite/api/payment/webhook, /zingbite/api/wishlist
+          filters:
+            - StripPrefix=1
+
+        # Restaurant Service
+        - id: restaurant-service
+          uri: http://127.0.0.1:8083
+          predicates:
+            - Path=/zingbite/api/home, /zingbite/api/menu, /zingbite/api/restaurant-admin, /zingbite/api/reviews, /zingbite/api/recommendations
+          filters:
+            - StripPrefix=1
+
+        # Delivery Service
+        - id: delivery-service
+          uri: http://127.0.0.1:8084
+          predicates:
+            - Path=/zingbite/api/delivery, /zingbite/api/delivery/location, /zingbite/api/delivery/route, /zingbite/api/delivery/vrp, /zingbite/api/surge
+          filters:
+            - StripPrefix=1
+
+        # Careers Service
+        - id: careers-service
+          uri: http://127.0.0.1:8085
+          predicates:
+            - Path=/zingbite/api/careers, /zingbite/api/super-admin, /zingbite/api/analytics, /zingbite/api/contact, /zingbite/api/emails
+          filters:
+            - StripPrefix=1
+
+        # Chat & SSE Service (HTTP & SSE)
+        - id: chat-service-http
+          uri: http://127.0.0.1:8086
+          predicates:
+            - Path=/zingbite/api/chat, /zingbite/api/group-order/**, /zingbite/api/stream, /zingbite/api/order/stream
+          filters:
+            - StripPrefix=1
+
+        # Chat & SSE Service (WebSockets)
+        - id: chat-service-ws
+          uri: ws://127.0.0.1:8086
+          predicates:
+            - Path=/zingbite/api/ws/**, /zingbite/ws/**
+          filters:
+            - StripPrefix=1
+
+ratelimit:
+  limit: 100
+  duration-minutes: 1
+
+

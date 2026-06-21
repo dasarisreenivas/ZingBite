@@ -1,13 +1,16 @@
 import React, { createContext, useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { trackEvent } from '../utils/analytics';
+import { AuthContext } from './AuthContext';
 
 export const CartContext = createContext();
 
-const INITIAL_CART = { items: [], total: 0, subtotal: 0, itemCount: 0, shipping: 0, tax: 0 };
+const INITIAL_CART = { items: [], total: 0, subtotal: 0, itemCount: 0, shipping: 0, tax: 0, surgeMultiplier: 1.0, surgeFee: 0.0, surgeReason: 'Normal' };
 
 export const CartProvider = ({ children }) => {
+  const { user } = useContext(AuthContext);
   const [cart, setCart] = useState(INITIAL_CART);
+  const [surge, setSurge] = useState({ multiplier: 1.0, reason: 'Normal', fee: 0.0 });
   const [loading, setLoading] = useState(true);
   const [conflictPopup, setConflictPopup] = useState(null);
   const [cartError, setCartError] = useState(null);
@@ -25,9 +28,32 @@ export const CartProvider = ({ children }) => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchCart();
+  const fetchSurge = useCallback(async (latitude, longitude) => {
+    try {
+      const res = await axios.get('/api/surge', { params: { latitude, longitude } });
+      if (res.data) {
+        setSurge({
+          multiplier: res.data.surgeMultiplier || res.data.multiplier || 1.0,
+          reason: res.data.surgeReason || res.data.reason || 'Normal',
+          fee: res.data.surgeFee || res.data.fee || 0.0
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch surge:", err);
+    }
   }, []);
+
+  useEffect(() => {
+    const updateSurgeAndCart = async () => {
+      if (user && user.latitude && user.longitude) {
+        await fetchSurge(user.latitude, user.longitude);
+        await fetchCart();
+      } else {
+        await fetchCart();
+      }
+    };
+    updateSurgeAndCart();
+  }, [user?.latitude, user?.longitude, fetchSurge, fetchCart]);
 
   // Reset coupon if cart becomes empty
   useEffect(() => {
@@ -57,7 +83,7 @@ export const CartProvider = ({ children }) => {
   }, []);
 
   const getDiscountedCart = useCallback(() => {
-    if (!cart) return { items: [], subtotal: 0, shipping: 0, tax: 0, total: 0, itemCount: 0, discount: 0 };
+    if (!cart) return { items: [], subtotal: 0, shipping: 0, tax: 0, total: 0, itemCount: 0, discount: 0, surgeMultiplier: 1.0, surgeFee: 0.0, surgeReason: 'Normal' };
     
     let subtotal = cart.subtotal || 0;
     let shipping = cart.shipping || 0;
@@ -73,8 +99,10 @@ export const CartProvider = ({ children }) => {
       } else if (coupon.type === 'flat') {
         discount = Math.min(coupon.value, subtotal);
       } else if (coupon.type === 'free_delivery') {
-        discount = shipping;
-        shipping = 0;
+        const surgeFee = cart.surgeFee || 0;
+        const baseShipping = Math.max(0, shipping - surgeFee);
+        discount = baseShipping;
+        shipping = surgeFee;
       }
     }
 
@@ -86,7 +114,10 @@ export const CartProvider = ({ children }) => {
       shipping,
       tax,
       discount,
-      total
+      total,
+      surgeFee: cart.surgeFee || 0,
+      surgeMultiplier: cart.surgeMultiplier || 1.0,
+      surgeReason: cart.surgeReason || 'Normal'
     };
   }, [cart, coupon]);
 
@@ -159,9 +190,9 @@ export const CartProvider = ({ children }) => {
     cart: getDiscountedCart(), loading, addToCart, updateQuantity, removeFromCart,
     conflictPopup, setConflictPopup, clearAndAdd, clearCart,
     coupon, applyCoupon, removeCoupon,
-    cartError, setCartError
+    cartError, setCartError, fetchSurge, fetchCart
   }), [getDiscountedCart, loading, addToCart, updateQuantity, removeFromCart,
-      conflictPopup, clearAndAdd, clearCart, coupon, applyCoupon, removeCoupon, cartError]);
+      conflictPopup, clearAndAdd, clearCart, coupon, applyCoupon, removeCoupon, cartError, fetchSurge, fetchCart]);
 
   return (
     <CartContext.Provider value={contextValue}>

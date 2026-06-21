@@ -71,3 +71,23 @@ dist-ssr/
 # AI configuration folders
 .gemini/
 .agents/
+
+# Compiled Java Classes & Logs
+*.class
+*.log
+**/logs/
+temp_verification/
+
+# Python Cache & Compiled Files
+**/__pycache__/
+*.pyc
+
+# Project metadata and reports
+ORIGINAL_REQUEST.md
+PROJECT.md
+TEST_INFRA.md
+TEST_READY.md
+bug_fix_log.md
+progress.md
+
+

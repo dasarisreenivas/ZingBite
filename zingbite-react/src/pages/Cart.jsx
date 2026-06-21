@@ -422,7 +422,16 @@ const Cart = () => {
 
           <div className="bill-label">Bill Details</div>
           <div className="bill-row"><span>Item Total</span><span>&#8377;{cart.subtotal.toFixed(2)}</span></div>
-          <div className="bill-row"><span><Truck size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Delivery Fee</span><span>&#8377;{cart.shipping.toFixed(2)}</span></div>
+          <div className="bill-row">
+            <span><Truck size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Delivery Fee</span>
+            <span>&#8377;{cart.surgeMultiplier > 1.0 ? Math.max(0, cart.shipping - cart.surgeFee).toFixed(2) : cart.shipping.toFixed(2)}</span>
+          </div>
+          {cart.surgeMultiplier > 1.0 && (
+            <div className="bill-row" style={{ color: 'var(--brand-red)', fontWeight: 600 }}>
+              <span>⚡ Surge Charge ({cart.surgeReason})</span>
+              <span>+&#8377;{cart.surgeFee.toFixed(2)}</span>
+            </div>
+          )}
           <div className="bill-row"><span>Taxes and Charges</span><span>&#8377;{cart.tax.toFixed(2)}</span></div>
           {cart.discount > 0 && (
             <div className="bill-row" style={{ color: 'var(--success)', fontWeight: 700 }}>

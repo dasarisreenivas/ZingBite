@@ -295,10 +295,36 @@ const ActiveDeliveryMap = React.memo(({ order }) => {
 });
 
 const DeliveryDashboard = () => {
-  const { user, logout, loading: authLoading } = useContext(AuthContext);
+  const { user, logout, loading: authLoading, updateUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const { showAlert } = useModal();
   const [data, setData] = useState({ available: [], active: [], completed: [], totalEarnings: 0, completedCount: 0 });
+  const [riderStatus, setRiderStatus] = useState(user?.riderStatus || 'Inactive');
+  const [toggleLoading, setToggleLoading] = useState(false);
+
+  useEffect(() => {
+    if (user?.riderStatus) {
+      setRiderStatus(user.riderStatus);
+    }
+  }, [user]);
+
+  const handleToggleAvailability = async () => {
+    try {
+      setToggleLoading(true);
+      const res = await axios.post('/api/delivery', { action: 'toggleAvailability' });
+      if (res.data && res.data.success) {
+        const newStatus = res.data.riderStatus;
+        setRiderStatus(newStatus);
+        updateUser({ ...user, riderStatus: newStatus });
+        showAlert(`Status updated to ${newStatus}`, "success", "Availability Updated");
+      }
+    } catch (err) {
+      showAlert(err.response?.data?.error || 'Failed to toggle availability', "error", "Update Failed");
+    } finally {
+      setToggleLoading(false);
+    }
+  };
+
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [simulators, setSimulators] = useState({});
@@ -450,6 +476,10 @@ const DeliveryDashboard = () => {
     try {
       const res = await axios.get('/api/delivery');
       setData(res.data);
+      if (res.data && res.data.riderStatus) {
+        setRiderStatus(res.data.riderStatus);
+        updateUser({ ...user, riderStatus: res.data.riderStatus });
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -1031,7 +1061,30 @@ const DeliveryDashboard = () => {
             <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>Welcome back, {user?.userName || 'Delivery Rider'}!</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span className="badge out" style={{ padding: '8px 16px', borderRadius: '20px', fontWeight: 700 }}>ACTIVE RIDER</span>
+            <button
+              onClick={handleToggleAvailability}
+              disabled={toggleLoading}
+              style={{
+                width: 'auto',
+                marginTop: 0,
+                padding: '8px 16px',
+                borderRadius: '20px',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                background: riderStatus === 'Active' ? 'var(--success)' : '#cbd5e1',
+                color: riderStatus === 'Active' ? '#fff' : '#475569',
+                border: 'none',
+                boxShadow: 'var(--shadow-sm)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Bike size={16} />
+              Status: {riderStatus === 'Active' ? 'Active' : 'Inactive'}
+            </button>
             <button onClick={handleLogout} className="portal-logout-btn">
               <LogOut size={16} /> Logout
             </button>

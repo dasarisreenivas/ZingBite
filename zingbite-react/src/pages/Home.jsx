@@ -1109,14 +1109,33 @@ function RestaurantCard({ restaurant: r, index }) {
           className="rest-card-img"
           loading="lazy"
           onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RESTAURANT_FALLBACK_IMAGE; }}
+          style={{ filter: r.isOpen === false ? 'grayscale(100%)' : 'none' }}
         />
         <div className="rest-card-img-overlay" />
+        {r.isOpen === false && (
+          <div className="closed-overlay" style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 3,
+            color: '#fff',
+            fontWeight: 800,
+            fontSize: '1.2rem',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
+          }}>
+            Closed
+          </div>
+        )}
         <div className="rest-card-offer">Free Delivery</div>
         <div className="rest-card-rating">
           <span className="star"><Star size={14} fill="#FFB800" color="#FFB800" /></span> {formatRating(r.rating)}
         </div>
       </div>
-      <div className="rest-card-details">
+      <div className="rest-card-details" style={{ opacity: r.isOpen === false ? 0.6 : 1 }}>
         <h3 className="rest-card-name">{r.restaurantName}</h3>
         <div className="rest-card-meta">
           <span>{r.cusineType}</span>

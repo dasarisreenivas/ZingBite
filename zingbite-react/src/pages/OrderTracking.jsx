@@ -544,23 +544,24 @@ const OrderTracking = () => {
     const normalized = getNormalizedStatus(orderDetail.status);
     if (normalized === 'OUT_FOR_DELIVERY') {
       if (orderDetail.pathLM1 && orderDetail.pathLM1.length > 0) {
-        pathPoints = orderDetail.pathLM1.map(n => [n.latitude, n.longitude]);
+        pathPoints = orderDetail.pathLM1.map(n => [n ? n.latitude : undefined, n ? n.longitude : undefined]).filter(p => p[0] !== undefined && p[1] !== undefined);
       }
     } else {
       if (orderDetail.pathFM && orderDetail.pathFM.length > 0) {
-        pathPoints = orderDetail.pathFM.map(n => [n.latitude, n.longitude]);
+        pathPoints = orderDetail.pathFM.map(n => [n ? n.latitude : undefined, n ? n.longitude : undefined]).filter(p => p[0] !== undefined && p[1] !== undefined);
       }
     }
 
     if (pathPoints.length > 0) {
       const pos = interpolatePolyline(pathPoints, animationProgress);
-      if (pos) {
+      if (pos && typeof pos[0] === 'number' && !isNaN(pos[0]) && typeof pos[1] === 'number' && !isNaN(pos[1])) {
         currentLat = pos[0];
         currentLng = pos[1];
       }
     } else {
-      currentLat = (12.9716 + 0.0105 * (animationProgress / 100));
-      currentLng = (77.5946 + 0.0139 * (animationProgress / 100));
+      const progress = typeof animationProgress === 'number' && !isNaN(animationProgress) ? animationProgress : 0;
+      currentLat = (12.9716 + 0.0105 * (progress / 100));
+      currentLng = (77.5946 + 0.0139 * (progress / 100));
     }
   }
 
@@ -600,12 +601,15 @@ const OrderTracking = () => {
       displayHeading = "Picked Up";
       displaySubtitle = "Rider has collected your order and is departing restaurant.";
     } else if (status === 'OUT_FOR_DELIVERY') {
-      const remaining = 1 - (animationProgress / 100);
+      const progress = typeof animationProgress === 'number' && !isNaN(animationProgress) ? animationProgress : 0;
+      const remaining = 1 - (progress / 100);
       etaVal = Math.max(1, Math.round(10 * remaining));
       distanceLeftVal = (3.2 * remaining).toFixed(1) + " km";
       
       displayHeading = `Arriving in ${etaVal} mins`;
-      displaySubtitle = `Rider is on the way! Distance left: ${distanceLeftVal} (${isRealGPS ? 'Live GPS' : 'Projected'}: ${currentLat.toFixed(5)}° N, ${currentLng.toFixed(5)}° E)`;
+      const latStr = (typeof currentLat === 'number' && !isNaN(currentLat)) ? currentLat.toFixed(5) : '12.97160';
+      const lngStr = (typeof currentLng === 'number' && !isNaN(currentLng)) ? currentLng.toFixed(5) : '77.59460';
+      displaySubtitle = `Rider is on the way! Distance left: ${distanceLeftVal} (${isRealGPS ? 'Live GPS' : 'Projected'}: ${latStr}° N, ${lngStr}° E)`;
     } else if (status === 'DELIVERED') {
       etaVal = 0;
       distanceLeftVal = "0 km";
@@ -1694,7 +1698,7 @@ const OrderTracking = () => {
             We are confirming your transaction with your bank. This page will update automatically as soon as payment is confirmed. Please do not close or refresh this page.
           </p>
           <div style={{ background: 'rgba(247, 55, 79, 0.035)', border: '1px solid rgba(247, 55, 79, 0.1)', borderRadius: '8px', padding: '16px', fontSize: '0.82rem', color: 'var(--text-muted)', width: '100%', boxSizing: 'border-box' }}>
-            Order ID: <strong>ZB-{orderDetail.id || orderDetail.orderId}</strong> &bull; Total Amount: <strong>&#8377;{(orderDetail.total || orderDetail.totalAmount || 0).toFixed(2)}</strong>
+            Order ID: <strong>ZB-{orderDetail.id || orderDetail.orderId}</strong> &bull; Total Amount: <strong>&#8377;{Number(orderDetail.total || orderDetail.totalAmount || 0).toFixed(2)}</strong>
           </div>
         </div>
       ) : (
@@ -1869,14 +1873,14 @@ const OrderTracking = () => {
                     {orderDetail.items.map((item, idx) => (
                       <div key={idx} className="receipt-row" style={{ fontSize: '0.8rem', marginBottom: '4px' }}>
                         <span>{item.name} &times; {item.qty}</span>
-                        <span>&#8377;{(item.price * item.qty).toFixed(2)}</span>
+                        <span>&#8377;{(Number(item.price || 0) * Number(item.qty || 0)).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
                 )}
                 <div className="receipt-total receipt-row" style={{ borderTop: orderDetail ? 'none' : '1px dashed var(--border-medium)', marginTop: orderDetail ? 0 : '12px' }}>
                   <strong>Amount Paid</strong>
-                  <strong>&#8377;{orderDetail ? orderDetail.total.toFixed(2) : '0.00'}</strong>
+                  <strong>&#8377;{Number(orderDetail?.total || orderDetail?.totalAmount || 0).toFixed(2)}</strong>
                 </div>
               </div>
             </div>
