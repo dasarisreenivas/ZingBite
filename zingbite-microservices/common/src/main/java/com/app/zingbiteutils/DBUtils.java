@@ -73,7 +73,7 @@ import com.app.zingbitemodels.ComboMapping;
 		}
 	}
 
-	private static void loadEnvFile() {
+	public static void loadEnvFile() {
 		java.io.File envFile = null;
 		String[] searchPaths = {
 			System.getProperty("catalina.base"),

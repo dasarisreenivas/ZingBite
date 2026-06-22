@@ -1,7 +1,9 @@
 package com.app.zingbiteutils;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import org.hibernate.Session;
@@ -10,8 +12,15 @@ import com.app.zingbitemodels.User;
 import com.app.zingbitemodels.OrderStatusLog;
 import com.app.zingbitedaoimpl.OrderStatusLogDAOImplementation;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisURI;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.pubsub.RedisPubSubAdapter;
+import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 
 public class OrderEventBroker {
+    private static final String BRIDGE_CHANNEL = "zingbite:realtime-events";
     private static final OrderEventBroker instance = new OrderEventBroker();
 
     public static OrderEventBroker getInstance() {
@@ -20,6 +29,14 @@ public class OrderEventBroker {
 
     private final Map<Integer, Set<SSEListener>> listeners = new ConcurrentHashMap<>();
     private final Map<String, Set<SSEListener>> topicListeners = new ConcurrentHashMap<>();
+    private final String instanceId = UUID.randomUUID().toString();
+    private RedisClient redisClient;
+    private StatefulRedisConnection<String, String> publishConnection;
+    private StatefulRedisPubSubConnection<String, String> subscribeConnection;
+
+    private OrderEventBroker() {
+        initializeRedisBridge();
+    }
 
     public interface SSEListener {
         void onUpdate(String data);
@@ -40,6 +57,11 @@ public class OrderEventBroker {
     }
 
     public void broadcastUpdate(int orderId, String jsonMessage) {
+        deliverOrderUpdate(orderId, jsonMessage);
+        publishBridgeEvent("order", String.valueOf(orderId), jsonMessage);
+    }
+
+    private void deliverOrderUpdate(int orderId, String jsonMessage) {
         Set<SSEListener> set = listeners.get(orderId);
         if (set != null) {
             for (SSEListener listener : set) {
@@ -67,6 +89,11 @@ public class OrderEventBroker {
     }
 
     public void broadcastTopicUpdate(String topic, String jsonMessage) {
+        deliverTopicUpdate(topic, jsonMessage);
+        publishBridgeEvent("topic", topic, jsonMessage);
+    }
+
+    private void deliverTopicUpdate(String topic, String jsonMessage) {
         Set<SSEListener> set = topicListeners.get(topic);
         if (set != null) {
             for (SSEListener listener : set) {
@@ -77,6 +104,79 @@ public class OrderEventBroker {
                 }
             }
         }
+    }
+
+    private void initializeRedisBridge() {
+        try {
+            String host = getConfig("ZINGBITE_REDIS_HOST", "127.0.0.1");
+            int port = Integer.parseInt(getConfig("ZINGBITE_REDIS_PORT", "6379"));
+            RedisURI redisUri = RedisURI.Builder.redis(host, port)
+                    .withTimeout(Duration.ofSeconds(2))
+                    .build();
+
+            redisClient = RedisClient.create(redisUri);
+            publishConnection = redisClient.connect();
+            subscribeConnection = redisClient.connectPubSub();
+            subscribeConnection.addListener(new RedisPubSubAdapter<String, String>() {
+                @Override
+                public void message(String channel, String message) {
+                    if (BRIDGE_CHANNEL.equals(channel)) {
+                        receiveBridgeEvent(message);
+                    }
+                }
+            });
+            subscribeConnection.sync().subscribe(BRIDGE_CHANNEL);
+        } catch (Exception ex) {
+            publishConnection = null;
+            subscribeConnection = null;
+            if (redisClient != null) {
+                redisClient.shutdown();
+                redisClient = null;
+            }
+            System.err.println("[OrderEventBroker] Redis bridge unavailable; using local delivery only: "
+                    + ex.getMessage());
+        }
+    }
+
+    private void publishBridgeEvent(String kind, String target, String data) {
+        if (publishConnection == null || !publishConnection.isOpen()) {
+            return;
+        }
+
+        JsonObject envelope = new JsonObject();
+        envelope.addProperty("source", instanceId);
+        envelope.addProperty("kind", kind);
+        envelope.addProperty("target", target);
+        envelope.addProperty("data", data);
+        publishConnection.async().publish(BRIDGE_CHANNEL, envelope.toString());
+    }
+
+    private void receiveBridgeEvent(String message) {
+        try {
+            JsonObject envelope = JsonParser.parseString(message).getAsJsonObject();
+            if (instanceId.equals(envelope.get("source").getAsString())) {
+                return;
+            }
+
+            String kind = envelope.get("kind").getAsString();
+            String target = envelope.get("target").getAsString();
+            String data = envelope.get("data").getAsString();
+            if ("order".equals(kind)) {
+                deliverOrderUpdate(Integer.parseInt(target), data);
+            } else if ("topic".equals(kind)) {
+                deliverTopicUpdate(target, data);
+            }
+        } catch (Exception ex) {
+            System.err.println("[OrderEventBroker] Ignoring malformed Redis event: " + ex.getMessage());
+        }
+    }
+
+    private static String getConfig(String key, String fallback) {
+        String value = System.getenv(key);
+        if (value == null || value.isBlank()) {
+            value = System.getProperty(key);
+        }
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     public void broadcastOrderUpdate(Orders order, String eventType, String previousStatus, int changedByUserId, String changedByRole, String notes) {

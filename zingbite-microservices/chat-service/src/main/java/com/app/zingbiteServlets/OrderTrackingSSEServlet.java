@@ -28,12 +28,6 @@ public class OrderTrackingSSEServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        response.setContentType("text/event-stream");
-        response.setCharacterEncoding("UTF-8");
-        response.setHeader("Cache-Control", "no-cache");
-        response.setHeader("Connection", "keep-alive");
-        response.setHeader("Access-Control-Allow-Origin", "*");
-
         String orderIdParam = request.getParameter("orderId");
         if (orderIdParam == null || orderIdParam.trim().isEmpty()) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing orderId");
@@ -74,15 +68,27 @@ public class OrderTrackingSSEServlet extends HttpServlet {
             return;
         }
 
-        boolean authorized = loggedInUser.getUserID() == order.getUserId() ||
-                             "super_admin".equalsIgnoreCase(loggedInUser.getRole()) ||
-                             "restaurant_admin".equalsIgnoreCase(loggedInUser.getRole()) ||
-                             "delivery_partner".equalsIgnoreCase(loggedInUser.getRole());
+        boolean isCustomer = loggedInUser.getUserID() == order.getUserId();
+        boolean isSuperAdmin = "super_admin".equalsIgnoreCase(loggedInUser.getRole());
+        boolean isRestaurantAdmin = "restaurant_admin".equalsIgnoreCase(loggedInUser.getRole())
+                && order.getRestaurantId() != null
+                && order.getRestaurantId().getAdminId() != null
+                && order.getRestaurantId().getAdminId() == loggedInUser.getUserID();
+        boolean isAssignedRider = "delivery_partner".equalsIgnoreCase(loggedInUser.getRole())
+                && order.getRiderId() != null
+                && order.getRiderId() == loggedInUser.getUserID();
+        boolean authorized = isCustomer || isSuperAdmin || isRestaurantAdmin || isAssignedRider;
 
         if (!authorized) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden: You are not authorized to track this order");
             return;
         }
+
+        // Do not commit event-stream headers until authorization succeeds.
+        response.setContentType("text/event-stream");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("Connection", "keep-alive");
 
         final AsyncContext asyncContext = request.startAsync();
         asyncContext.setTimeout(0); // Infinite timeout for long-lived SSE connections

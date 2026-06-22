@@ -59,8 +59,8 @@ public class GroupOrderServlet extends HttpServlet {
         HttpSession session = req.getSession();
         User user = (User) session.getAttribute("loggedInUser");
         if (user == null) {
-            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            resp.getWriter().write("{\"error\":\"Unauthorized\"}");
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Only the host can checkout\"}");
             return;
         }
 

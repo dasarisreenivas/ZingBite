@@ -2,18 +2,25 @@ import math
 import heapq
 import itertools
 import os
-import pandas as pd
 from flask import Flask, request, jsonify
-import joblib
+
+try:
+    import joblib
+    import pandas as pd
+except ImportError:
+    joblib = None
+    pd = None
 
 app = Flask(__name__)
 
 # Load model pipeline
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "eta_model.joblib")
-if os.path.exists(MODEL_PATH):
-    model = joblib.load(MODEL_PATH)
-else:
-    model = None
+model = None
+if joblib is not None and pd is not None and os.path.exists(MODEL_PATH):
+    try:
+        model = joblib.load(MODEL_PATH)
+    except Exception as error:
+        print(f"Could not load ETA model; using deterministic fallback: {error}")
 
 # Custom Java LCG Random to match node coordinate perturbation exactly
 class JavaRandom:

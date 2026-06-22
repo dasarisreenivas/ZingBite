@@ -1,5 +1,5 @@
 server:
-  port: 8083
+  port: 8084
   servlet:
     session:
       cookie:
@@ -7,7 +7,7 @@ server:
 
 spring:
   application:
-    name: restaurant-service
+    name: delivery-service
   session:
     store-type: redis
   data:

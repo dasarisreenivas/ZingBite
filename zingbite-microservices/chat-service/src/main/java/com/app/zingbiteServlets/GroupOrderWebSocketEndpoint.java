@@ -10,6 +10,7 @@ import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
 import jakarta.servlet.http.HttpSession;
 import org.hibernate.Session;
+import org.springframework.stereotype.Component;
 import com.app.zingbitemodels.Menu;
 import com.app.zingbitemodels.User;
 import com.app.zingbiteutils.DBUtils;
@@ -18,6 +19,7 @@ import com.app.zingbiteutils.GroupOrderManager.GroupRoom;
 import com.google.gson.*;
 
 @ServerEndpoint(value = "/api/ws/group-order/{roomId}/{userId}", configurator = com.app.zingbiteutils.GetHttpSessionConfigurator.class)
+@Component
 public class GroupOrderWebSocketEndpoint {
 
     private static final Map<String, Set<jakarta.websocket.Session>> roomSessions = new ConcurrentHashMap<>();

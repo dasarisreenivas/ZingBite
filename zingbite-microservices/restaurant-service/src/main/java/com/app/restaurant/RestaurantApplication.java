@@ -8,6 +8,7 @@ import org.springframework.boot.web.servlet.ServletComponentScan;
 @ServletComponentScan(basePackages = "com.app.zingbiteServlets")
 public class RestaurantApplication {
     public static void main(String[] args) {
+        com.app.zingbiteutils.DBUtils.loadEnvFile();
         SpringApplication.run(RestaurantApplication.class, args);
     }
 }

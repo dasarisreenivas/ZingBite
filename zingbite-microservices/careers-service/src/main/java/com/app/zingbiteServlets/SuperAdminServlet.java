@@ -179,7 +179,6 @@ public class SuperAdminServlet extends HttpServlet {
                             }
 
                             hibernateSession.persist(r);
-                            HomeServlet.restaurantCache.clear();
 
                             // Force Admin User role to restaurant_admin
                             User adminUser = hibernateSession.get(User.class, rr.getAdminId());
@@ -215,6 +214,9 @@ public class SuperAdminServlet extends HttpServlet {
                         }
                         
                         tx.commit();
+                        if ("Approved".equals(status)) {
+                            clearRestaurantCache();
+                        }
                         resp.getWriter().write("{\"success\":true}");
                         // Broadcast approval/rejection event
                         try {
@@ -258,7 +260,7 @@ public class SuperAdminServlet extends HttpServlet {
                     tx = hibernateSession.beginTransaction();
                     hibernateSession.persist(restaurant);
                     tx.commit();
-                    HomeServlet.restaurantCache.clear();
+                    clearRestaurantCache();
                     resp.getWriter().write("{\"success\":true}");
                 } catch (Exception e) {
                     if (tx != null) tx.rollback();
@@ -515,5 +517,28 @@ public class SuperAdminServlet extends HttpServlet {
             System.err.println("[SuperAdmin] Geocoding failed for address '" + address + "': " + e.getMessage());
         }
         return null;
+    }
+
+    private void clearRestaurantCache() {
+        String serviceUrl = System.getenv().getOrDefault(
+                "RESTAURANT_SERVICE_URL", "http://localhost:8083");
+        HttpURLConnection connection = null;
+        try {
+            URL url = new URL(serviceUrl + "/api/home?clearCache=true");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(2000);
+            connection.setReadTimeout(2000);
+            int status = connection.getResponseCode();
+            if (status < 200 || status >= 300) {
+                System.err.println("[SuperAdmin] Restaurant cache clear returned HTTP " + status);
+            }
+        } catch (Exception e) {
+            System.err.println("[SuperAdmin] Failed to clear restaurant cache: " + e.getMessage());
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
     }
 }

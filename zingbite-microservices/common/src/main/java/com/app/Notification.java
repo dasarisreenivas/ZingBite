@@ -33,6 +33,9 @@ public class Notification implements Serializable {
     @Column(name = "status", nullable = false)
     private String status; // "UNREAD" or "READ"
 
+    @Column(name = "type", nullable = false)
+    private String type;
+
     @Column(name = "createdAt", nullable = false)
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
@@ -40,6 +43,7 @@ public class Notification implements Serializable {
     public Notification() {
         super();
         this.status = "UNREAD";
+        this.type = "ORDER_STATUS";
         this.createdAt = new Date();
     }
 
@@ -49,6 +53,7 @@ public class Notification implements Serializable {
         this.title = title;
         this.message = message;
         this.status = "UNREAD";
+        this.type = "ORDER_STATUS";
         this.createdAt = new Date();
     }
 
@@ -90,6 +95,14 @@ public class Notification implements Serializable {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 
     public Date getCreatedAt() {

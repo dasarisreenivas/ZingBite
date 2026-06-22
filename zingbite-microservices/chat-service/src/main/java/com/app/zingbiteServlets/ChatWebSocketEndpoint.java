@@ -16,6 +16,7 @@ import jakarta.websocket.OnOpen;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
 import org.hibernate.Transaction;
+import org.springframework.stereotype.Component;
 import com.app.zingbitemodels.Application;
 import com.app.zingbitemodels.ChatMessage;
 import com.app.zingbitemodels.Orders;
@@ -27,6 +28,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 @ServerEndpoint(value = "/api/ws/chat/{type}/{targetId}/{userId}", configurator = com.app.zingbiteutils.GetHttpSessionConfigurator.class)
+@Component
 public class ChatWebSocketEndpoint {
 
     // Keep track of active session sets grouped by room key "type:targetId"

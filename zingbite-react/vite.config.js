@@ -11,11 +11,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/zingbite/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8090',
         changeOrigin: true
       },
       '/zingbite/ws': {
-        target: 'ws://localhost:8080',
+        target: 'ws://localhost:8090',
         ws: true
       }
     }
