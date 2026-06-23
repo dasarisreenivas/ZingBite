@@ -17,9 +17,9 @@ import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
 import org.hibernate.Transaction;
 import org.springframework.stereotype.Component;
-import com.app.zingbitemodels.Application;
+import com.app.chat.ChatAuthorizationService;
+import com.app.chat.ChatAuthorizationService.ChatAccess;
 import com.app.zingbitemodels.ChatMessage;
-import com.app.zingbitemodels.Orders;
 import com.app.zingbitemodels.User;
 import com.app.zingbiteutils.DBUtils;
 import com.app.zingbiteutils.SanitizationUtils;
@@ -46,9 +46,7 @@ public class ChatWebSocketEndpoint {
         System.out.println("[WebSocket] Connection attempt: type=" + type + ", targetId=" + targetId + ", userId=" + userId);
 
         // 1. HTTP Session and Authorization Validation
-        boolean authorized = false;
         String senderName = "User";
-        int receiverId = 0;
 
         jakarta.servlet.http.HttpSession httpSession = (jakarta.servlet.http.HttpSession) session.getUserProperties().get("httpSession");
         if (httpSession == null) {
@@ -65,38 +63,24 @@ public class ChatWebSocketEndpoint {
         }
 
         try (org.hibernate.Session dbSession = DBUtils.openSession()) {
-            User userObj = dbSession.get(User.class, userId);
-            if (userObj != null) {
-                senderName = userObj.getUserName();
-
-                if ("order".equalsIgnoreCase(type)) {
-                    Orders order = dbSession.get(Orders.class, targetId);
-                    if (order != null) {
-                        // Allow customer who placed the order, delivery riders, restaurant admins, and super admins
-                        if (userObj.getUserID() == order.getUserId() ||
-                            "super_admin".equalsIgnoreCase(userObj.getRole()) ||
-                            "restaurant_admin".equalsIgnoreCase(userObj.getRole()) ||
-                            "delivery_partner".equalsIgnoreCase(userObj.getRole())) {
-                            authorized = true;
-                        }
-                    }
-                } else if ("application".equalsIgnoreCase(type)) {
-                    Application app = dbSession.get(Application.class, targetId);
-                    if (app != null) {
-                        if (app.getUserId() == userId || "super_admin".equalsIgnoreCase(userObj.getRole())) {
-                            authorized = true;
-                        }
-                    }
-                }
+            ChatAccess access = ChatAuthorizationService.authorize(dbSession, userId, type, targetId);
+            if (access == null) {
+                session.close(new CloseReason(
+                        CloseCodes.VIOLATED_POLICY,
+                        "Unauthorized: You do not have permission to access this chat."));
+                return;
+            }
+            senderName = access.user().getUserName();
+            try {
+                httpSession.setAttribute("loggedInUser", access.user());
+            } catch (IllegalStateException ignored) {
+                session.close(new CloseReason(CloseCodes.VIOLATED_POLICY, "Session expired."));
+                return;
             }
         } catch (Exception e) {
             System.err.println("[WebSocket] Authorization check error: " + e.getMessage());
             e.printStackTrace();
-        }
-
-        if (!authorized) {
-            System.out.println("[WebSocket] Unauthorized connection rejected for userId=" + userId);
-            session.close(new CloseReason(CloseCodes.VIOLATED_POLICY, "Unauthorized: You do not have permission to access this chat."));
+            session.close(new CloseReason(CloseCodes.UNEXPECTED_CONDITION, "Authorization check failed."));
             return;
         }
 
@@ -116,14 +100,16 @@ public class ChatWebSocketEndpoint {
     public void onMessage(String message, jakarta.websocket.Session session) {
         try {
             int userId = (int) session.getUserProperties().get("userId");
-            String senderName = (String) session.getUserProperties().get("userName");
             String type = (String) session.getUserProperties().get("type");
             int targetId = (int) session.getUserProperties().get("targetId");
 
             // Parse the incoming JSON message
             JsonObject jsonMsg = JsonParser.parseString(message).getAsJsonObject();
-            String rawText = jsonMsg.get("messageText").getAsString();
-            int receiverId = jsonMsg.has("receiverId") ? jsonMsg.get("receiverId").getAsInt() : 0;
+            String rawText = jsonMsg.has("messageText") ? jsonMsg.get("messageText").getAsString() : "";
+            if (rawText.trim().isEmpty()) {
+                session.getAsyncRemote().sendText("{\"error\":\"Message text cannot be empty.\"}");
+                return;
+            }
 
             // Sanitize message text to prevent XSS
             String sanitizedText = SanitizationUtils.escapeHtml(rawText);
@@ -134,24 +120,31 @@ public class ChatWebSocketEndpoint {
                 return;
             }
 
-            // Build and persist the ChatMessage entity
-            ChatMessage chatMsg = new ChatMessage(
-                "order".equalsIgnoreCase(type) ? targetId : null,
-                "application".equalsIgnoreCase(type) ? targetId : null,
-                userId,
-                senderName,
-                receiverId,
-                sanitizedText,
-                new Date()
-            );
-
+            ChatMessage chatMsg;
             Transaction tx = null;
             try (org.hibernate.Session dbSession = DBUtils.openSession()) {
+                ChatAccess access = ChatAuthorizationService.authorize(
+                        dbSession, userId, type, targetId);
+                if (access == null) {
+                    session.close(new CloseReason(
+                            CloseCodes.VIOLATED_POLICY,
+                            "Chat authorization is no longer valid."));
+                    return;
+                }
+                chatMsg = new ChatMessage(
+                    "order".equalsIgnoreCase(type) ? targetId : null,
+                    "application".equalsIgnoreCase(type) ? targetId : null,
+                    userId,
+                    access.user().getUserName(),
+                    access.receiverId(),
+                    sanitizedText,
+                    new Date()
+                );
                 tx = dbSession.beginTransaction();
                 dbSession.persist(chatMsg);
                 tx.commit();
             } catch (Exception e) {
-                if (tx != null) tx.rollback();
+                if (tx != null && tx.isActive()) tx.rollback();
                 System.err.println("[WebSocket] Failed to persist message: " + e.getMessage());
                 throw e;
             }

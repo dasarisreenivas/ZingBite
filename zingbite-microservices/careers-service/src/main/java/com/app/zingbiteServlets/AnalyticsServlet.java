@@ -17,6 +17,8 @@ import com.app.zingbitemodels.User;
 import com.app.zingbitemodels.AnalyticsEvent;
 import com.app.zingbiteutils.DBUtils;
 import com.app.zingbiteutils.AnalyticsQueueManager;
+import com.app.zingbiteutils.AuthorizationUtils;
+import com.app.zingbiteutils.ClientIpUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -26,17 +28,7 @@ public class AnalyticsServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
     private boolean isSuperAdmin(HttpServletRequest req) {
-        HttpSession session = req.getSession(false);
-        if (session == null) return false;
-        User user = (User) session.getAttribute("loggedInUser");
-        if (user == null) return false;
-        return "super_admin".equals(user.getRole());
-    }
-
-    private boolean isTrustedProxy(String remoteAddr) {
-        return "127.0.0.1".equals(remoteAddr) 
-            || "0:0:0:0:0:0:0:1".equals(remoteAddr) 
-            || "localhost".equals(remoteAddr);
+        return AuthorizationUtils.requireRole(req, "super_admin") != null;
     }
 
     @Override
@@ -227,15 +219,7 @@ public class AnalyticsServlet extends HttpServlet {
                 }
             }
 
-            // Resolve client IP (verifying trusted proxies before reading X-Forwarded-For)
-            String remoteAddr = req.getRemoteAddr();
-            String ipAddress = remoteAddr;
-            if (isTrustedProxy(remoteAddr)) {
-                String xff = req.getHeader("X-Forwarded-For");
-                if (xff != null && !xff.trim().isEmpty()) {
-                    ipAddress = xff.split(",")[0].trim();
-                }
-            }
+            String ipAddress = ClientIpUtils.resolve(req);
 
             // Get User-Agent
             String userAgent = req.getHeader("User-Agent");

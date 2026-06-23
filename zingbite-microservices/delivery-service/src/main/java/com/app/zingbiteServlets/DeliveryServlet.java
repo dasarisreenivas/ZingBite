@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import jakarta.persistence.LockModeType;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -28,6 +29,7 @@ import com.app.zingbitemodels.OrderStatus;
 import com.app.zingbiteutils.DBUtils;
 import com.app.zingbiteutils.GeoUtils;
 import com.app.zingbiteutils.RouteOptimizer;
+import com.app.zingbiteutils.AuthorizationUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -67,14 +69,8 @@ public class DeliveryServlet extends HttpServlet {
         resp.setCharacterEncoding("UTF-8");
 
         HttpSession httpSession = req.getSession(false);
-        if (httpSession == null || httpSession.getAttribute("loggedInUser") == null) {
-            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            resp.getWriter().write("{\"error\":\"Unauthorized\"}");
-            return;
-        }
-
-        User user = (User) httpSession.getAttribute("loggedInUser");
-        if (!"delivery_partner".equals(user.getRole())) {
+        User user = AuthorizationUtils.requireRole(req, "delivery_partner");
+        if (user == null) {
             resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
             resp.getWriter().write("{\"error\":\"Forbidden: Only delivery partners can access this resource.\"}");
             return;
@@ -129,28 +125,21 @@ public class DeliveryServlet extends HttpServlet {
                 oJson.addProperty("status", o.getOrderStatus() != null ? o.getOrderStatus().name() : "PLACED");
                 oJson.addProperty("payment", o.getPaymentMethod() != null ? o.getPaymentMethod() : "UPI");
 
-                User customer = userCache.computeIfAbsent(o.getUserId(), id -> hibernateSession.get(User.class, id));
-                oJson.addProperty("customerId", o.getUserId());
-                oJson.addProperty("customerName", customer != null ? customer.getUserName() : "Customer");
-                oJson.addProperty("customerAddress", customer != null ? customer.getAddress() : "ZingBite Hub");
-                oJson.addProperty("customerPhone", customer != null ? String.valueOf(customer.getPhoneNumber()) : "");
-
                 int rId = o.getRestaurantId() != null ? o.getRestaurantId().getRestaurantId() : 0;
                 double restLat = GeoUtils.getRestaurantLatitudeCached(rId);
                 double restLon = GeoUtils.getRestaurantLongitudeCached(rId);
-                double custLat = GeoUtils.getUserLatitudeCached(o.getUserId());
-                double custLon = GeoUtils.getUserLongitudeCached(o.getUserId());
+                double custLat = 0.0;
+                double custLon = 0.0;
                 double dist = GeoUtils.haversine(riderLat, riderLon, restLat, restLon);
                 oJson.addProperty("distance", Math.round(dist * 10.0) / 10.0);
 
                 oJson.addProperty("restaurantLat", restLat);
                 oJson.addProperty("restaurantLon", restLon);
-                oJson.addProperty("customerLat", custLat);
-                oJson.addProperty("customerLon", custLon);
                 oJson.addProperty("riderLat", riderLat);
                 oJson.addProperty("riderLon", riderLon);
 
                 if (o.getRiderId() == null) {
+                    oJson.addProperty("customerAddress", "Details unlock after acceptance");
                     OrderStatus status = o.getOrderStatus();
                     if (status == OrderStatus.PLACED ||
                         status == OrderStatus.PREPARING ||
@@ -159,6 +148,17 @@ public class DeliveryServlet extends HttpServlet {
                         availableList.add(oJson);
                     }
                 } else if (o.getRiderId() == riderId) {
+                    User customer = userCache.computeIfAbsent(
+                            o.getUserId(), id -> hibernateSession.get(User.class, id));
+                    oJson.addProperty("customerId", o.getUserId());
+                    oJson.addProperty("customerName", customer != null ? customer.getUserName() : "Customer");
+                    oJson.addProperty("customerAddress", customer != null ? customer.getAddress() : "ZingBite Hub");
+                    oJson.addProperty("customerPhone", customer != null ? String.valueOf(customer.getPhoneNumber()) : "");
+                    custLat = GeoUtils.getUserLatitudeCached(o.getUserId());
+                    custLon = GeoUtils.getUserLongitudeCached(o.getUserId());
+                    oJson.addProperty("customerLat", custLat);
+                    oJson.addProperty("customerLon", custLon);
+
                     if (o.getOrderStatus() == OrderStatus.DELIVERED) {
                         // Detailed commission breakdown
                         JsonObject breakdown = new JsonObject();
@@ -292,14 +292,8 @@ public class DeliveryServlet extends HttpServlet {
         resp.setCharacterEncoding("UTF-8");
 
         HttpSession httpSession = req.getSession(false);
-        if (httpSession == null || httpSession.getAttribute("loggedInUser") == null) {
-            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            resp.getWriter().write("{\"error\":\"Unauthorized\"}");
-            return;
-        }
-
-        User user = (User) httpSession.getAttribute("loggedInUser");
-        if (!"delivery_partner".equals(user.getRole())) {
+        User user = AuthorizationUtils.requireRole(req, "delivery_partner");
+        if (user == null) {
             resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
             resp.getWriter().write("{\"error\":\"Forbidden: Only delivery partners can perform this action.\"}");
             return;
@@ -311,8 +305,18 @@ public class DeliveryServlet extends HttpServlet {
             String action = requestBody.has("action") ? requestBody.get("action").getAsString() : "";
 
             if ("updateLocation".equals(action)) {
+                if (!requestBody.has("latitude") || !requestBody.has("longitude")) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"Latitude and longitude are required\"}");
+                    return;
+                }
                 double lat = requestBody.get("latitude").getAsDouble();
                 double lng = requestBody.get("longitude").getAsDouble();
+                if (!isValidCoordinates(lat, lng)) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"Invalid coordinates\"}");
+                    return;
+                }
 
                 try (Session hibernateSession = DBUtils.openSession()) {
                     Transaction txRider = hibernateSession.beginTransaction();
@@ -392,13 +396,33 @@ public class DeliveryServlet extends HttpServlet {
                     return;
                 }
 
+                if (!requestBody.has("progress")) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"GPS progress is required\"}");
+                    return;
+                }
                 double progress = requestBody.get("progress").getAsDouble();
+                if (!Double.isFinite(progress) || progress < 0.0 || progress > 100.0) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"GPS progress must be between 0 and 100\"}");
+                    return;
+                }
                 order.setGpsProgress(progress);
 
                 String coords = null;
-                if (requestBody.has("latitude") && requestBody.has("longitude")) {
+                if (requestBody.has("latitude") != requestBody.has("longitude")) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"Latitude and longitude must be provided together\"}");
+                    return;
+                }
+                if (requestBody.has("latitude")) {
                     double lat = requestBody.get("latitude").getAsDouble();
                     double lng = requestBody.get("longitude").getAsDouble();
+                    if (!isValidCoordinates(lat, lng)) {
+                        resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        resp.getWriter().write("{\"error\":\"Invalid coordinates\"}");
+                        return;
+                    }
                     coords = lat + "," + lng;
                     order.setGpsCoordinates(coords);
 
@@ -443,26 +467,46 @@ public class DeliveryServlet extends HttpServlet {
                 return;
 
             } else if ("acceptOrder".equals(action)) {
-                if (order.getRiderId() != null) {
-                    resp.setStatus(HttpServletResponse.SC_CONFLICT);
-                    resp.getWriter().write("{\"error\":\"Order already claimed by another rider.\"}");
-                    return;
-                }
-                order.setRiderId(user.getUserID());
-                OrderStatus currentStatus = order.getOrderStatus() != null ? order.getOrderStatus() : OrderStatus.PLACED;
-                String nextStatus = currentStatus.name();
-                if (currentStatus == OrderStatus.PLACED) {
-                    OrderStatus targetStatus = OrderStatus.ACCEPTED;
-                    if (currentStatus.canTransitionTo(targetStatus)) {
-                        order.setOrderStatus(targetStatus);
-                        nextStatus = targetStatus.name();
-                    } else {
-                        resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                        resp.getWriter().write("{\"error\":\"Invalid status transition from " + currentStatus + " to " + targetStatus + "\"}");
+                OrderStatus currentStatus;
+                String nextStatus;
+                try (Session hibernateSession = DBUtils.openSession()) {
+                    tx = hibernateSession.beginTransaction();
+                    Orders lockedOrder = hibernateSession.find(
+                            Orders.class, orderId, LockModeType.PESSIMISTIC_WRITE);
+                    if (lockedOrder == null) {
+                        tx.rollback();
+                        resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                        resp.getWriter().write("{\"error\":\"Order not found\"}");
                         return;
                     }
+                    if (lockedOrder.getRiderId() != null) {
+                        tx.rollback();
+                        resp.setStatus(HttpServletResponse.SC_CONFLICT);
+                        resp.getWriter().write("{\"error\":\"Order already claimed by another rider.\"}");
+                        return;
+                    }
+
+                    currentStatus = lockedOrder.getOrderStatus() != null
+                            ? lockedOrder.getOrderStatus()
+                            : OrderStatus.PLACED;
+                    if (currentStatus != OrderStatus.PLACED
+                            && currentStatus != OrderStatus.PREPARING
+                            && currentStatus != OrderStatus.READY_FOR_PICKUP) {
+                        tx.rollback();
+                        resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        resp.getWriter().write("{\"error\":\"Order is not available for acceptance\"}");
+                        return;
+                    }
+
+                    lockedOrder.setRiderId(user.getUserID());
+                    if (currentStatus == OrderStatus.PLACED) {
+                        lockedOrder.setOrderStatus(OrderStatus.ACCEPTED);
+                    }
+                    nextStatus = lockedOrder.getOrderStatus().name();
+                    hibernateSession.merge(lockedOrder);
+                    tx.commit();
+                    order = lockedOrder;
                 }
-                ordersDAO.updateOrders(order);
 
                 try (Session hibernateSession = DBUtils.openSession()) {
                     User customer = hibernateSession.get(User.class, order.getUserId());
@@ -598,11 +642,19 @@ public class DeliveryServlet extends HttpServlet {
                 resp.getWriter().write(jsonResponse.toString());
             }
 
+        } catch (IllegalArgumentException e) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            resp.getWriter().write("{\"error\":\"Invalid delivery request\"}");
         } catch (Exception e) {
             e.printStackTrace();
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to update delivery order\"}");
         }
+    }
+
+    private boolean isValidCoordinates(double latitude, double longitude) {
+        return Double.isFinite(latitude) && latitude >= -90.0 && latitude <= 90.0
+                && Double.isFinite(longitude) && longitude >= -180.0 && longitude <= 180.0;
     }
 
     private void populateVRPPaths(JsonObject ssePayload, Orders order) {

@@ -17,9 +17,11 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 @Component
 public class RateLimitFilter implements GlobalFilter, Ordered {
+    private static final String CLIENT_IP_HEADER = "X-ZingBite-Client-IP";
 
     @Autowired
     private ReactiveStringRedisTemplate redisTemplate;
@@ -30,20 +32,46 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
     @Value("${ratelimit.duration-minutes:1}")
     private int durationMinutes;
 
+    @Value("${ratelimit.trust-forwarded-headers:false}")
+    private boolean trustForwardedHeaders;
+
+    @Value("${ratelimit.trusted-proxies:127.0.0.1,::1}")
+    private String trustedProxies;
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         ServerHttpResponse response = exchange.getResponse();
 
-        String ip = "unknown";
-        String forwardedFor = request.getHeaders().getFirst("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            ip = forwardedFor.split(",", 2)[0].trim();
-        } else if (request.getRemoteAddress() != null && request.getRemoteAddress().getAddress() != null) {
-            ip = request.getRemoteAddress().getAddress().getHostAddress();
+        String remoteIp = request.getRemoteAddress() != null
+                && request.getRemoteAddress().getAddress() != null
+                ? request.getRemoteAddress().getAddress().getHostAddress()
+                : "unknown";
+        boolean requestFromTrustedProxy = Arrays.stream(trustedProxies.split(","))
+                .map(String::trim)
+                .anyMatch(remoteIp::equals);
+
+        String ip = remoteIp;
+        if (trustForwardedHeaders && requestFromTrustedProxy) {
+            String forwardedFor = request.getHeaders().getFirst("X-Forwarded-For");
+            if (forwardedFor != null && !forwardedFor.isBlank()) {
+                String candidate = forwardedFor.split(",", 2)[0].trim();
+                if (candidate.length() <= 64 && candidate.matches("[0-9a-fA-F:.]+")) {
+                    ip = candidate;
+                }
+            }
         }
 
-        String key = "ratelimit:" + ip;
+        final String clientIp = ip;
+        ServerHttpRequest downstreamRequest = request.mutate()
+                .headers(headers -> {
+                    headers.remove(CLIENT_IP_HEADER);
+                    headers.set(CLIENT_IP_HEADER, clientIp);
+                })
+                .build();
+        ServerWebExchange downstreamExchange = exchange.mutate().request(downstreamRequest).build();
+
+        String key = "ratelimit:" + clientIp;
 
         return redisTemplate.opsForValue().increment(key)
                 .defaultIfEmpty(1L)
@@ -51,7 +79,7 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
                 .flatMap(current -> {
                     if (current < 0) {
                         System.err.println("[RateLimitFilter] Redis unavailable; allowing request");
-                        return chain.filter(exchange);
+                        return chain.filter(downstreamExchange);
                     }
                     Mono<Boolean> expiry = current == 1
                             ? redisTemplate.expire(key, Duration.ofMinutes(durationMinutes)).defaultIfEmpty(true)
@@ -79,7 +107,7 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
                                 response.getHeaders().add("X-RateLimit-Limit", String.valueOf(limit));
                                 response.getHeaders().add("X-RateLimit-Remaining", String.valueOf(limit - current));
                                 response.getHeaders().add("X-RateLimit-Reset", String.valueOf(ttlSeconds));
-                                return chain.filter(exchange);
+                                return chain.filter(downstreamExchange);
                             }
                         });
                 });

@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import com.app.zingbiteutils.VRPRouteOptimizer;
 import com.app.zingbiteutils.VRPRouteOptimizer.Node;
 import com.app.zingbiteutils.VRPRouteOptimizer.Edge;
+import com.app.zingbiteutils.AuthorizationUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -46,6 +47,12 @@ public class VRPServlet extends HttpServlet {
         
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
+
+        if (AuthorizationUtils.requireRole(req, "super_admin") == null) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Super admin access required\"}");
+            return;
+        }
 
         try {
             String orderIdStr = req.getParameter("orderId");
@@ -330,6 +337,12 @@ public class VRPServlet extends HttpServlet {
         
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
+
+        if (AuthorizationUtils.requireRole(req, "super_admin") == null) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Super admin access required\"}");
+            return;
+        }
 
         try {
             BufferedReader reader = req.getReader();

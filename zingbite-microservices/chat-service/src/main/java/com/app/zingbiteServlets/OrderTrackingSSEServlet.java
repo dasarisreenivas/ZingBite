@@ -13,6 +13,7 @@ import java.io.PrintWriter;
 import com.app.zingbiteutils.OrderEventBroker;
 import com.app.zingbiteutils.GeoUtils;
 import com.app.zingbiteutils.VRPRouteOptimizer;
+import com.app.zingbiteutils.AuthorizationUtils;
 import com.app.zingbitedao.OrdersDAo;
 import com.app.zingbitedaoimpl.OrdersDAOImplementation;
 import com.app.zingbitemodels.Orders;
@@ -42,13 +43,7 @@ public class OrderTrackingSSEServlet extends HttpServlet {
             return;
         }
 
-        jakarta.servlet.http.HttpSession httpSession = request.getSession(false);
-        if (httpSession == null) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: Active session required");
-            return;
-        }
-
-        com.app.zingbitemodels.User loggedInUser = (com.app.zingbitemodels.User) httpSession.getAttribute("loggedInUser");
+        com.app.zingbitemodels.User loggedInUser = AuthorizationUtils.requireAuthenticated(request);
         if (loggedInUser == null) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: Active session required");
             return;

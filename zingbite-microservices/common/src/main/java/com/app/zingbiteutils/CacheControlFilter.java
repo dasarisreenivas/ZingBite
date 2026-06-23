@@ -1,12 +1,10 @@
 package com.app.zingbiteutils;
 
 import jakarta.servlet.*;
-import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-@WebFilter(filterName = "CacheControlFilter", urlPatterns = {"/*"}, asyncSupported = true)
 public class CacheControlFilter implements Filter {
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {}

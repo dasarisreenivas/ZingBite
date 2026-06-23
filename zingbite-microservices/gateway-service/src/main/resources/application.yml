@@ -16,7 +16,7 @@ spring:
             allowedOriginPatterns:
               - "http://localhost:5173"
               - "http://127.0.0.1:5173"
-              - "https://*.trycloudflare.com"
+              - "${ZINGBITE_ALLOWED_ORIGIN:https://zingbite.invalid}"
             allowedMethods:
               - GET
               - POST
@@ -30,7 +30,7 @@ spring:
         - id: auth-service
           uri: http://localhost:8081
           predicates:
-            - Path=/zingbite/api/register, /zingbite/api/login, /zingbite/api/logout, /zingbite/checkData, /zingbite/api/profile, /zingbite/api/notifications
+            - Path=/zingbite/api/register, /zingbite/api/login, /zingbite/api/logout, /zingbite/api/profile, /zingbite/api/notifications
           filters:
             - StripPrefix=1
 
@@ -38,7 +38,7 @@ spring:
         - id: orders-service
           uri: http://localhost:8082
           predicates:
-            - Path=/zingbite/api/cart, /zingbite/CreateOrderServlet, /zingbite/paymentSuccess, /zingbite/api/payment/verify, /zingbite/api/payment/webhook, /zingbite/api/wishlist
+            - Path=/zingbite/api/cart, /zingbite/api/payment/verify, /zingbite/api/payment/webhook, /zingbite/api/wishlist
           filters:
             - StripPrefix=1
 
@@ -83,5 +83,7 @@ spring:
             - StripPrefix=1
 
 ratelimit:
-  limit: 100
-  duration-minutes: 1
+  limit: ${ZINGBITE_RATE_LIMIT:100}
+  duration-minutes: ${ZINGBITE_RATE_LIMIT_DURATION_MINUTES:1}
+  trust-forwarded-headers: ${ZINGBITE_TRUST_FORWARDED:false}
+  trusted-proxies: ${ZINGBITE_TRUSTED_PROXIES:127.0.0.1,::1}

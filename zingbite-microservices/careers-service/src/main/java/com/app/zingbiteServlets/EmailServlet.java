@@ -13,6 +13,7 @@ import org.hibernate.query.Query;
 import com.app.zingbitemodels.EmailNotification;
 import com.app.zingbitemodels.User;
 import com.app.zingbiteutils.DBUtils;
+import com.app.zingbiteutils.AuthorizationUtils;
 import com.google.gson.Gson;
 
 @WebServlet("/api/emails")
@@ -27,14 +28,13 @@ public class EmailServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
 
-        HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
+        User user = AuthorizationUtils.requireAuthenticated(req);
+        if (user == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Please log in to view emails.\"}");
             return;
         }
 
-        User user = (User) session.getAttribute("loggedInUser");
         String allParam = req.getParameter("all");
         boolean fetchAll = "true".equalsIgnoreCase(allParam) && "super_admin".equalsIgnoreCase(user.getRole());
 

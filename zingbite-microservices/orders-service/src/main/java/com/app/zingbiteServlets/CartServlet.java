@@ -100,7 +100,7 @@ public class CartServlet extends HttpServlet {
 
     private void addItemToCart(HttpServletRequest req, JsonObject requestBody, Cart cart, HttpServletResponse resp, HttpSession session) throws IOException {
         int itemId = requestBody.get("itemId").getAsInt();
-        if (itemId == 888) {
+        if (com.app.zingbiteutils.PaymentService.isPaymentTestMode() && itemId == 888) {
             User loggedInUser = (User) session.getAttribute("loggedInUser");
             if (loggedInUser != null && loggedInUser.getEmail() != null && loggedInUser.getEmail().endsWith("@example.com")) {
                 try (org.hibernate.Session hibernateSession = com.app.zingbiteutils.DBUtils.openSession()) {
@@ -113,6 +113,10 @@ public class CartServlet extends HttpServlet {
             }
         }
         int quantity = requestBody.get("quantity").getAsInt();
+        if (quantity < 1 || quantity > 50) {
+            sendError(resp, "Quantity must be between 1 and 50");
+            return;
+        }
 
         MenuDAO menuDAO = new MenuDAOImplementation();
         Menu menuItem = menuDAO.getMenuById(itemId);
@@ -162,6 +166,9 @@ public class CartServlet extends HttpServlet {
     private void updateQuantity(JsonObject requestBody, Cart cart) {
         int itemId = requestBody.get("itemId").getAsInt();
         int quantity = requestBody.get("quantity").getAsInt();
+        if (quantity < 1 || quantity > 50) {
+            throw new IllegalArgumentException("Quantity must be between 1 and 50");
+        }
         cart.updateCartItem(itemId, quantity);
     }
 
@@ -194,7 +201,9 @@ public class CartServlet extends HttpServlet {
         double surgeMultiplier = 1.0;
         String surgeReason = "Normal";
 
-        String surgeParam = req.getParameter("surgeMultiplier");
+        String surgeParam = com.app.zingbiteutils.PaymentService.isPaymentTestMode()
+                ? req.getParameter("surgeMultiplier")
+                : null;
         if (surgeParam != null && !surgeParam.trim().isEmpty()) {
             try {
                 surgeMultiplier = Double.parseDouble(surgeParam);
@@ -208,7 +217,9 @@ public class CartServlet extends HttpServlet {
             }
         }
 
-        String reasonParam = req.getParameter("surgeReason");
+        String reasonParam = com.app.zingbiteutils.PaymentService.isPaymentTestMode()
+                ? req.getParameter("surgeReason")
+                : null;
         if (reasonParam != null && !reasonParam.trim().isEmpty()) {
             surgeReason = reasonParam;
         } else {

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.BufferedReader;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.servlet.ServletException;
@@ -33,6 +34,9 @@ import com.app.zingbitemodels.OrderStatus;
 import com.app.zingbitemodels.ComboMapping;
 import com.app.zingbitedaoimpl.MenuDAOImplementation;
 import com.app.zingbiteutils.DBUtils;
+import com.app.zingbiteutils.UserResponseUtils;
+import com.app.zingbiteutils.SanitizationUtils;
+import com.app.zingbiteutils.AuthorizationUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -57,15 +61,7 @@ public class ProfileServlet extends HttpServlet {
             return;
         }
 
-        User user = null;
-        try {
-            user = (User) session.getAttribute("loggedInUser");
-        } catch (ClassCastException e) {
-            try {
-                session.invalidate();
-            } catch (Exception ignored) {}
-        }
-
+        User user = AuthorizationUtils.requireAuthenticated(req);
         if (user == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Please log in to view profile details\"}");
@@ -209,8 +205,7 @@ public class ProfileServlet extends HttpServlet {
             resp.getWriter().write(ordersJson.toString());
         } else {
             // Default return user profile data
-            Gson gson = new Gson();
-            resp.getWriter().write(gson.toJson(user));
+            resp.getWriter().write(UserResponseUtils.toJson(user).toString());
         }
     }
 
@@ -228,15 +223,7 @@ public class ProfileServlet extends HttpServlet {
             return;
         }
 
-        User user = null;
-        try {
-            user = (User) session.getAttribute("loggedInUser");
-        } catch (ClassCastException e) {
-            try {
-                session.invalidate();
-            } catch (Exception ignored) {}
-        }
-
+        User user = AuthorizationUtils.requireAuthenticated(req);
         if (user == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Please log in\"}");
@@ -250,16 +237,25 @@ public class ProfileServlet extends HttpServlet {
             String action = requestBody.has("action") ? requestBody.get("action").getAsString() : "";
 
             if ("update".equals(action)) {
-                String username = requestBody.has("username") ? requestBody.get("username").getAsString() : null;
+                String username = requestBody.has("username") ? SanitizationUtils.escapeHtml(requestBody.get("username").getAsString()) : null;
                 String mobile = requestBody.has("mobile") ? requestBody.get("mobile").getAsString() : null;
-                String address = requestBody.has("address") ? requestBody.get("address").getAsString() : null;
+                String address = requestBody.has("address") ? SanitizationUtils.escapeHtml(requestBody.get("address").getAsString()) : null;
                 Double latitude = requestBody.has("latitude") && !requestBody.get("latitude").isJsonNull() ? requestBody.get("latitude").getAsDouble() : null;
                 Double longitude = requestBody.has("longitude") && !requestBody.get("longitude").isJsonNull() ? requestBody.get("longitude").getAsDouble() : null;
-                String city = requestBody.has("city") && !requestBody.get("city").isJsonNull() ? requestBody.get("city").getAsString() : null;
+                String city = requestBody.has("city") && !requestBody.get("city").isJsonNull() ? SanitizationUtils.escapeHtml(requestBody.get("city").getAsString()) : null;
 
                 if (username == null || mobile == null || address == null) {
                     resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     resp.getWriter().write("{\"error\":\"All fields are required\"}");
+                    return;
+                }
+                if ((latitude == null) != (longitude == null)
+                        || (latitude != null && (!Double.isFinite(latitude)
+                                || latitude < -90.0 || latitude > 90.0
+                                || !Double.isFinite(longitude)
+                                || longitude < -180.0 || longitude > 180.0))) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"Invalid profile coordinates\"}");
                     return;
                 }
 
@@ -277,7 +273,7 @@ public class ProfileServlet extends HttpServlet {
                 if (success > 0) {
                     session.setAttribute("loggedInUser", user);
                     jsonResponse.addProperty("success", true);
-                    jsonResponse.add("user", new Gson().toJsonTree(user));
+                    jsonResponse.add("user", UserResponseUtils.toJson(user));
                 } else {
                     resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                     jsonResponse.addProperty("error", "Failed to update profile database");
@@ -297,9 +293,24 @@ public class ProfileServlet extends HttpServlet {
                 resp.getWriter().write(jsonResponse.toString());
 
             } else if ("createOrder".equals(action)) {
-                double total = requestBody.has("total") ? requestBody.get("total").getAsDouble() : 0.0;
+                double total = 0.0;
                 String paymentMethod = requestBody.has("paymentMethod") ? requestBody.get("paymentMethod").getAsString() : "UPI";
                 JsonArray itemsArray = requestBody.has("items") ? requestBody.getAsJsonArray("items") : new JsonArray();
+
+                boolean isCashOnDelivery = "COD".equalsIgnoreCase(paymentMethod);
+                boolean isRazorpay = "Razorpay".equalsIgnoreCase(paymentMethod);
+                boolean isTestPayment = com.app.zingbiteutils.PaymentService.isPaymentTestMode()
+                        && "UPI".equalsIgnoreCase(paymentMethod);
+                if (!isCashOnDelivery && !isRazorpay && !isTestPayment) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"Unsupported payment method\"}");
+                    return;
+                }
+                if (itemsArray.isEmpty() || itemsArray.size() > 100) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"Order must contain between 1 and 100 items\"}");
+                    return;
+                }
 
                 Integer restaurantId = null;
                 if (requestBody.has("restaurantId") && !requestBody.get("restaurantId").isJsonNull()) {
@@ -352,23 +363,39 @@ public class ProfileServlet extends HttpServlet {
                             longitude = dbUser.getLongitude();
                         }
                     }
-
-                    String mockWeatherParam = requestBody.has("mockWeather") ? requestBody.get("mockWeather").getAsString() : null;
-                    if (mockWeatherParam == null) {
-                        mockWeatherParam = req.getParameter("mockWeather");
+                    if (!Double.isFinite(latitude) || latitude < -90.0 || latitude > 90.0
+                            || !Double.isFinite(longitude) || longitude < -180.0 || longitude > 180.0) {
+                        throw new IllegalArgumentException("Delivery coordinates are invalid");
                     }
-                    if (mockWeatherParam == null && session.getAttribute("mockWeather") != null) {
-                        mockWeatherParam = session.getAttribute("mockWeather").toString();
+
+                    String mockWeatherParam = null;
+                    if (com.app.zingbiteutils.PaymentService.isPaymentTestMode()) {
+                        mockWeatherParam = requestBody.has("mockWeather")
+                                ? requestBody.get("mockWeather").getAsString()
+                                : req.getParameter("mockWeather");
+                        if (mockWeatherParam == null && session.getAttribute("mockWeather") != null) {
+                            mockWeatherParam = session.getAttribute("mockWeather").toString();
+                        }
                     }
 
                     com.app.zingbiteutils.SurgePricingService.SurgeDetails surgeDetails = 
                         com.app.zingbiteutils.SurgePricingService.calculateSurge(latitude, longitude, mockWeatherParam);
 
                     double subtotal = 0.0;
+                    List<Menu> validatedMenus = new ArrayList<>();
+                    List<Integer> validatedQuantities = new ArrayList<>();
                     for (JsonElement itemEl : itemsArray) {
+                        if (!itemEl.isJsonObject()) {
+                            throw new IllegalArgumentException("Each order item must be an object");
+                        }
                         JsonObject itemObj = itemEl.getAsJsonObject();
+                        if (!itemObj.has("id") || !itemObj.has("qty")) {
+                            throw new IllegalArgumentException("Each order item requires id and qty");
+                        }
                         int itemId = itemObj.get("id").getAsInt();
-                        if (itemId == 888 && user != null && user.getEmail() != null && user.getEmail().endsWith("@example.com")) {
+                        if (com.app.zingbiteutils.PaymentService.isPaymentTestMode()
+                                && itemId == 888 && user != null && user.getEmail() != null
+                                && user.getEmail().endsWith("@example.com")) {
                             try {
                                 String hql = "select menuId from Menu where type = 'COMBO' order by menuId desc";
                                 List<Integer> list = dbSession.createQuery(hql, Integer.class).list();
@@ -378,9 +405,23 @@ public class ProfileServlet extends HttpServlet {
                             } catch (Exception ignored) {}
                         }
                         int qty = itemObj.get("qty").getAsInt();
-                        com.app.zingbitemodels.Menu menu = dbSession.get(com.app.zingbitemodels.Menu.class, itemId);
-                        double price = (menu != null) ? menu.getPrice() : itemObj.get("price").getAsDouble();
-                        subtotal += price * qty;
+                        if (qty < 1 || qty > 50) {
+                            throw new IllegalArgumentException("Item quantity must be between 1 and 50");
+                        }
+                        Menu menu = dbSession.get(Menu.class, itemId);
+                        if (menu == null || menu.getRestaurant() == null
+                                || menu.getRestaurant().getRestaurantId() != restaurant.getRestaurantId()) {
+                            throw new IllegalArgumentException("Item does not belong to the selected restaurant");
+                        }
+                        if (!menu.isAvailable()) {
+                            throw new IllegalArgumentException("Item is currently unavailable: " + menu.getMenuName());
+                        }
+                        if (!Double.isFinite(menu.getPrice()) || menu.getPrice() < 0.0) {
+                            throw new IllegalArgumentException("Item has an invalid server price");
+                        }
+                        validatedMenus.add(menu);
+                        validatedQuantities.add(qty);
+                        subtotal += menu.getPrice() * qty;
                     }
 
                     String couponCode = requestBody.has("couponCode") ? requestBody.get("couponCode").getAsString() : "";
@@ -392,13 +433,16 @@ public class ProfileServlet extends HttpServlet {
                         com.app.zingbiteutils.CartPricingUtils.calculateTotals(subtotal, couponCode, (double) surgeDetails.getMultiplier());
 
                     total = calculatedTotals.total;
+                    if (!Double.isFinite(total) || total < 0.0 || total > 10_000_000.0) {
+                        throw new IllegalArgumentException("Calculated order total is invalid");
+                    }
 
                     Orders order = new Orders();
                     order.setUserId(user.getUserID());
                     order.setRestaurantId(restaurant);
                     order.setOrderTime(orderTime);
                     order.setTotalAmount((float) total);
-                    order.setOrderStatus(OrderStatus.PENDING_PAYMENT);
+                    order.setOrderStatus(isCashOnDelivery ? OrderStatus.PLACED : OrderStatus.PENDING_PAYMENT);
                     order.setPaymentMethod(paymentMethod);
                     order.setStatusUpdatedAt(new Date());
                     order.setSurgeMultiplier(surgeDetails.getMultiplier());
@@ -409,26 +453,14 @@ public class ProfileServlet extends HttpServlet {
                     dbSession.flush(); // populated orderId
                     orderId = order.getOrderId();
 
-                    for (JsonElement itemEl : itemsArray) {
-                        JsonObject itemObj = itemEl.getAsJsonObject();
-                        int itemId = itemObj.get("id").getAsInt();
-                        if (itemId == 888 && user != null && user.getEmail() != null && user.getEmail().endsWith("@example.com")) {
-                            try {
-                                String hql = "select menuId from Menu where type = 'COMBO' order by menuId desc";
-                                List<Integer> list = dbSession.createQuery(hql, Integer.class).list();
-                                if (list != null && !list.isEmpty()) {
-                                    itemId = list.get(0);
-                                }
-                            } catch (Exception ignored) {}
-                        }
-                        int qty = itemObj.get("qty").getAsInt();
-                        double price = itemObj.get("price").getAsDouble();
-
-                        OrderItem orderItem = new OrderItem(orderId, itemId, qty, price * qty);
+                    for (int itemIndex = 0; itemIndex < validatedMenus.size(); itemIndex++) {
+                        Menu menu = validatedMenus.get(itemIndex);
+                        int itemId = menu.getMenuId();
+                        int qty = validatedQuantities.get(itemIndex);
+                        OrderItem orderItem = new OrderItem(orderId, itemId, qty, menu.getPrice() * qty);
                         dbSession.persist(orderItem);
 
-                        com.app.zingbitemodels.Menu menu = dbSession.get(com.app.zingbitemodels.Menu.class, itemId);
-                        if (menu != null && "COMBO".equals(menu.getType())) {
+                        if ("COMBO".equals(menu.getType())) {
                             List<ComboMapping> mappings = dbSession.createQuery("from ComboMapping where comboMenuId = :comboId", ComboMapping.class)
                                 .setParameter("comboId", itemId)
                                 .list();
@@ -445,16 +477,30 @@ public class ProfileServlet extends HttpServlet {
                     orderHistory.setUserID(user.getUserID());
                     orderHistory.setOrderDate(new Date());
                     orderHistory.setTotalAmount(total);
-                    orderHistory.setOrderStatus("Pending Payment");
+                    orderHistory.setOrderStatus(isCashOnDelivery ? "Placed" : "Pending Payment");
 
                     dbSession.persist(orderHistory);
 
                     // Create Payment record
                     com.app.zingbitemodels.Payment payment = new com.app.zingbitemodels.Payment(orderId, total, paymentMethod);
-                    payment.setStatus("PENDING");
+                    payment.setStatus(isCashOnDelivery ? "COD_PENDING" : "PENDING");
                     dbSession.persist(payment);
 
+                    if (isCashOnDelivery) {
+                        restaurant.setTotalOrders(restaurant.getTotalOrders() + 1);
+                        dbSession.merge(restaurant);
+                    }
+
                     tx.commit();
+                } catch (IllegalArgumentException e) {
+                    if (tx != null && tx.isActive()) {
+                        tx.rollback();
+                    }
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    JsonObject error = new JsonObject();
+                    error.addProperty("error", e.getMessage());
+                    resp.getWriter().write(error.toString());
+                    return;
                 } catch (Exception e) {
                     if (tx != null && tx.isActive()) {
                         tx.rollback();
@@ -468,8 +514,11 @@ public class ProfileServlet extends HttpServlet {
                 if (orderId > 0) {
                     jsonResponse.addProperty("success", true);
                     jsonResponse.addProperty("orderId", "ZB-" + orderId);
+                    jsonResponse.addProperty("amount", total);
 
-                    if ("Razorpay".equals(paymentMethod)) {
+                    if (isCashOnDelivery) {
+                        com.app.zingbiteutils.PaymentService.getInstance().notifyOrderPlaced(orderId, "COD order placed");
+                    } else if (isRazorpay) {
                         try {
                             int amountInPaise = (int) Math.round(total * 100);
                             String razorpayOrderId = com.app.zingbiteutils.RazorpayUtils.createRazorpayOrder(amountInPaise, "ZB-" + orderId);
@@ -488,8 +537,11 @@ public class ProfileServlet extends HttpServlet {
                             }
                         } catch (Exception rpEx) {
                             System.err.println("[ProfileServlet] Failed to create Razorpay Order: " + rpEx.getMessage());
-                            rpEx.printStackTrace();
-                            jsonResponse.addProperty("razorpayError", rpEx.getMessage());
+                            com.app.zingbiteutils.PaymentService.getInstance().processOrderCancellation(
+                                    orderId, "Unable to initialize Razorpay checkout");
+                            jsonResponse.addProperty("success", false);
+                            jsonResponse.addProperty("error", "Unable to initialize payment checkout");
+                            resp.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
                         }
                     }
                 } else {

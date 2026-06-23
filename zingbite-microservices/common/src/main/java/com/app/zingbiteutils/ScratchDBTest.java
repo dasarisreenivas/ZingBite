@@ -6,19 +6,46 @@ import com.app.zingbitemodels.User;
 
 public class ScratchDBTest {
     public static void main(String[] args) {
-        System.out.println("--- Scratch User Test ---");
+        System.out.println("--- Scratch User Password Hashing Migration ---");
         try (Session session = DBUtils.openSession()) {
+            org.hibernate.Transaction tx = session.beginTransaction();
             List<User> users = session.createQuery("from User", User.class).list();
-            System.out.println("Found " + users.size() + " users:");
+            int migrated = 0;
             for (User u : users) {
-                System.out.println("User ID: " + u.getUserID() 
-                    + ", Name: " + u.getUserName()
-                    + ", Email: " + u.getEmail()
-                    + ", Password: " + u.getPassword()
-                    + ", Role: " + u.getRole());
+                String pwd = u.getPassword();
+                // Only values with no hash delimiter are known legacy plaintext.
+                // PBKDF2 values (pbkdf2:salt:hash or salt:hash) must remain intact
+                // until they can be upgraded after a successful login.
+                if (pwd != null && !pwd.contains(":") && !pwd.startsWith("$argon2id$")) {
+                    String hashed = PasswordUtils.hashPassword(pwd);
+                    u.setPassword(hashed);
+                    session.merge(u);
+                    migrated++;
+                    System.out.println("Migrated user: " + u.getEmail());
+                }
+            }
+            tx.commit();
+            System.out.println("Total users migrated: " + migrated);
+
+            // Query specifically for the admin user to check status
+            User admin = session.createQuery("from User where email = 'admin@zingbite.com'", User.class).uniqueResult();
+            if (admin != null) {
+                System.out.println("Admin details: ID=" + admin.getUserID()
+                    + ", Email=" + admin.getEmail()
+                    + ", Credential format=" + credentialFormat(admin.getPassword())
+                    + ", Role=" + admin.getRole());
+            } else {
+                System.out.println("Admin user admin@zingbite.com not found!");
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private static String credentialFormat(String value) {
+        if (value == null) return "missing";
+        if (value.startsWith("argon2id:") || value.startsWith("$argon2id$")) return "argon2id";
+        if (value.startsWith("pbkdf2:") || value.contains(":")) return "legacy-hash";
+        return "plaintext";
     }
 }

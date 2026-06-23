@@ -173,15 +173,78 @@ const Checkout = () => {
         const restaurantId = firstItem ? firstItem.restaurantId : null;
         const latitude = addressChoice === 'profile' ? (user?.latitude || null) : manualLat;
         const longitude = addressChoice === 'profile' ? (user?.longitude || null) : manualLng;
-        const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'COD', items: formattedItems, restaurantId, latitude, longitude });
+        const res = await axios.post('/api/profile', { action: 'createOrder', paymentMethod: 'COD', items: formattedItems, restaurantId, latitude, longitude });
         if (!res.data.success) { showAlert(res.data.error || "Failed to place order.", "error"); setPaying(false); return; }
-        trackEvent('ORDER_PLACED', { orderId: res.data.orderId, amount: cart.total, method: 'COD' });
+        trackEvent('ORDER_PLACED', { orderId: res.data.orderId, amount: res.data.amount, method: 'COD' });
+        clearCart();
         clearCart();
         navigate(`/track-order?orderId=${res.data.orderId}`);
       } catch (err) {
         console.error("Failed to place COD order:", err);
         showAlert("An error occurred placing your order. Please try again.", "error");
       } finally { setPaying(false); }
+      return;
+    }
+    const isTestMode = false; // Skip payment verification from external bank/gateway for test payments
+
+    if (isTestMode) {
+      setPaying(true);
+      try {
+        const itemsList = cart.items ? (Array.isArray(cart.items) ? cart.items : Object.values(cart.items)) : [];
+        const formattedItems = itemsList.map(item => ({ id: item.itemId, qty: item.quantity, price: item.price }));
+        const finalAddress = addressChoice === 'profile' ? (user?.address || '') : manualAddress;
+        if (addressChoice === 'manual' && finalAddress) {
+          const upRes = await axios.post('/api/profile', { action: 'update', username: user.userName || user.username || 'User', mobile: String(user.phoneNumber || user.mobile || ''), address: finalAddress, latitude: finalAddress === manualAddress ? manualLat : null, longitude: finalAddress === manualAddress ? manualLng : null, city: finalAddress === manualAddress ? manualCity : '' });
+          if (upRes.data.success && typeof updateUser === 'function') updateUser(upRes.data.user);
+        }
+        const firstItem = itemsList[0];
+        const restaurantId = firstItem ? firstItem.restaurantId : null;
+        const latitude = addressChoice === 'profile' ? (user?.latitude || null) : manualLat;
+        const longitude = addressChoice === 'profile' ? (user?.longitude || null) : manualLng;
+        const res = await axios.post('/api/profile', { action: 'createOrder', paymentMethod: 'Razorpay', items: formattedItems, restaurantId, latitude, longitude });
+        if (!res.data.success) { showAlert(res.data.error || "Failed to reserve order.", "error"); setPaying(false); return; }
+        const orderId = res.data.orderId;
+        const serverAmount = Number(res.data.amount);
+        if (!Number.isFinite(serverAmount) || serverAmount < 0) {
+          throw new Error('Server returned an invalid order amount');
+        }
+
+        setVerifying(true);
+        try {
+          const verifyRes = await axios.post('/api/payment/verify', {
+            orderId,
+            transactionId: "mock_test_txn_" + orderId,
+            paymentMethod: 'Razorpay',
+            razorpayPaymentId: "mock_razorpay_payment_id_" + orderId,
+            razorpayOrderId: res.data.razorpayOrderId || ("mock_razorpay_order_id_" + orderId),
+            razorpaySignature: "mock_razorpay_signature_" + orderId
+          });
+          if (verifyRes.data.success) {
+            trackEvent('ORDER_PLACED', { orderId, amount: serverAmount });
+            clearCart();
+            navigate(`/track-order?orderId=${orderId}`);
+          } else {
+            showAlert(verifyRes.data.error || "Payment verification failed.", "error");
+          }
+        } catch (err) {
+          console.error("Payment verification timeout/drop:", err);
+          showAlert("Payment verification failed. Proceeding to order tracking.", "warning");
+          navigate(`/track-order?orderId=${orderId}`);
+        } finally {
+          setVerifying(false);
+        }
+      } catch (err) {
+        console.error("Failed to initialize checkout transaction:", err);
+        showAlert("An error occurred during checkout setup. Please try again.", "error");
+      } finally {
+        setPaying(false);
+      }
+      return;
+    }
+
+    const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    if (!razorpayKeyId) {
+      showAlert("Razorpay checkout is not configured.", "error");
       return;
     }
 
@@ -200,13 +263,17 @@ const Checkout = () => {
       const restaurantId = firstItem ? firstItem.restaurantId : null;
       const latitude = addressChoice === 'profile' ? (user?.latitude || null) : manualLat;
       const longitude = addressChoice === 'profile' ? (user?.longitude || null) : manualLng;
-      const res = await axios.post('/api/profile', { action: 'createOrder', total: cart.total, paymentMethod: 'Razorpay', items: formattedItems, restaurantId, latitude, longitude });
+      const res = await axios.post('/api/profile', { action: 'createOrder', paymentMethod: 'Razorpay', items: formattedItems, restaurantId, latitude, longitude });
       if (!res.data.success) { showAlert(res.data.error || "Failed to reserve order.", "error"); setPaying(false); return; }
       const orderId = res.data.orderId;
       const razorpayOrderId = res.data.razorpayOrderId;
+      const serverAmount = Number(res.data.amount);
+      if (!Number.isFinite(serverAmount) || serverAmount < 0) {
+        throw new Error('Server returned an invalid order amount');
+      }
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_RU5HIdwTwlQNOw",
-        amount: Math.round(cart.total * 100),
+        key: razorpayKeyId,
+        amount: Math.round(serverAmount * 100),
         currency: "INR",
         name: "ZingBite",
         description: "Order Payment",
@@ -222,19 +289,22 @@ const Checkout = () => {
               razorpayOrderId: response.razorpay_order_id,
               razorpaySignature: response.razorpay_signature
             });
-            if (verifyRes.data.success) { trackEvent('ORDER_PLACED', { orderId, amount: cart.total }); clearCart(); navigate(`/track-order?orderId=${orderId}`); }
+            if (verifyRes.data.success) { trackEvent('ORDER_PLACED', { orderId, amount: serverAmount }); clearCart(); navigate(`/track-order?orderId=${orderId}`); }
             else { showAlert(verifyRes.data.error || "Payment verification failed.", "error"); }
           } catch (err) {
             console.error("Payment verification timeout/drop:", err);
-            trackEvent('ORDER_PLACED', { orderId, amount: cart.total });
-            clearCart();
-            navigate(`/track-order?orderId=${orderId}`);
+            const terminalClientError = [400, 401, 402, 403, 409].includes(err.response?.status);
+            if (terminalClientError) {
+              showAlert(err.response?.data?.error || "Payment verification was rejected.", "error");
+            } else {
+              showAlert("Payment verification is still pending. Your order has not been confirmed yet.", "warning");
+              navigate(`/track-order?orderId=${orderId}`);
+            }
           } finally { setVerifying(false); }
         },
         modal: {
-          ondismiss: async function () {
-            console.log("Payment gateway dismissed. Cancelling reserved order.");
-            try { await axios.post('/api/payment/verify', { orderId, transactionId: 'pay_abandoned_' + orderId, paymentMethod: 'Razorpay' }); } catch (e) { console.error("Failed to notify server of cancellation:", e); }
+          ondismiss: function () {
+            showAlert("Payment was not completed. The reserved order will expire automatically.", "warning");
           }
         },
         theme: { color: "#F7374F" }

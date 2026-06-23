@@ -8,6 +8,8 @@ import com.app.zingbitedaoimpl.UserDAOImplementation;
 import com.app.zingbiteutils.PasswordUtils;
 import com.app.zingbiteutils.CsrfUtils;
 import com.app.zingbiteutils.LoginAttemptManager;
+import com.app.zingbiteutils.ClientIpUtils;
+import com.app.zingbiteutils.UserResponseUtils;
 import com.app.zingbitemodels.User;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -60,14 +62,6 @@ public class LoginServlet extends HttpServlet {
         }
         
         try {
-            String clientIp = req.getRemoteAddr();
-            if (LoginAttemptManager.isBlocked(clientIp)) {
-                jsonResponse.addProperty("error", "Too many login attempts. Please try again after 15 minutes.");
-                resp.setStatus(429);
-                resp.getWriter().write(jsonResponse.toString());
-                return;
-            }
-
             BufferedReader reader = req.getReader();
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
             
@@ -77,6 +71,15 @@ public class LoginServlet extends HttpServlet {
             if (email == null || password == null || email.isEmpty() || password.isEmpty()) {
                 jsonResponse.addProperty("error", "Email and password are required");
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                resp.getWriter().write(jsonResponse.toString());
+                return;
+            }
+
+            String clientIp = ClientIpUtils.resolve(req);
+            String attemptKey = clientIp + "|" + email;
+            if (LoginAttemptManager.isBlocked(attemptKey)) {
+                jsonResponse.addProperty("error", "Too many login attempts. Please try again after 15 minutes.");
+                resp.setStatus(429);
                 resp.getWriter().write(jsonResponse.toString());
                 return;
             }
@@ -91,7 +94,10 @@ public class LoginServlet extends HttpServlet {
                     resp.getWriter().write(jsonResponse.toString());
                     return;
                 }
-                LoginAttemptManager.recordSuccessfulAttempt(clientIp);
+                LoginAttemptManager.recordSuccessfulAttempt(attemptKey);
+                if (PasswordUtils.needsRehash(user.getPassword())) {
+                    user.setPassword(PasswordUtils.hashPassword(password));
+                }
                 user.setLastLogin(new java.util.Date());
                 userDao.updateUser(user);
                 HttpSession session = req.getSession();
@@ -100,10 +106,10 @@ public class LoginServlet extends HttpServlet {
                 String csrfToken = CsrfUtils.generateToken(session);
                 jsonResponse.addProperty("success", true);
                 jsonResponse.addProperty("csrfToken", csrfToken);
-                jsonResponse.add("user", gson.toJsonTree(user));
+                jsonResponse.add("user", UserResponseUtils.toJson(user));
                 
             } else {
-                LoginAttemptManager.recordFailedAttempt(clientIp);
+                LoginAttemptManager.recordFailedAttempt(attemptKey);
                 jsonResponse.addProperty("error", "Invalid email or password");
                 resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             }
@@ -143,7 +149,7 @@ public class LoginServlet extends HttpServlet {
                     }
                     jsonResponse.addProperty("loggedIn", true);
                     jsonResponse.addProperty("csrfToken", csrfToken);
-                    jsonResponse.add("user", gson.toJsonTree(freshUser));
+                    jsonResponse.add("user", UserResponseUtils.toJson(freshUser));
                 }
             } else {
                 session.invalidate();

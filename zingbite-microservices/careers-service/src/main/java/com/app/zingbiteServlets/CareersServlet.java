@@ -174,7 +174,10 @@ public class CareersServlet extends HttpServlet {
             String name = SanitizationUtils.escapeHtml(requestBody.get("name").getAsString());
             String email = requestBody.get("email").getAsString().trim().toLowerCase();
             String phone = requestBody.get("phone").getAsString().trim();
-            String resumeUrl = requestBody.has("resumeUrl") ? requestBody.get("resumeUrl").getAsString() : "https://zingbite.com/resumes/demo.pdf";
+            String resumeUrl = SanitizationUtils.requireHttpsUrl(
+                    requestBody.has("resumeUrl")
+                            ? requestBody.get("resumeUrl").getAsString()
+                            : "https://zingbite.com/resumes/demo.pdf");
             String city = requestBody.has("city") && !requestBody.get("city").isJsonNull() ? SanitizationUtils.escapeHtml(requestBody.get("city").getAsString()) : null;
             String vehicleType = requestBody.has("vehicle") && !requestBody.get("vehicle").isJsonNull() ? SanitizationUtils.escapeHtml(requestBody.get("vehicle").getAsString()) : null;
 

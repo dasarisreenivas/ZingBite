@@ -1166,7 +1166,7 @@ const DeliveryDashboard = () => {
                   
                   <div className="loc-box">
                     <p style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <MapPin size={12} style={{ flexShrink: 0 }} /> Delivery to: <strong>{o.customerAddress}</strong>
+                      <MapPin size={12} style={{ flexShrink: 0 }} /> Customer details unlock after acceptance
                     </p>
                   </div>
                   

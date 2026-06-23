@@ -26,10 +26,7 @@ import reactor.core.publisher.Mono;
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class SpaFallbackHandler implements WebExceptionHandler {
     private static final String APP_PATH = "/zingbite";
-    private static final Set<String> SERVER_PATHS = Set.of(
-            "/zingbite/checkData",
-            "/zingbite/CreateOrderServlet",
-            "/zingbite/paymentSuccess");
+    private static final Set<String> SERVER_PATHS = Set.of();
 
     private final Resource index;
 

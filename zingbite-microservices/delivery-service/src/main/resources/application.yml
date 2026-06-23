@@ -1,9 +1,13 @@
 server:
+  address: ${ZINGBITE_SERVICE_BIND_ADDRESS:127.0.0.1}
   port: 8084
   servlet:
     session:
       cookie:
         name: JSESSIONID
+        http-only: true
+        same-site: lax
+        secure: ${ZINGBITE_COOKIE_SECURE:false}
 
 spring:
   application:

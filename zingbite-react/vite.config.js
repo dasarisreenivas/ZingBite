@@ -7,6 +7,7 @@ export default defineConfig({
     react(),
     tailwindcss()
   ],
+  envDir: '..',
   base: '/zingbite/',
   server: {
     proxy: {

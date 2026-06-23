@@ -65,9 +65,9 @@ public class PasswordUtils {
             return verifyArgon2Standard(password, storedPassword);
         }
 
-        // 2. Plaintext fallback (no ":" means it's not a hashed format)
+        // 2. Reject non-hashed formats (must contain ':')
         if (!storedPassword.contains(":")) {
-            return password.equals(storedPassword);
+            return false;
         }
 
         String[] parts = storedPassword.split(":");
@@ -121,6 +121,12 @@ public class PasswordUtils {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public static boolean needsRehash(String storedPassword) {
+        return storedPassword != null
+                && !storedPassword.startsWith("argon2id:")
+                && !storedPassword.startsWith("$argon2id$");
     }
 
     /**

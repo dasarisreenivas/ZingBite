@@ -1,11 +1,9 @@
 package com.app.zingbiteutils;
 
 import jakarta.servlet.*;
-import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-@WebFilter(urlPatterns = "/*", asyncSupported = true)
 public class SecurityHeadersFilter implements Filter {
     @Override
     public void init(FilterConfig filterConfig) {}
@@ -24,7 +22,7 @@ public class SecurityHeadersFilter implements Filter {
         httpResponse.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
         httpResponse.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
         httpResponse.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-        httpResponse.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob: https://*.razorpay.com; font-src 'self' data:; connect-src 'self' http://localhost:* https://*.openstreetmap.org https://nominatim.openstreetmap.org wss: https://api.razorpay.com; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com; object-src 'none'; base-uri 'self'; form-action 'self'");
+        httpResponse.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob: https://*.razorpay.com; font-src 'self' data:; connect-src 'self' http://localhost:* https://*.openstreetmap.org https://nominatim.openstreetmap.org wss: https://api.razorpay.com; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com; object-src 'none'; base-uri 'self'; form-action 'self'");
 
         chain.doFilter(request, response);
     }

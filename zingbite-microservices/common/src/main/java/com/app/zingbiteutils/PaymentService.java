@@ -16,6 +16,7 @@ import com.app.zingbitemodels.OrderHistory;
 import com.app.zingbitemodels.OrderStatus;
 import com.app.zingbitemodels.User;
 import com.google.gson.JsonObject;
+import jakarta.persistence.LockModeType;
 
 public class PaymentService {
 
@@ -31,77 +32,118 @@ public class PaymentService {
         return instance;
     }
 
+    public static boolean isPaymentTestMode() {
+        String value = System.getenv("ZINGBITE_PAYMENT_TEST_MODE");
+        if (value == null || value.isBlank()) {
+            value = System.getProperty("ZINGBITE_PAYMENT_TEST_MODE", "false");
+        }
+        return Boolean.parseBoolean(value);
+    }
+
     /**
      * Verifies payment via Razorpay API using the transaction ID (razorpay_payment_id).
-     * Falls back to mock verification for non-Razorpay payments or test mode.
+     * Test transactions are accepted only when explicit test mode is enabled.
      */
     public String verifyPaymentOnGateway(String transactionId, int orderId) throws Exception {
         if (transactionId == null || transactionId.trim().isEmpty() || transactionId.toLowerCase().contains("abandon")) {
             return "FAILED";
         }
-        // Check if this order has a Razorpay order reference
+        if (isPaymentTestMode()) {
+            System.out.println("[PaymentService] Test mode enabled, skipping gateway verification for order ZB-" + orderId);
+            return transactionId.toLowerCase().contains("fail") ? "FAILED" : "COMPLETED";
+        }
         try (Session session = DBUtils.openSession()) {
             String hql = "from Payment where orderId = :orderId";
             Payment payment = session.createQuery(hql, Payment.class)
                 .setParameter("orderId", orderId).uniqueResult();
-            if (payment != null && payment.getRazorpayOrderId() != null && !payment.getRazorpayOrderId().isEmpty()) {
-                try {
-                    com.razorpay.Payment rpPayment = RazorpayUtils.fetchPayment(transactionId);
-                    String rpStatus = rpPayment.get("status");
-                    System.out.println("[PaymentService] Razorpay actual status for " + transactionId + ": " + rpStatus);
-                    if ("captured".equals(rpStatus) || "authorized".equals(rpStatus)) {
-                        try {
-                            RazorpayUtils.capturePayment(transactionId, (int) Math.round(payment.getAmount() * 100));
-                        } catch (Exception capEx) {
-                            System.out.println("[PaymentService] Capture note: " + capEx.getMessage());
-                        }
-                        return "COMPLETED";
-                    } else if ("failed".equals(rpStatus)) {
-                        return "FAILED";
-                    }
-                } catch (Exception rpEx) {
-                    System.err.println("[PaymentService] Razorpay API check failed for " + transactionId + ": " + rpEx.getMessage());
-                }
+            if (payment == null) {
+                throw new IllegalStateException("Payment record not found for order ZB-" + orderId);
             }
-        } catch (Exception dbEx) {
-            System.err.println("[PaymentService] DB query for Razorpay order failed: " + dbEx.getMessage());
+
+            if (!"Razorpay".equalsIgnoreCase(payment.getPaymentMethod())) {
+                if (isPaymentTestMode() && transactionId.startsWith("txn_") && transactionId.length() <= 128) {
+                    return transactionId.toLowerCase().contains("fail") ? "FAILED" : "COMPLETED";
+                }
+                throw new IllegalStateException("No verifiable payment provider is configured for " + payment.getPaymentMethod());
+            }
+
+            if (payment.getRazorpayOrderId() == null || payment.getRazorpayOrderId().isBlank()) {
+                throw new IllegalStateException("Razorpay order reference is missing for ZB-" + orderId);
+            }
+
+            com.razorpay.Payment gatewayPayment = RazorpayUtils.fetchPayment(transactionId);
+            validateGatewayPayment(payment, gatewayPayment);
+            String gatewayStatus = gatewayPayment.get("status");
+            System.out.println("[PaymentService] Razorpay status for " + transactionId + ": " + gatewayStatus);
+            if ("captured".equals(gatewayStatus)) {
+                return "COMPLETED";
+            }
+            if ("authorized".equals(gatewayStatus)) {
+                com.razorpay.Payment captured = RazorpayUtils.capturePayment(
+                        transactionId, (int) Math.round(payment.getAmount() * 100));
+                String capturedStatus = captured.get("status");
+                return "captured".equals(capturedStatus) ? "COMPLETED" : "PENDING";
+            }
+            if ("failed".equals(gatewayStatus)) {
+                return "FAILED";
+            }
+            return "PENDING";
         }
-        // Fallback mock: transactionId heuristic
-        if (transactionId.toLowerCase().contains("timeout")) {
-            throw new java.net.SocketTimeoutException("Simulated payment gateway timeout occurred. Please retry.");
-        }
-        if (transactionId.toLowerCase().contains("fail")) {
-            return "FAILED";
-        }
-        return "COMPLETED";
     }
 
     /**
      * Verifies Razorpay payment signature and returns the payment status from Razorpay API.
      */
-    public String verifyRazorpaySignatureAndFetchStatus(String razorpayOrderId, String razorpayPaymentId, String razorpaySignature, int orderId) {
+    public String verifyRazorpaySignatureAndFetchStatus(String razorpayOrderId, String razorpayPaymentId,
+            String razorpaySignature, int orderId) throws Exception {
+        if (isPaymentTestMode()) {
+            System.out.println("[PaymentService] Test mode enabled, skipping Razorpay signature and status verification for ZB-" + orderId);
+            return (razorpayPaymentId != null && razorpayPaymentId.toLowerCase().contains("fail")) ? "FAILED" : "COMPLETED";
+        }
+        Payment storedPayment;
+        try (Session session = DBUtils.openSession()) {
+            storedPayment = session.createQuery("from Payment where orderId = :orderId", Payment.class)
+                    .setParameter("orderId", orderId)
+                    .uniqueResult();
+        }
+        if (storedPayment == null || storedPayment.getRazorpayOrderId() == null
+                || !storedPayment.getRazorpayOrderId().equals(razorpayOrderId)) {
+            throw new SecurityException("Razorpay order binding mismatch for ZB-" + orderId);
+        }
         if (!RazorpayUtils.verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
-            System.err.println("[PaymentService] Razorpay signature MISMATCH for order ZB-" + orderId);
-            return "FAILED";
+            throw new SecurityException("Invalid Razorpay signature for ZB-" + orderId);
         }
         System.out.println("[PaymentService] Razorpay signature VALID for order ZB-" + orderId);
-        try {
-            com.razorpay.Payment rpPayment = RazorpayUtils.fetchPayment(razorpayPaymentId);
-            String rpStatus = rpPayment.get("status");
-            if ("captured".equals(rpStatus) || "authorized".equals(rpStatus)) {
-                try {
-                    RazorpayUtils.capturePayment(razorpayPaymentId, (int) Math.round(rpPayment.get("amount")));
-                } catch (Exception capEx) {
-                    System.out.println("[PaymentService] Capture note: " + capEx.getMessage());
-                }
-                return "COMPLETED";
-            } else if ("failed".equals(rpStatus)) {
-                return "FAILED";
-            }
-        } catch (Exception e) {
-            System.err.println("[PaymentService] Razorpay fetch failed for " + razorpayPaymentId + ": " + e.getMessage());
+        com.razorpay.Payment gatewayPayment = RazorpayUtils.fetchPayment(razorpayPaymentId);
+        validateGatewayPayment(storedPayment, gatewayPayment);
+        String gatewayStatus = gatewayPayment.get("status");
+        if ("captured".equals(gatewayStatus)) {
+            return "COMPLETED";
         }
-        return "COMPLETED";
+        if ("authorized".equals(gatewayStatus)) {
+            com.razorpay.Payment captured = RazorpayUtils.capturePayment(
+                    razorpayPaymentId, (int) Math.round(storedPayment.getAmount() * 100));
+            String capturedStatus = captured.get("status");
+            return "captured".equals(capturedStatus) ? "COMPLETED" : "PENDING";
+        }
+        return "failed".equals(gatewayStatus) ? "FAILED" : "PENDING";
+    }
+
+    private void validateGatewayPayment(Payment storedPayment, com.razorpay.Payment gatewayPayment) {
+        String gatewayOrderId = String.valueOf(gatewayPayment.get("order_id"));
+        if (!storedPayment.getRazorpayOrderId().equals(gatewayOrderId)) {
+            throw new SecurityException("Gateway payment belongs to a different Razorpay order");
+        }
+
+        Object amountValue = gatewayPayment.get("amount");
+        if (!(amountValue instanceof Number amount)
+                || amount.longValue() != Math.round(storedPayment.getAmount() * 100)) {
+            throw new SecurityException("Gateway payment amount does not match the order total");
+        }
+        String currency = String.valueOf(gatewayPayment.get("currency"));
+        if (!"INR".equalsIgnoreCase(currency)) {
+            throw new SecurityException("Gateway payment currency does not match the order");
+        }
     }
 
     /**
@@ -117,7 +159,7 @@ public class PaymentService {
             tx = session.beginTransaction();
 
             // 1. Fetch Order
-            order = session.get(Orders.class, orderId);
+            order = session.find(Orders.class, orderId, LockModeType.PESSIMISTIC_WRITE);
             if (order == null) {
                 System.out.println("[PaymentService] Order ZB-" + orderId + " not found.");
                 return false;
@@ -135,9 +177,8 @@ public class PaymentService {
             query.setParameter("orderId", orderId);
             Payment payment = query.uniqueResult();
 
-            if (payment == null) {
-                payment = new Payment(orderId, order.getTotalAmount(), paymentMethod);
-            }
+            if (payment == null) return false;
+            String trustedPaymentMethod = payment.getPaymentMethod();
             payment.setTransactionId(transactionId);
             payment.setStatus("COMPLETED");
             payment.setUpdatedAt(new Date());
@@ -145,7 +186,7 @@ public class PaymentService {
 
             // 3. Update Order Status
             order.setOrderStatus(OrderStatus.PLACED);
-            order.setPaymentMethod(paymentMethod);
+            order.setPaymentMethod(trustedPaymentMethod);
             order.setStatusUpdatedAt(new Date());
             session.merge(order);
 
@@ -232,6 +273,42 @@ public class PaymentService {
         return true;
     }
 
+    /** Emits post-commit notifications for orders placed without online capture, such as COD. */
+    public void notifyOrderPlaced(int orderId, String message) {
+        Orders order;
+        User user;
+        try (Session session = DBUtils.openSession()) {
+            order = session.get(Orders.class, orderId);
+            if (order == null || order.getOrderStatus() != OrderStatus.PLACED) return;
+            user = session.get(User.class, order.getUserId());
+        }
+        if (user == null) return;
+
+        try {
+            EmailService.sendEmailAsync(
+                    user.getUserID(),
+                    user.getEmail(),
+                    "ZingBite Order Confirmation - ZB-" + orderId,
+                    EmailTemplates.orderPlaced(user.getUserName(), orderId, order.getTotalAmount(), order.getOrderTime()));
+        } catch (Exception emailError) {
+            System.err.println("[PaymentService] COD email dispatch failed: " + emailError.getMessage());
+        }
+
+        try {
+            OrderEventBroker.getInstance().broadcastOrderUpdate(
+                    order, "new_order", "CREATED", user.getUserID(), "customer", message);
+            JsonObject event = new JsonObject();
+            event.addProperty("event", "new_order");
+            event.addProperty("orderId", orderId);
+            if (order.getRestaurantId() != null) {
+                event.addProperty("restaurantId", order.getRestaurantId().getRestaurantId());
+            }
+            OrderEventBroker.getInstance().broadcastTopicUpdate("topic:new_orders", event.toString());
+        } catch (Exception eventError) {
+            System.err.println("[PaymentService] COD event dispatch failed: " + eventError.getMessage());
+        }
+    }
+
     /**
      * Transactionally cancels an order when a payment fails or is abandoned.
      */
@@ -240,7 +317,7 @@ public class PaymentService {
         try (Session session = DBUtils.openSession()) {
             tx = session.beginTransaction();
 
-            Orders order = session.get(Orders.class, orderId);
+            Orders order = session.find(Orders.class, orderId, LockModeType.PESSIMISTIC_WRITE);
             if (order == null) return false;
 
             if (order.getOrderStatus() != OrderStatus.PENDING_PAYMENT) {
@@ -377,8 +454,6 @@ public class PaymentService {
 
             // Check if there is an associated transaction ID in Payment
             String transactionId = null;
-            String status = null;
-
             try (Session session = DBUtils.openSession()) {
                 String hql = "from Payment where orderId = :orderId";
                 Query<Payment> query = session.createQuery(hql, Payment.class);
@@ -386,7 +461,6 @@ public class PaymentService {
                 Payment payment = query.uniqueResult();
                 if (payment != null) {
                     transactionId = payment.getTransactionId();
-                    status = payment.getStatus();
                 }
             } catch (Exception ex) {}
 
@@ -397,9 +471,12 @@ public class PaymentService {
                     if ("COMPLETED".equals(gatewayStatus)) {
                         System.out.println("[PaymentReconciler] ZB-" + orderId + " was PAID on gateway. Completing...");
                         processOrderCapture(orderId, transactionId, order.getPaymentMethod());
-                    } else {
+                    } else if ("FAILED".equals(gatewayStatus)) {
                         System.out.println("[PaymentReconciler] ZB-" + orderId + " failed on gateway. Cancelling...");
                         processOrderCancellation(orderId, "Gateway returned failure status");
+                    } else {
+                        System.out.println("[PaymentReconciler] ZB-" + orderId
+                                + " remains pending on the gateway. It will be retried.");
                     }
                 } catch (Exception e) {
                     // Gateway error / timeout -> leave for next retry

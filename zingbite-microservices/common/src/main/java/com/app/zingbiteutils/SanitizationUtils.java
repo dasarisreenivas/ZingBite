@@ -1,5 +1,7 @@
 package com.app.zingbiteutils;
 
+import java.net.URI;
+
 public class SanitizationUtils {
 
     /**
@@ -25,5 +27,17 @@ public class SanitizationUtils {
             return true;
         }
         return input.trim().length() <= maxLength;
+    }
+
+    public static String requireHttpsUrl(String input) {
+        try {
+            URI uri = URI.create(input == null ? "" : input.trim());
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null) {
+                throw new IllegalArgumentException("URL must use HTTPS");
+            }
+            return uri.toASCIIString();
+        } catch (RuntimeException error) {
+            throw new IllegalArgumentException("Invalid HTTPS URL", error);
+        }
     }
 }

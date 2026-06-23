@@ -7,15 +7,17 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
+import jakarta.persistence.LockModeType;
 
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 
 import com.app.zingbitemodels.Orders;
+import com.app.zingbitemodels.OrderStatus;
 import com.app.zingbitemodels.User;
-import com.app.zingbiteutils.AppConstants;
+import com.app.zingbiteutils.AuthorizationUtils;
 import com.app.zingbiteutils.DBUtils;
+import com.app.zingbiteutils.GeoUtils;
 import com.app.zingbiteutils.OrderEventBroker;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -31,26 +33,16 @@ public class RiderLocationServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
 
-        HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
+        User user = AuthorizationUtils.requireAuthenticated(req);
+        if (user == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Unauthorized\"}");
             return;
         }
-        User user = (User) session.getAttribute("loggedInUser");
-        try (Session refreshSession = DBUtils.openSession()) {
-            User freshUser = refreshSession.get(User.class, user.getUserID());
-            if (freshUser != null) {
-                if (!user.getRole().equals(freshUser.getRole())) {
-                    session.setAttribute("loggedInUser", freshUser);
-                    user = freshUser;
-                }
-            }
-        } catch (Exception ignored) {}
 
-        if (!AppConstants.Role.DELIVERY_PARTNER.equals(user.getRole())) {
+        if (!"delivery_partner".equals(user.getRole())) {
             resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            resp.getWriter().write("{\"error\":\"Forbidden: Only delivery partners can update location. Current role: " + user.getRole() + "\"}");
+            resp.getWriter().write("{\"error\":\"Forbidden: Only delivery partners can update location\"}");
             return;
         }
 
@@ -58,9 +50,10 @@ public class RiderLocationServlet extends HttpServlet {
             BufferedReader reader = req.getReader();
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
 
-            if (requestBody == null || !requestBody.has("orderId")) {
+            if (requestBody == null || !requestBody.has("orderId")
+                    || !requestBody.has("latitude") || !requestBody.has("longitude")) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                resp.getWriter().write("{\"success\":false,\"error\":\"Missing orderId\"}");
+                resp.getWriter().write("{\"success\":false,\"error\":\"orderId, latitude, and longitude are required\"}");
                 return;
             }
 
@@ -68,30 +61,65 @@ public class RiderLocationServlet extends HttpServlet {
             String orderIdStr = requestBody.get("orderId").getAsString().replace("ZB-", "").trim();
             int orderId = Integer.parseInt(orderIdStr);
 
-            double latitude = requestBody.has("latitude") ? requestBody.get("latitude").getAsDouble() : 0.0;
-            double longitude = requestBody.has("longitude") ? requestBody.get("longitude").getAsDouble() : 0.0;
+            double latitude = requestBody.get("latitude").getAsDouble();
+            double longitude = requestBody.get("longitude").getAsDouble();
             double bearing = requestBody.has("bearing") ? requestBody.get("bearing").getAsDouble() : 0.0;
-            String status = requestBody.has("status") ? requestBody.get("status").getAsString() : "OUT_FOR_DELIVERY";
             double etaMinutes = requestBody.has("etaMinutes") ? requestBody.get("etaMinutes").getAsDouble() : 0.0;
             double gpsProgress = requestBody.has("gpsProgress") ? requestBody.get("gpsProgress").getAsDouble() : 0.0;
+            if (!Double.isFinite(latitude) || latitude < -90.0 || latitude > 90.0
+                    || !Double.isFinite(longitude) || longitude < -180.0 || longitude > 180.0
+                    || !Double.isFinite(bearing)
+                    || !Double.isFinite(etaMinutes) || etaMinutes < 0.0 || etaMinutes > 1_440.0
+                    || !Double.isFinite(gpsProgress) || gpsProgress < 0.0 || gpsProgress > 100.0) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                resp.getWriter().write("{\"success\":false,\"error\":\"Invalid telemetry values\"}");
+                return;
+            }
+            bearing = ((bearing % 360.0) + 360.0) % 360.0;
 
             // 1. Persist coordinates in the database transactionally
             Transaction tx = null;
+            String status;
             try (Session hibernateSession = DBUtils.openSession()) {
                 tx = hibernateSession.beginTransaction();
-                Orders order = hibernateSession.get(Orders.class, orderId);
-                if (order != null) {
-                    order.setGpsCoordinates(latitude + "," + longitude);
-                    if (requestBody.has("gpsProgress")) {
-                        order.setGpsProgress(gpsProgress);
-                    }
-                    hibernateSession.merge(order);
+                Orders order = hibernateSession.find(Orders.class, orderId, LockModeType.PESSIMISTIC_WRITE);
+                if (order == null) {
+                    tx.rollback();
+                    resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    resp.getWriter().write("{\"success\":false,\"error\":\"Order not found\"}");
+                    return;
                 }
+                if (order.getRiderId() == null || order.getRiderId() != user.getUserID()) {
+                    tx.rollback();
+                    resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    resp.getWriter().write("{\"success\":false,\"error\":\"Order is not assigned to this rider\"}");
+                    return;
+                }
+                if (order.getOrderStatus() == OrderStatus.CANCELLED
+                        || order.getOrderStatus() == OrderStatus.DELIVERED) {
+                    tx.rollback();
+                    resp.setStatus(HttpServletResponse.SC_CONFLICT);
+                    resp.getWriter().write("{\"success\":false,\"error\":\"Telemetry is closed for this order\"}");
+                    return;
+                }
+
+                order.setGpsCoordinates(latitude + "," + longitude);
+                if (requestBody.has("gpsProgress")) {
+                    order.setGpsProgress(gpsProgress);
+                }
+                hibernateSession.merge(order);
+
+                User rider = hibernateSession.get(User.class, user.getUserID());
+                rider.setLatitude(latitude);
+                rider.setLongitude(longitude);
+                hibernateSession.merge(rider);
+                status = order.getOrderStatus() != null ? order.getOrderStatus().name() : "PLACED";
                 tx.commit();
             } catch (Exception e) {
-                if (tx != null) tx.rollback();
+                if (tx != null && tx.isActive()) tx.rollback();
                 throw e;
             }
+            GeoUtils.updateCachedCoordinates(user.getUserID(), latitude, longitude);
 
             // 2. Build the live SSE payload
             JsonObject ssePayload = new JsonObject();
@@ -109,6 +137,9 @@ public class RiderLocationServlet extends HttpServlet {
 
             resp.getWriter().write("{\"success\":true}");
 
+        } catch (IllegalArgumentException e) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            resp.getWriter().write("{\"success\":false,\"error\":\"Invalid telemetry request\"}");
         } catch (Exception e) {
             e.printStackTrace();
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

@@ -30,6 +30,13 @@ def customer_client():
     return cust_client
 
 @pytest.fixture
+def super_admin_client():
+    client = ZingBiteClient(base_url=BASE_URL)
+    response = client.login("admin@zingbite.com", "Admin123!")
+    assert response.status_code == 200
+    return client
+
+@pytest.fixture
 def store_menu_setup(client):
     """Sets up a restaurant and adds a menu item."""
     sa_client = ZingBiteClient(base_url=BASE_URL)
@@ -149,49 +156,49 @@ def test_surge_pricing_stormy(customer_client, store_menu_setup):
     assert float(cart_data.get("surgeMultiplier")) == 1.5
     assert float(cart_data.get("surgeFee")) == 25.0
 
-def test_weather_delay_on_eta(customer_client):
+def test_weather_delay_on_eta(super_admin_client):
     """Test 4: Verify weather updates reflect correct weatherDelay mins in VRP predictive ETAs."""
     # 1. Update weather to Rainy
-    up_resp = customer_client.post(f"{BASE_URL}/api/delivery/vrp", json={
+    up_resp = super_admin_client.post(f"{BASE_URL}/api/delivery/vrp", json={
         "action": "updateWeather",
         "weather": "Rainy"
     })
     assert up_resp.status_code == 200
     
     # Get VRP details
-    vrp_resp = customer_client.get(f"{BASE_URL}/api/delivery/vrp")
+    vrp_resp = super_admin_client.get(f"{BASE_URL}/api/delivery/vrp")
     assert vrp_resp.status_code == 200
     vrp_data = vrp_resp.json()
     assert vrp_data.get("weather") == "Rainy"
     assert vrp_data.get("predictiveETAs", {}).get("Customer A", {}).get("weatherDelay") == 5
     
     # 2. Update weather to Stormy
-    up_resp = customer_client.post(f"{BASE_URL}/api/delivery/vrp", json={
+    up_resp = super_admin_client.post(f"{BASE_URL}/api/delivery/vrp", json={
         "action": "updateWeather",
         "weather": "Stormy"
     })
     assert up_resp.status_code == 200
     
     # Get VRP details again
-    vrp_resp = customer_client.get(f"{BASE_URL}/api/delivery/vrp")
+    vrp_resp = super_admin_client.get(f"{BASE_URL}/api/delivery/vrp")
     vrp_data = vrp_resp.json()
     assert vrp_data.get("weather") == "Stormy"
     assert vrp_data.get("predictiveETAs", {}).get("Customer A", {}).get("weatherDelay") == 12
 
-def test_surge_pricing_reset(customer_client):
+def test_surge_pricing_reset(super_admin_client):
     """Test 5: Verify reset returns weather to Sunny and clears all parameters."""
     # Set to Stormy first
-    customer_client.post(f"{BASE_URL}/api/delivery/vrp", json={
+    super_admin_client.post(f"{BASE_URL}/api/delivery/vrp", json={
         "action": "updateWeather",
         "weather": "Stormy"
     })
     
     # Reset
-    reset_resp = customer_client.post(f"{BASE_URL}/api/delivery/vrp", json={"action": "reset"})
+    reset_resp = super_admin_client.post(f"{BASE_URL}/api/delivery/vrp", json={"action": "reset"})
     assert reset_resp.status_code == 200
     
     # Verify defaults
-    vrp_resp = customer_client.get(f"{BASE_URL}/api/delivery/vrp")
+    vrp_resp = super_admin_client.get(f"{BASE_URL}/api/delivery/vrp")
     vrp_data = vrp_resp.json()
     assert vrp_data.get("weather") == "Sunny"
     assert vrp_data.get("predictiveETAs", {}).get("Customer A", {}).get("weatherDelay") == 0

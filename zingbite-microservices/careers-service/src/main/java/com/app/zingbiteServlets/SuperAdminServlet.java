@@ -26,6 +26,8 @@ import com.app.zingbitemodels.Job;
 import com.app.zingbitemodels.Application;
 import com.app.zingbitemodels.EmailNotification;
 import com.app.zingbiteutils.DBUtils;
+import com.app.zingbiteutils.UserResponseUtils;
+import com.app.zingbiteutils.AuthorizationUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -41,11 +43,7 @@ public class SuperAdminServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
     private boolean isSuperAdmin(HttpServletRequest req) {
-        HttpSession session = req.getSession(false);
-        if (session == null) return false;
-        User user = (User) session.getAttribute("loggedInUser");
-        if (user == null) return false;
-        return "super_admin".equals(user.getRole());
+        return AuthorizationUtils.requireRole(req, "super_admin") != null;
     }
 
     @Override
@@ -110,7 +108,11 @@ public class SuperAdminServlet extends HttpServlet {
             stats.addProperty("restaurantCount", restaurantCount);
             stats.addProperty("orderCount", orderCount);
             stats.addProperty("totalRevenue", totalRevenue);
-            stats.add("users", gson.toJsonTree(usersList));
+            JsonArray usersJson = new JsonArray();
+            for (User listedUser : usersList) {
+                usersJson.add(UserResponseUtils.toJson(listedUser));
+            }
+            stats.add("users", usersJson);
             stats.add("applications", applicationsJson);
             stats.add("restaurantRequests", gson.toJsonTree(requestsList));
 

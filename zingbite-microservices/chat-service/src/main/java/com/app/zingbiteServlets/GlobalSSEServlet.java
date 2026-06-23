@@ -8,7 +8,6 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -23,6 +22,7 @@ import org.hibernate.query.Query;
 
 import com.app.zingbiteutils.DBUtils;
 import com.app.zingbiteutils.OrderEventBroker;
+import com.app.zingbiteutils.AuthorizationUtils;
 import com.app.zingbitemodels.Restaurant;
 import com.app.zingbitemodels.User;
 
@@ -60,19 +60,8 @@ public class GlobalSSEServlet extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
         response.setHeader("Cache-Control", "no-cache");
         response.setHeader("Connection", "keep-alive");
-        response.setHeader("Access-Control-Allow-Origin", "*");
 
-        HttpSession session = request.getSession(false);
-        User user = null;
-        if (session != null) {
-            try {
-                user = (User) session.getAttribute("loggedInUser");
-            } catch (ClassCastException e) {
-                try {
-                    session.invalidate();
-                } catch (Exception ignored) {}
-            }
-        }
+        User user = AuthorizationUtils.requireAuthenticated(request);
         final User finalUser = user;
 
         String topicParam = request.getParameter("topic");

@@ -8,15 +8,13 @@ import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
-import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-@WebFilter(urlPatterns = {"/api/*"}, asyncSupported = true)
 public class CsrfFilter implements Filter {
 
     private static final String[] EXCLUDED_PATHS = {
-        "/api/login", "/api/register", "/api/ws/", "/api/analytics", "/api/contact", "/api/delivery/location"
+        "/api/login", "/api/register", "/api/payment/webhook", "/api/ws/", "/api/analytics", "/api/contact"
     };
 
     @Override
@@ -41,7 +39,7 @@ public class CsrfFilter implements Filter {
 
         boolean isExcluded = false;
         for (String excluded : EXCLUDED_PATHS) {
-            if (path.contains(excluded)) {
+            if (path.equals(excluded) || (excluded.endsWith("/") && path.startsWith(excluded))) {
                 isExcluded = true;
                 break;
             }

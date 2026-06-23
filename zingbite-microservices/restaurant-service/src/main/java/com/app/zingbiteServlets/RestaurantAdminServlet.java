@@ -31,6 +31,7 @@ import com.app.zingbitemodels.OrderStatus;
 import com.app.zingbitemodels.ComboMapping;
 import com.app.zingbiteutils.DBUtils;
 import com.app.zingbiteutils.SanitizationUtils;
+import com.app.zingbiteutils.AuthorizationUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -54,32 +55,11 @@ public class RestaurantAdminServlet extends HttpServlet {
             return;
         }
 
-        User user = null;
-        try {
-            user = (User) session.getAttribute("loggedInUser");
-        } catch (ClassCastException e) {
-            try {
-                session.invalidate();
-            } catch (Exception ignored) {}
-        }
-
+        User user = AuthorizationUtils.requireAuthenticated(req);
         if (user == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Unauthorized\"}");
             return;
-        }
-
-        // Refresh user from DB to pick up any role changes after admin approval
-        try (Session refreshSession = DBUtils.openSession()) {
-            User freshUser = refreshSession.get(User.class, user.getUserID());
-            if (freshUser != null) {
-                if (!user.getRole().equals(freshUser.getRole())) {
-                    session.setAttribute("loggedInUser", freshUser);
-                    user = freshUser;
-                }
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
         }
 
         if (!"restaurant_admin".equals(user.getRole()) && !"customer".equals(user.getRole()) && !"super_admin".equals(user.getRole())) {
@@ -259,15 +239,7 @@ public class RestaurantAdminServlet extends HttpServlet {
             return;
         }
 
-        User user = null;
-        try {
-            user = (User) session.getAttribute("loggedInUser");
-        } catch (ClassCastException e) {
-            try {
-                session.invalidate();
-            } catch (Exception ignored) {}
-        }
-
+        User user = AuthorizationUtils.requireAuthenticated(req);
         if (user == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Unauthorized\"}");
@@ -275,19 +247,6 @@ public class RestaurantAdminServlet extends HttpServlet {
         }
 
         try {
-            // Refresh user from DB to pick up role changes
-            try (Session refreshSession = DBUtils.openSession()) {
-                User freshUser = refreshSession.get(User.class, user.getUserID());
-                if (freshUser != null) {
-                    if (!user.getRole().equals(freshUser.getRole())) {
-                        session.setAttribute("loggedInUser", freshUser);
-                        user = freshUser;
-                    }
-                }
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-
             BufferedReader reader = req.getReader();
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
             String action = requestBody.has("action") ? requestBody.get("action").getAsString() : "";

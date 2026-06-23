@@ -17,6 +17,7 @@ import com.app.zingbitemodels.Orders;
 import com.app.zingbiteutils.DBUtils;
 import com.app.zingbiteutils.GeoUtils;
 import com.app.zingbiteutils.RouteOptimizer;
+import com.app.zingbiteutils.AuthorizationUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -33,10 +34,9 @@ public class RouteServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
 
-        HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
-            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            resp.getWriter().write("{\"error\":\"Unauthorized\"}");
+        if (AuthorizationUtils.requireRole(req, "super_admin") == null) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Super admin access required\"}");
             return;
         }
 
@@ -84,10 +84,9 @@ public class RouteServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
 
-        HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
-            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            resp.getWriter().write("{\"error\":\"Unauthorized\"}");
+        if (AuthorizationUtils.requireRole(req, "super_admin") == null) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Super admin access required\"}");
             return;
         }
 

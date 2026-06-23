@@ -200,10 +200,12 @@ const MailboxModal = ({ onClose }) => {
                   </div>
                 </div>
 
-                {/* Email Body (rendered HTML) */}
-                <div
-                  className="flex-1 text-[13px] text-gray-900 dark:text-neutral-100 overflow-y-auto border border-gray-100 dark:border-neutral-800/60 rounded-lg p-4 bg-white dark:bg-neutral-950 leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: selectedEmail.body }}
+                {/* Sandboxed preview prevents stored email markup from executing in the app origin. */}
+                <iframe
+                  title={`Email preview: ${selectedEmail.subject}`}
+                  sandbox=""
+                  srcDoc={selectedEmail.body || ''}
+                  className="flex-1 w-full min-h-[360px] border border-gray-100 dark:border-neutral-800/60 rounded-lg bg-white"
                 />
               </div>
             ) : (

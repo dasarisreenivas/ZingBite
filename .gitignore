@@ -71,6 +71,7 @@ dist-ssr/
 # AI configuration folders
 .gemini/
 .agents/
+AGENTS.md
 
 # Compiled Java Classes & Logs
 *.class

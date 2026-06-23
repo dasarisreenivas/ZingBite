@@ -6,6 +6,8 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import com.google.gson.JsonObject;
 import com.app.zingbiteutils.SurgePricingService;
+import com.app.zingbiteutils.AuthorizationUtils;
+import com.app.zingbiteutils.PaymentService;
 
 @WebServlet("/api/surge")
 public class SurgePricingServlet extends HttpServlet {
@@ -22,6 +24,16 @@ public class SurgePricingServlet extends HttpServlet {
         String latParam = req.getParameter("latitude");
         String lngParam = req.getParameter("longitude");
         String mockWeatherParam = req.getParameter("mockWeather");
+        String isTestingParam = req.getParameter("isTesting");
+        boolean requestedSimulation = (mockWeatherParam != null && !mockWeatherParam.isBlank())
+                || "true".equalsIgnoreCase(isTestingParam);
+        boolean simulationAllowed = PaymentService.isPaymentTestMode()
+                || AuthorizationUtils.requireRole(req, "super_admin") != null;
+        if (requestedSimulation && !simulationAllowed) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Simulation controls are disabled\"}");
+            return;
+        }
 
         double latitude = 0.0;
         double longitude = 0.0;
@@ -41,7 +53,6 @@ public class SurgePricingServlet extends HttpServlet {
             }
         }
 
-        String isTestingParam = req.getParameter("isTesting");
         boolean isTesting = "true".equalsIgnoreCase(isTestingParam);
         SurgePricingService.SurgeDetails surgeDetails;
         if (isTesting) {
@@ -53,8 +64,10 @@ public class SurgePricingServlet extends HttpServlet {
         HttpSession session = req.getSession();
         session.setAttribute("surgeMultiplier", (double) surgeDetails.getMultiplier());
         session.setAttribute("surgeReason", surgeDetails.getReason());
-        if (mockWeatherParam != null) {
+        if (simulationAllowed && mockWeatherParam != null) {
             session.setAttribute("mockWeather", mockWeatherParam);
+        } else {
+            session.removeAttribute("mockWeather");
         }
 
         JsonObject responseJson = new JsonObject();

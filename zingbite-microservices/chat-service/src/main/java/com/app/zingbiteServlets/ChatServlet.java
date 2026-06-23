@@ -9,12 +9,14 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.query.Query;
+import com.app.chat.ChatAuthorizationService;
+import com.app.chat.ChatAuthorizationService.ChatAccess;
 import com.app.zingbitemodels.ChatMessage;
 import com.app.zingbitemodels.User;
+import com.app.zingbiteutils.AuthorizationUtils;
 import com.app.zingbiteutils.DBUtils;
 import com.app.zingbiteutils.SanitizationUtils;
 import com.google.gson.Gson;
@@ -33,14 +35,12 @@ public class ChatServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
 
-        HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
+        User user = AuthorizationUtils.requireAuthenticated(req);
+        if (user == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Please log in to access messages.\"}");
             return;
         }
-
-        User user = (User) session.getAttribute("loggedInUser");
         String orderIdStr = req.getParameter("orderId");
         String appIdStr = req.getParameter("applicationId");
 
@@ -51,7 +51,7 @@ public class ChatServlet extends HttpServlet {
         int size = 100;
         try {
             if (req.getParameter("size") != null) {
-                size = Math.min(100, Integer.parseInt(req.getParameter("size")));
+                size = Math.max(1, Math.min(100, Integer.parseInt(req.getParameter("size"))));
             }
         } catch (NumberFormatException e) {
             // keep default
@@ -68,32 +68,47 @@ public class ChatServlet extends HttpServlet {
                 return;
             }
 
-            List<ChatMessage> list;
+            String type;
+            int targetId;
+            if (orderIdStr != null && appIdStr == null) {
+                type = "order";
+                targetId = Integer.parseInt(orderIdStr.replace("ZB-", "").trim());
+            } else if (appIdStr != null && orderIdStr == null) {
+                type = "application";
+                targetId = Integer.parseInt(appIdStr);
+            } else {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                resp.getWriter().write("{\"error\":\"Provide exactly one chat target.\"}");
+                return;
+            }
+            if (ChatAuthorizationService.authorize(dbSession, user.getUserID(), type, targetId) == null) {
+                resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                resp.getWriter().write("{\"error\":\"You are not authorized to access this chat.\"}");
+                return;
+            }
 
-            if (orderIdStr != null) {
-                int orderId = Integer.parseInt(orderIdStr.replace("ZB-", "").trim());
+            List<ChatMessage> list;
+            if ("order".equals(type)) {
                 Query<ChatMessage> q = dbSession.createQuery(
                     "from ChatMessage where orderId = :orderId order by timestamp asc", ChatMessage.class
                 );
-                q.setParameter("orderId", orderId);
-                q.setMaxResults(size);
-                list = q.list();
-            } else if (appIdStr != null) {
-                int appId = Integer.parseInt(appIdStr);
-                Query<ChatMessage> q = dbSession.createQuery(
-                    "from ChatMessage where applicationId = :appId order by timestamp asc", ChatMessage.class
-                );
-                q.setParameter("appId", appId);
+                q.setParameter("orderId", targetId);
                 q.setMaxResults(size);
                 list = q.list();
             } else {
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                resp.getWriter().write("{\"error\":\"Missing orderId or applicationId parameter.\"}");
-                return;
+                Query<ChatMessage> q = dbSession.createQuery(
+                    "from ChatMessage where applicationId = :appId order by timestamp asc", ChatMessage.class
+                );
+                q.setParameter("appId", targetId);
+                q.setMaxResults(size);
+                list = q.list();
             }
 
             resp.getWriter().write(gson.toJson(list));
 
+        } catch (IllegalArgumentException e) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            resp.getWriter().write("{\"error\":\"Invalid chat target.\"}");
         } catch (Exception e) {
             e.printStackTrace();
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -108,27 +123,24 @@ public class ChatServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
 
-        HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
+        User user = AuthorizationUtils.requireAuthenticated(req);
+        if (user == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Please log in to send messages.\"}");
             return;
         }
-
-        User user = (User) session.getAttribute("loggedInUser");
 
         try {
             BufferedReader reader = req.getReader();
             JsonObject jsonMsg = JsonParser.parseReader(reader).getAsJsonObject();
 
             String rawText = jsonMsg.has("messageText") ? jsonMsg.get("messageText").getAsString() : "";
-            int receiverId = jsonMsg.has("receiverId") ? jsonMsg.get("receiverId").getAsInt() : 0;
             Integer orderId = jsonMsg.has("orderId") && !jsonMsg.get("orderId").isJsonNull() ? jsonMsg.get("orderId").getAsInt() : null;
             Integer applicationId = jsonMsg.has("applicationId") && !jsonMsg.get("applicationId").isJsonNull() ? jsonMsg.get("applicationId").getAsInt() : null;
 
-            if (rawText.trim().isEmpty()) {
+            if (rawText.trim().isEmpty() || (orderId == null) == (applicationId == null)) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                resp.getWriter().write("{\"error\":\"Message text cannot be empty.\"}");
+                resp.getWriter().write("{\"error\":\"Message text and exactly one chat target are required.\"}");
                 return;
             }
 
@@ -140,29 +152,39 @@ public class ChatServlet extends HttpServlet {
                 return;
             }
 
-            ChatMessage chatMsg = new ChatMessage(
-                orderId,
-                applicationId,
-                user.getUserID(),
-                user.getUserName(),
-                receiverId,
-                sanitizedText,
-                new Date()
-            );
-
             Transaction tx = null;
             try (Session dbSession = DBUtils.openSession()) {
+                String type = orderId != null ? "order" : "application";
+                int targetId = orderId != null ? orderId : applicationId;
+                ChatAccess access = ChatAuthorizationService.authorize(
+                        dbSession, user.getUserID(), type, targetId);
+                if (access == null) {
+                    resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    resp.getWriter().write("{\"error\":\"You are not authorized to access this chat.\"}");
+                    return;
+                }
+                ChatMessage chatMsg = new ChatMessage(
+                    orderId,
+                    applicationId,
+                    user.getUserID(),
+                    access.user().getUserName(),
+                    access.receiverId(),
+                    sanitizedText,
+                    new Date()
+                );
                 tx = dbSession.beginTransaction();
                 dbSession.persist(chatMsg);
                 tx.commit();
+                resp.setStatus(HttpServletResponse.SC_CREATED);
+                resp.getWriter().write(gson.toJson(chatMsg));
             } catch (Exception e) {
-                if (tx != null) tx.rollback();
+                if (tx != null && tx.isActive()) tx.rollback();
                 throw e;
             }
 
-            resp.setStatus(HttpServletResponse.SC_CREATED);
-            resp.getWriter().write(gson.toJson(chatMsg));
-
+        } catch (IllegalArgumentException e) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            resp.getWriter().write("{\"error\":\"Invalid chat request.\"}");
         } catch (Exception e) {
             e.printStackTrace();
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -177,14 +199,12 @@ public class ChatServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
 
-        HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("loggedInUser") == null) {
+        User user = AuthorizationUtils.requireAuthenticated(req);
+        if (user == null) {
             resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             resp.getWriter().write("{\"error\":\"Please log in.\"}");
             return;
         }
-
-        User user = (User) session.getAttribute("loggedInUser");
 
         try {
             BufferedReader reader = req.getReader();
@@ -202,7 +222,7 @@ public class ChatServlet extends HttpServlet {
                 }
                 tx.commit();
             } catch (Exception e) {
-                if (tx != null) tx.rollback();
+                if (tx != null && tx.isActive()) tx.rollback();
                 throw e;
             }
 
