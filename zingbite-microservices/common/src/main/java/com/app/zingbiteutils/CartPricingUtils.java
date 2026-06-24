@@ -49,7 +49,7 @@ public final class CartPricingUtils {
             } else if ("flat".equals(coupon.type)) {
                 discount = Math.min(coupon.value, normalizedSubtotal);
             } else if ("free_delivery".equals(coupon.type)) {
-                discount = baseShipping;
+                discount = baseShipping + surgeFee;
             }
         }
 

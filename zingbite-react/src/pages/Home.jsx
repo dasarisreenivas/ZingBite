@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ArrowRight, Flame, Search, ShieldCheck, Star, Truck, UtensilsCrossed, Zap,
-  MapPin, Clock, Award, Users, Heart
+  MapPin, Clock, Award, Users, Dumbbell, Code2, Film, Sparkles, Smartphone, AlertTriangle
 } from 'lucide-react';
 import { trackEvent } from '../utils/analytics';
+import { getPromoBackground, getRestaurantPageSize } from '../utils/homeConfig';
 import ScrollReveal from '../components/ScrollReveal';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?q=80&w=2200&auto=format&fit=crop';
@@ -103,6 +104,30 @@ function AnimatedCounter({ target, suffix = '', duration = 2000 }) {
   return <span ref={ref} className="count-up">{count}{suffix}</span>;
 }
 
+const DEFAULT_SDUI_CONFIG = {
+  theme: {
+    primaryColor: "#ff4f5a",
+    accentColor: "#1a1a1a",
+    heroOverlayGradient: "from-black/80 via-black/40 to-transparent"
+  },
+  sections: [
+    { id: "hero_banner", visible: true, order: 1, props: { title: "Hungry? Grab a ZingBite!", subtitle: "Delivering fresh meals to your doorstep within minutes." } },
+    { id: "weather_surge_banner", visible: true, order: 2, props: { title: "Weather Alert", subtitle: "Raining heavily outside. Weather surge helps support our delivery partners." } },
+    { id: "group_order_cta", visible: true, order: 3, props: { title: "Planning a Group Meal?", description: "Browse restaurants and choose a menu everyone can enjoy.", ctaText: "Browse Restaurants" } },
+    { id: "promo_deals", visible: true, order: 4, props: { deals: [ { id: 1, title: "50% OFF", description: "Up to ₹100 | Use Code: ZING50", bgGradient: "linear-gradient(135deg, #f97316, #ec4899)" }, { id: 2, title: "Free Delivery", description: "On orders above ₹299", bgGradient: "linear-gradient(135deg, #3b82f6, #4f46e5)" } ] } },
+    { id: "category_carousel", visible: true, order: 5, props: { title: "In the Mood for..." } },
+    { id: "food_moods", visible: true, order: 6, props: { title: "What's your vibe today?", moods: [ { iconName: "Dumbbell", tag: "Gym Fuel", cuisine: "healthy" }, { iconName: "Code2", tag: "Late Night Coding", cuisine: "chinese" }, { iconName: "Film", tag: "Movie Night", cuisine: "pizza" }, { iconName: "Flame", tag: "Spicy Craving", cuisine: "biryani" } ] } },
+    { id: "trending_combos", visible: true, order: 8, props: { title: "Popular AI Combos", subtitle: "Perfect food pairings calculated by our AI engine", maxCombos: 3 } },
+    { id: "recently_opened", visible: true, order: 9, props: { title: "Fresh on the Block", subtitle: "Discover newly onboarded dining spots in your neighborhood", limit: 4 } },
+    { id: "featured_restaurants", visible: true, order: 10, props: { title: "Top Curated Picks", subtitle: "Highest-rated culinary spots in your area", minRating: 4.5 } },
+    { id: "neighborhood_trends", visible: true, order: 11, props: { title: "Trending Near You", radiusKm: 5 } },
+    { id: "restaurant_grid", visible: true, order: 12, props: { pageSize: 8, showFilters: true } },
+    { id: "customer_reviews", visible: true, order: 13, props: { title: "Spotlight Review Feed", reviews: [ { id: 1, username: "Rajesh K.", rating: 5, comment: "The Biryani combo was absolutely flavorful and delivered super hot!", restaurantName: "Grand Biryani Palace" }, { id: 2, username: "Sunita M.", rating: 5, comment: "Incredible delivery speed and the app's real-time map updates were neat.", restaurantName: "Pizza Express" } ] } },
+    { id: "app_download", visible: true, order: 14, props: { title: "Get the ZingBite App", subtitle: "Order faster, track routes live, and get exclusive rewards.", playStoreLink: "https://play.google.com/store", appStoreLink: "https://apple.com/app-store" } },
+    { id: "stats_counter", visible: true, order: 15, props: { restaurantsCount: 150, customersCount: 10000, deliveriesCount: 25000 } }
+  ]
+};
+
 let homeCache = {
   restaurants: null,
   suggestion: null,
@@ -129,6 +154,24 @@ const Home = () => {
   const [parallaxOffset, setParallaxOffset] = useState(0);
   const heroRef = useRef(null);
   const lastLoggedSearchQueryRef = useRef('');
+
+  const [sduiConfig, setSduiConfig] = useState(null);
+  useEffect(() => {
+    const fetchSdui = async () => {
+      try {
+        const response = await axios.get('/api/sdui/homepage');
+        if (response.data && response.data.sections) {
+          setSduiConfig(response.data);
+        } else {
+          setSduiConfig(DEFAULT_SDUI_CONFIG);
+        }
+      } catch (err) {
+        console.warn("Failed to load SDUI config, using fallback defaults:", err);
+        setSduiConfig(DEFAULT_SDUI_CONFIG);
+      }
+    };
+    fetchSdui();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -233,9 +276,14 @@ const Home = () => {
     }
   }, [debouncedSearchQuery]);
 
+  const restaurantPageSize = useMemo(
+    () => getRestaurantPageSize(sduiConfig || DEFAULT_SDUI_CONFIG, RESTAURANT_PAGE_SIZE),
+    [sduiConfig]
+  );
+
   useEffect(() => {
-    setVisibleRestaurantCount(RESTAURANT_PAGE_SIZE);
-  }, [debouncedSearchQuery, selectedCuisine, sortBy, coords]);
+    setVisibleRestaurantCount(restaurantPageSize);
+  }, [debouncedSearchQuery, selectedCuisine, sortBy, coords, restaurantPageSize]);
 
   const filteredAndSortedRestaurants = restaurants
     .filter(r => {
@@ -251,6 +299,668 @@ const Home = () => {
   const visibleRestaurants = filteredAndSortedRestaurants.slice(0, visibleRestaurantCount);
   const hasMoreRestaurants = visibleRestaurantCount < filteredAndSortedRestaurants.length;
   const remainingRestaurants = filteredAndSortedRestaurants.length - visibleRestaurantCount;
+
+  const sortedSections = useMemo(() => {
+    const config = sduiConfig || DEFAULT_SDUI_CONFIG;
+    if (!Array.isArray(config?.sections)) return [];
+    return [...config.sections].sort((a, b) => a.order - b.order);
+  }, [sduiConfig]);
+
+  const renderHeroBanner = (props) => {
+    return (
+      <section className="home-hero" ref={heroRef}>
+        <Particles />
+        <div className="home-hero-bg" style={{
+          transform: `scale(1.05) translateY(${parallaxOffset}px)`
+        }} />
+        <div className="hero-content">
+          <div className="hero-tag"><Flame size={16} /> Fresh meals, fast routes</div>
+          <h2 className="hero-title">
+            {props.title ? (
+              <>
+                {props.title.split(',')[0]}
+                {props.title.includes(',') && (
+                  <>
+                    ,<br />
+                    <span className="highlight">{props.title.split(',')[1]}</span>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                Your food,{' '}
+                <span className="highlight">delivered with love</span>
+                <br />right on time.
+              </>
+            )}
+          </h2>
+          <p className="hero-subtitle">
+            {props.subtitle || 'Explore trusted local restaurants, order in a few taps, and track every step from kitchen prep to doorstep delivery.'}
+          </p>
+          <div className="hero-actions">
+            <a href="#restaurants" className="hero-btn primary">
+              Explore restaurants <ArrowRight size={17} />
+            </a>
+            <Link to="/track-order" className="hero-btn secondary">
+              <MapPin size={16} /> Track an order
+            </Link>
+          </div>
+          <div className="hero-chips">
+            <div className="hero-chip"><Zap size={16} /> Fast checkout</div>
+            <div className="hero-chip"><Truck size={16} /> Live delivery updates</div>
+            <div className="hero-chip"><UtensilsCrossed size={16} /> Local favorites</div>
+            <div className="hero-chip"><ShieldCheck size={16} /> Secure payments</div>
+          </div>
+        </div>
+      </section>
+    );
+  };
+
+  const renderWeatherSurgeBanner = (props) => {
+    return (
+      <div style={{
+        maxWidth: '1400px',
+        width: '92%',
+        margin: '24px auto 0',
+        padding: '16px 24px',
+        background: 'linear-gradient(135deg, rgba(247,55,79,0.06) 0%, rgba(255,184,0,0.06) 100%)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid rgba(247,55,79,0.15)',
+        borderRadius: '16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '16px',
+        animation: 'premiumFadeIn 0.5s ease both'
+      }}>
+        <div style={{
+          width: '40px', height: '40px', borderRadius: '50%',
+          background: 'rgba(247,55,79,0.15)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', color: 'var(--brand-red)', flexShrink: 0
+        }}>
+          <AlertTriangle size={20} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>
+            {props.title || 'Weather Alert'}
+          </strong>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            {props.subtitle || 'Surge pricing is currently helping incentivize riders.'}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGroupOrderCta = (props) => {
+    return (
+      <div style={{
+        maxWidth: '1400px',
+        width: '92%',
+        margin: '24px auto 0',
+        padding: '32px',
+        background: 'linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%)',
+        color: '#fff',
+        borderRadius: '24px',
+        boxShadow: '0 12px 40px rgba(0,0,0,0.12)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '24px',
+        position: 'relative',
+        overflow: 'hidden',
+        animation: 'premiumFadeIn 0.5s ease both'
+      }}>
+        <div style={{
+          position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px',
+          background: 'rgba(247,55,79,0.15)', borderRadius: '50%', filter: 'blur(40px)', pointerEvents: 'none'
+        }} />
+        <div style={{ maxWidth: '600px', zIndex: 1 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            background: 'rgba(255,255,255,0.1)', padding: '4px 12px',
+            borderRadius: '20px', fontSize: '0.78rem', fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px'
+          }}>
+            <Users size={12} /> Group-friendly
+          </div>
+          <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.5rem', fontWeight: 800, margin: '0 0 8px' }}>
+            {props.title || 'Planning a Group Meal?'}
+          </h3>
+          <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.5, margin: 0 }}>
+            {props.description || 'Browse restaurants and choose a menu everyone can enjoy.'}
+          </p>
+        </div>
+        <a href="#restaurants" className="hero-btn primary" style={{ minWidth: '180px', zIndex: 1, margin: 0 }}>
+          {props.ctaText || 'Browse Restaurants'} <ArrowRight size={16} />
+        </a>
+      </div>
+    );
+  };
+
+  const renderPromoDeals = (props) => {
+    const deals = props.deals || [];
+    return (
+      <div style={{ maxWidth: '1400px', width: '92%', margin: '32px auto 0' }}>
+        <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>
+          Hot Deals & Offers
+        </h3>
+        <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '12px', scrollbarWidth: 'none' }} className="no-scrollbar">
+          {deals.map(deal => (
+            <div key={deal.id} style={{
+              flex: '0 0 300px',
+              padding: '24px',
+              borderRadius: '20px',
+              color: '#fff',
+              background: getPromoBackground(deal.bgGradient),
+              boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              height: '140px',
+              transition: 'transform 0.3s ease',
+              cursor: 'pointer'
+            }}
+            className="hover-scale"
+            onClick={() => alert(`Use code during checkout to redeem: ${deal.title}`)}
+            >
+              <div>
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px' }}>
+                  PROMO
+                </span>
+                <h4 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.4rem', fontWeight: 800, margin: '8px 0 2px' }}>{deal.title}</h4>
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.9)', margin: 0 }}>{deal.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCategoryCarousel = (props) => {
+    return (
+      <div style={{ marginTop: '32px' }}>
+        <div className="section-title-row page-enter" style={{ marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '1.4rem' }}>{props.title || 'In the Mood for...'}</h2>
+        </div>
+        <div className="cuisine-filters page-enter" style={{ animationDelay: '0.1s', marginBottom: '24px' }}>
+          {CATEGORIES.map((c, idx) => (
+            <button
+              key={c.name}
+              type="button"
+              className={`category-card ${selectedCuisine === c.name ? 'active' : ''}`}
+              onClick={() => setSelectedCuisine(c.name)}
+              style={{
+                animation: `premiumFadeIn 0.4s var(--ease-premium) ${idx * 0.06}s both`,
+                padding: 0
+              }}
+            >
+              <img src={c.image} alt={c.name} className="category-card-img" loading="lazy" />
+              <div className="category-card-overlay">
+                <h3 className="category-card-name">{c.name}</h3>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderFoodMoods = (props) => {
+    const moods = props.moods || [];
+    const getIconComponent = (name) => {
+      switch (name) {
+        case 'Dumbbell': return <Dumbbell size={18} />;
+        case 'Code2': return <Code2 size={18} />;
+        case 'Film': return <Film size={18} />;
+        case 'Flame': return <Flame size={18} />;
+        default: return <Sparkles size={18} />;
+      }
+    };
+
+    return (
+      <div style={{ maxWidth: '1400px', width: '92%', margin: '32px auto 0' }}>
+        <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>
+          {props.title || "What's your vibe today?"}
+        </h3>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          {moods.map((mood, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => {
+                setSelectedCuisine(mood.cuisine);
+                setSearchQuery('');
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 20px',
+                borderRadius: '30px',
+                border: '1px solid rgba(247,55,79,0.12)',
+                background: selectedCuisine.toLowerCase() === mood.cuisine.toLowerCase() ? 'var(--brand-red)' : '#fff',
+                color: selectedCuisine.toLowerCase() === mood.cuisine.toLowerCase() ? '#fff' : 'var(--text-primary)',
+                fontFamily: "'Outfit', sans-serif",
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
+              }}
+              className="hover-scale"
+            >
+              {getIconComponent(mood.iconName)}
+              {mood.tag}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTrendingCombos = (props) => {
+    const maxCombos = props.maxCombos || 3;
+    const mockCombos = [
+      { id: 101, name: "Coding Fuel Bundle", items: ["Spicy Noodles", "Spring Rolls", "Thums Up"], price: 249, searchQuery: 'noodles' },
+      { id: 102, name: "Fitness Booster Combo", items: ["Grilled Chicken Salad", "Protein Shake"], price: 349, searchQuery: 'salad' },
+      { id: 103, name: "Weekend Movie Feast", items: ["Large Pepperoni Pizza", "Garlic Bread", "Coke"], price: 499, searchQuery: 'pizza' }
+    ].slice(0, maxCombos);
+
+    return (
+      <div style={{ maxWidth: '1400px', width: '92%', margin: '32px auto 0' }}>
+        <div style={{ marginBottom: '16px' }}>
+          <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+            {props.title || "Popular AI Combos"}
+          </h3>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            {props.subtitle || "Perfect food pairings calculated by our AI engine"}
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+          {mockCombos.map(combo => (
+            <div key={combo.id} style={{
+              background: '#fff', border: '1px solid rgba(247,55,79,0.08)',
+              borderRadius: '20px', padding: '24px', boxShadow: '0 8px 24px rgba(0,0,0,0.03)',
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
+            }} className="hover-scale">
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <h4 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.1rem', fontWeight: 800, margin: '0 0 8px', color: 'var(--text-primary)' }}>
+                    {combo.name}
+                  </h4>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--brand-red)', fontWeight: 800, background: 'rgba(247,55,79,0.06)', padding: '2px 8px', borderRadius: '10px' }}>
+                    AI Recommended
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '12px 0' }}>
+                  {combo.items.map((it, i) => (
+                    <span key={i} style={{ fontSize: '0.75rem', background: 'var(--bg-light)', padding: '4px 10px', borderRadius: '12px', color: 'var(--text-secondary)' }}>
+                      {it}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-light)', paddingTop: '12px' }}>
+                <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>₹{combo.price}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCuisine('All');
+                    setSearchQuery(combo.searchQuery);
+                    document.getElementById('restaurants')?.scrollIntoView({ behavior: 'smooth' });
+                    trackEvent('COMBO_SEARCH', { combo: combo.name, query: combo.searchQuery });
+                  }}
+                  style={{
+                    background: 'var(--brand-red)', color: '#fff', border: 'none',
+                    padding: '8px 16px', borderRadius: '20px', fontWeight: 700, fontSize: '0.8rem',
+                    cursor: 'pointer', transition: 'all 0.3s'
+                  }}
+                  className="hover-scale"
+                >
+                  Find Dishes
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderRecentlyOpened = (props) => {
+    const limit = props.limit || 4;
+    const newRestaurants = restaurants
+      .filter(r => formatRating(r.rating) === 'New' || r.restaurantId > 5)
+      .slice(0, limit);
+
+    return (
+      <div style={{ maxWidth: '1400px', width: '92%', margin: '32px auto 0' }}>
+        <div style={{ marginBottom: '16px' }}>
+          <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+            {props.title || "Fresh on the Block"}
+          </h3>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            {props.subtitle || "Discover newly onboarded dining spots in your neighborhood"}
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+          {newRestaurants.map((r, idx) => (
+            <RestaurantCard key={`new-${r.restaurantId}`} restaurant={r} index={idx} />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderFeaturedRestaurants = (props) => {
+    const minRating = props.minRating || 4.5;
+    const featured = restaurants
+      .filter(r => Number(r.rating) >= minRating)
+      .slice(0, 4);
+
+    return (
+      <div style={{ maxWidth: '1400px', width: '92%', margin: '32px auto 0' }}>
+        <div style={{ marginBottom: '16px' }}>
+          <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+            {props.title || "Top Curated Picks"}
+          </h3>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            {props.subtitle || "Highest-rated culinary spots in your area"}
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+          {featured.map((r, idx) => (
+            <RestaurantCard key={`feat-${r.restaurantId}`} restaurant={r} index={idx} />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderNeighborhoodTrends = (props) => {
+    const trending = [...restaurants]
+      .sort((a, b) => (b.totalOrders || 0) - (a.totalOrders || 0))
+      .slice(0, 4);
+
+    return (
+      <div style={{ maxWidth: '1400px', width: '92%', margin: '32px auto 0' }}>
+        <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>
+          {props.title || "Trending Near You"}
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+          {trending.map((r, idx) => (
+            <div key={`trend-${r.restaurantId}`} style={{ position: 'relative' }}>
+              <div style={{
+                position: 'absolute', top: '12px', left: '12px', zIndex: 4,
+                background: 'rgba(26,26,26,0.95)', color: '#fff', fontSize: '0.75rem',
+                fontWeight: 800, padding: '4px 10px', borderRadius: '10px',
+                display: 'flex', alignItems: 'center', gap: '4px'
+              }}>
+                <Flame size={12} fill="var(--brand-red)" color="var(--brand-red)" /> POPULAR
+              </div>
+              <RestaurantCard restaurant={r} index={idx} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderRestaurantGrid = (props) => {
+    return (
+      <div style={{ marginTop: '32px' }}>
+        {props.showFilters !== false && (
+          <div className="control-bar page-enter">
+            <div className="search-container">
+              <div className="search-box">
+                <Search size={18} color="var(--text-secondary)" />
+                <input
+                  type="text"
+                  placeholder="Search for restaurants or cuisines..."
+                  aria-label="Search restaurants or cuisines"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+              </div>
+              {suggestion && (
+                <div className="suggestion-box">
+                  Did you mean:{' '}
+                  <button type="button" className="suggestion-btn" onClick={() => setSearchQuery(suggestion)}>
+                    {suggestion}
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="sort-box">
+              <label>Sort By:</label>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                <option value="default">Relevance</option>
+                <option value="rating">Rating: High to Low</option>
+                <option value="time">Delivery Time: Fastest</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        <div id="restaurants" className="section-title-row page-enter" style={{animationDelay: '0.15s', marginTop: '24px'}}>
+          <h2>
+            {isSearch && debouncedSearchQuery.trim()
+              ? `Search Results for "${debouncedSearchQuery}"`
+              : 'Restaurants near you'}
+          </h2>
+          {!loading && !error && (
+            <span className="section-count">
+              {filteredAndSortedRestaurants.length} {filteredAndSortedRestaurants.length === 1 ? 'restaurant' : 'restaurants'}
+            </span>
+          )}
+        </div>
+
+        <section className="restaurant-grid">
+          {loading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} style={{ height: '300px', borderRadius: 'var(--radius-lg)' }} className="skeleton-premium" />
+            ))
+          ) : error ? (
+            <div className="home-status-card">
+              <strong>Restaurants are taking a little longer to load.</strong>
+              <span>{error}</span>
+              <br />
+              <button type="button" className="retry-btn" onClick={retryRestaurants}>Retry</button>
+            </div>
+          ) : filteredAndSortedRestaurants.length > 0 ? (
+            visibleRestaurants.map((r, idx) => (
+              <RestaurantCard key={r.restaurantId} restaurant={r} index={idx} />
+            ))
+          ) : (
+            <div className="home-status-card">
+              <strong>No restaurants found</strong>
+              <span>Try a different search term, cuisine, or sort option.</span>
+            </div>
+          )}
+        </section>
+
+        {hasMoreRestaurants && (
+          <div className="load-more-wrap">
+            <button
+              type="button"
+              className="load-more-btn"
+              onClick={() => setVisibleRestaurantCount(count => count + restaurantPageSize)}
+            >
+              Load more restaurants ({remainingRestaurants} left) <ArrowRight className="load-more-icon" size={16} />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderCustomerReviews = (props) => {
+    const reviews = props.reviews || [];
+    return (
+      <div style={{ maxWidth: '1400px', width: '92%', margin: '40px auto 0' }}>
+        <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>
+          {props.title || "Spotlight Review Feed"}
+        </h3>
+        <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '12px', scrollbarWidth: 'none' }} className="no-scrollbar">
+          {reviews.map(review => (
+            <div key={review.id} style={{
+              flex: '0 0 320px',
+              padding: '24px',
+              borderRadius: '20px',
+              background: 'rgba(255,255,255,0.96)',
+              border: '1px solid rgba(247,55,79,0.06)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.03)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              height: '160px'
+            }} className="hover-scale">
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>{review.username}</strong>
+                  <div style={{ display: 'flex', color: '#FFB800', gap: '2px' }}>
+                    {Array.from({ length: review.rating }).map((_, i) => <Star key={i} size={12} fill="#FFB800" color="#FFB800" />)}
+                  </div>
+                </div>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '8px 0 0', fontStyle: 'italic' }}>
+                  "{review.comment}"
+                </p>
+              </div>
+              <span style={{ fontSize: '0.78rem', color: 'var(--brand-red)', fontWeight: 700 }}>
+                on {review.restaurantName}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderAppDownload = (props) => {
+    return (
+      <div style={{
+        maxWidth: '1400px',
+        width: '92%',
+        margin: '40px auto 0',
+        padding: '48px 32px',
+        background: 'linear-gradient(135deg, rgba(247,55,79,0.04) 0%, rgba(255,184,0,0.04) 100%)',
+        border: '1px solid rgba(247,55,79,0.06)',
+        borderRadius: '24px',
+        textAlign: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+        animation: 'premiumFadeIn 0.5s ease both'
+      }}>
+        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+          <div style={{
+            width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(247,55,79,0.08)',
+            color: 'var(--brand-red)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px'
+          }}>
+            <Smartphone size={24} />
+          </div>
+          <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.6rem', fontWeight: 800, margin: '0 0 8px', color: 'var(--text-primary)' }}>
+            {props.title || "Get the ZingBite App"}
+          </h3>
+          <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 24px' }}>
+            {props.subtitle || "Order faster, track routes live, and get exclusive rewards."}
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <a href={props.playStoreLink || "https://play.google.com"} target="_blank" rel="noopener noreferrer" className="hero-btn primary" style={{ margin: 0 }}>
+              Google Play
+            </a>
+            <a href={props.appStoreLink || "https://apple.com"} target="_blank" rel="noopener noreferrer" className="hero-btn secondary" style={{ margin: 0 }}>
+              App Store
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderStatsCounter = (props) => {
+    return (
+      <ScrollReveal>
+        <div className="stats-bar" style={{ marginTop: '32px', marginBottom: '32px' }}>
+          <div className="stat-item">
+            <div className="stat-icon"><Award size={22} /></div>
+            <div className="stat-info">
+              <span className="stat-number">
+                <AnimatedCounter target={props.restaurantsCount || 200} suffix="+" />
+              </span>
+              <span className="stat-label">Restaurant Partners</span>
+            </div>
+          </div>
+          <div className="stat-item">
+            <div className="stat-icon"><Users size={22} /></div>
+            <div className="stat-info">
+              <span className="stat-number">
+                <AnimatedCounter target={(props.customersCount || 10000) / 1000} suffix="K+" />
+              </span>
+              <span className="stat-label">Happy Customers</span>
+            </div>
+          </div>
+          <div className="stat-item">
+            <div className="stat-icon"><MapPin size={22} /></div>
+            <div className="stat-info">
+              <span className="stat-number">
+                <AnimatedCounter target={25} suffix="+" />
+              </span>
+              <span className="stat-label">Cities Covered</span>
+            </div>
+          </div>
+          <div className="stat-item">
+            <div className="stat-icon"><Clock size={22} /></div>
+            <div className="stat-info">
+              <span className="stat-number">
+                <AnimatedCounter target={28} suffix=" min" />
+              </span>
+              <span className="stat-label">Avg. Delivery Time</span>
+            </div>
+          </div>
+        </div>
+      </ScrollReveal>
+    );
+  };
+
+  const renderSection = (section) => {
+    if (!section.visible) return null;
+    const { id, props = {} } = section;
+
+    switch (id) {
+      case 'hero_banner':
+        return renderHeroBanner(props);
+      case 'weather_surge_banner':
+        return renderWeatherSurgeBanner(props);
+      case 'group_order_cta':
+        return renderGroupOrderCta(props);
+      case 'promo_deals':
+        return renderPromoDeals(props);
+      case 'category_carousel':
+        return renderCategoryCarousel(props);
+      case 'food_moods':
+        return renderFoodMoods(props);
+      case 'trending_combos':
+        return renderTrendingCombos(props);
+      case 'recently_opened':
+        return renderRecentlyOpened(props);
+      case 'featured_restaurants':
+        return renderFeaturedRestaurants(props);
+      case 'neighborhood_trends':
+        return renderNeighborhoodTrends(props);
+      case 'restaurant_grid':
+        return renderRestaurantGrid(props);
+      case 'customer_reviews':
+        return renderCustomerReviews(props);
+      case 'app_download':
+        return renderAppDownload(props);
+      case 'stats_counter':
+        return renderStatsCounter(props);
+      default:
+        return null;
+    }
+  };
 
   return (
     <>
@@ -838,237 +1548,11 @@ const Home = () => {
       `}</style>
 
       <div>
-        {/* HERO SECTION */}
-        <section className="home-hero" ref={heroRef}>
-          <Particles />
-          <div className="home-hero-bg" style={{ 
-            transform: `scale(1.05) translateY(${parallaxOffset}px)` 
-          }} />
-          <div className="hero-content">
-            <div className="hero-tag"><Flame size={16} /> Fresh meals, fast routes</div>
-            <h2 className="hero-title">
-              Your food,{' '}
-              <span className="highlight">delivered with love</span>
-              <br />right on time.
-            </h2>
-            <p className="hero-subtitle">
-              Explore trusted local restaurants, order in a few taps, and track every step 
-              from kitchen prep to doorstep delivery.
-            </p>
-            <div className="hero-actions">
-              <a href="#restaurants" className="hero-btn primary">
-                Explore restaurants <ArrowRight size={17} />
-              </a>
-              <Link to="/track-order" className="hero-btn secondary">
-                <MapPin size={16} /> Track an order
-              </Link>
-            </div>
-            <div className="hero-chips">
-              <div className="hero-chip"><Zap size={16} /> Fast checkout</div>
-              <div className="hero-chip"><Truck size={16} /> Live delivery updates</div>
-              <div className="hero-chip"><UtensilsCrossed size={16} /> Local favorites</div>
-              <div className="hero-chip"><ShieldCheck size={16} /> Secure payments</div>
-            </div>
+        {sortedSections.map(section => (
+          <div key={section.id}>
+            {renderSection(section)}
           </div>
-        </section>
-
-        {/* STATS BAR */}
-        <ScrollReveal>
-          <div className="stats-bar">
-            <div className="stat-item">
-              <div className="stat-icon"><Award size={22} /></div>
-              <div className="stat-info">
-                <span className="stat-number"><AnimatedCounter target={200} suffix="+" /></span>
-                <span className="stat-label">Restaurant Partners</span>
-              </div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-icon"><Users size={22} /></div>
-              <div className="stat-info">
-                <span className="stat-number"><AnimatedCounter target={50} suffix="K+" /></span>
-                <span className="stat-label">Happy Customers</span>
-              </div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-icon"><MapPin size={22} /></div>
-              <div className="stat-info">
-                <span className="stat-number"><AnimatedCounter target={25} suffix="+" /></span>
-                <span className="stat-label">Cities Covered</span>
-              </div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-icon"><Clock size={22} /></div>
-              <div className="stat-info">
-                <span className="stat-number"><AnimatedCounter target={28} suffix=" min" /></span>
-                <span className="stat-label">Avg. Delivery Time</span>
-              </div>
-            </div>
-          </div>
-        </ScrollReveal>
-
-        {/* CONTROLS */}
-        <div className="control-bar page-enter">
-          <div className="search-container">
-            <div className="search-box">
-              <Search size={18} color="var(--text-secondary)" />
-              <input 
-                type="text" 
-                placeholder="Search for restaurants or cuisines..." 
-                aria-label="Search restaurants or cuisines"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-            </div>
-            {suggestion && (
-              <div className="suggestion-box">
-                Did you mean:{' '}
-                <button type="button" className="suggestion-btn" onClick={() => setSearchQuery(suggestion)}>
-                  {suggestion}
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="sort-box">
-            <label>Sort By:</label>
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
-              <option value="default">Relevance</option>
-              <option value="rating">Rating: High to Low</option>
-              <option value="time">Delivery Time: Fastest</option>
-            </select>
-          </div>
-        </div>
-
-        {/* CUISINE FILTERS */}
-        <div className="cuisine-filters page-enter" style={{animationDelay: '0.1s'}}>
-          {CATEGORIES.map((c, idx) => (
-            <button 
-              key={c.name} 
-              type="button"
-              className={`category-card ${selectedCuisine === c.name ? 'active' : ''}`}
-              onClick={() => setSelectedCuisine(c.name)}
-              style={{ 
-                animation: `premiumFadeIn 0.4s var(--ease-premium) ${idx * 0.06}s both`,
-                padding: 0
-              }}
-            >
-              <img src={c.image} alt={c.name} className="category-card-img" loading="lazy" />
-              <div className="category-card-overlay">
-                <h3 className="category-card-name">{c.name}</h3>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* RESTAURANTS HEADER */}
-        <div id="restaurants" className="section-title-row page-enter" style={{animationDelay: '0.15s'}}>
-          <h2>
-            {isSearch && debouncedSearchQuery.trim()
-              ? `Search Results for "${debouncedSearchQuery}"` 
-              : 'Restaurants near you'}
-          </h2>
-          {!loading && !error && (
-            <span className="section-count">
-              {filteredAndSortedRestaurants.length} {filteredAndSortedRestaurants.length === 1 ? 'restaurant' : 'restaurants'}
-            </span>
-          )}
-        </div>
-
-        {/* RESTAURANTS GRID */}
-        <section className="restaurant-grid">
-          {loading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} style={{ height: '300px', borderRadius: 'var(--radius-lg)' }} className="skeleton-premium" />
-            ))
-          ) : error ? (
-            <div className="home-status-card">
-              <strong>Restaurants are taking a little longer to load.</strong>
-              <span>{error}</span>
-              <br />
-              <button type="button" className="retry-btn" onClick={retryRestaurants}>Retry</button>
-            </div>
-          ) : filteredAndSortedRestaurants.length > 0 ? (
-            visibleRestaurants.map((r, idx) => (
-              <RestaurantCard key={r.restaurantId} restaurant={r} index={idx} />
-            ))
-          ) : (
-            <div className="home-status-card">
-              <strong>No restaurants found</strong>
-              <span>Try a different search term, cuisine, or sort option.</span>
-            </div>
-          )}
-        </section>
-
-        {hasMoreRestaurants && (
-          <div className="load-more-wrap">
-            <button
-              type="button"
-              className="load-more-btn"
-              onClick={() => setVisibleRestaurantCount(count => count + RESTAURANT_PAGE_SIZE)}
-            >
-              Load more restaurants ({remainingRestaurants} left) <ArrowRight className="load-more-icon" size={16} />
-            </button>
-          </div>
-        )}
-
-        {/* TRUST SECTION */}
-        <ScrollReveal>
-          <section style={{
-            maxWidth: '1400px',
-            width: '92%',
-            margin: '0 auto 60px',
-            padding: '48px 0',
-            borderTop: '1px solid var(--border-light)',
-            textAlign: 'center'
-          }}>
-            <span style={{
-              fontSize: '0.8rem',
-              fontWeight: 800,
-              color: 'var(--brand-red)',
-              textTransform: 'uppercase',
-              letterSpacing: '1px'
-            }}>Why ZingBite</span>
-            <h3 style={{
-              fontFamily: "'Outfit', sans-serif",
-              fontSize: 'clamp(1.5rem, 3vw, 2.2rem)',
-              fontWeight: 800,
-              margin: '8px 0 36px',
-              color: 'var(--text-primary)'
-            }}>
-              We <Heart size={20} fill="var(--brand-red)" color="var(--brand-red)" style={{display:'inline'}} /> good food
-            </h3>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-              gap: '24px'
-            }}>
-              {[
-                { icon: <Flame size={24} />, title: 'Handpicked Restaurants', desc: 'Every restaurant is vetted for quality, hygiene, and taste.' },
-                { icon: <Truck size={24} />, title: 'Lightning Fast Delivery', desc: 'Our route optimization gets your food to you in record time.' },
-                { icon: <ShieldCheck size={24} />, title: 'Secure & Easy Payments', desc: 'Multiple payment options with bank-grade encryption.' },
-              ].map((item, i) => (
-                <div key={i} className="promise-card" style={{
-                  background: 'rgba(255,255,255,0.96)',
-                  border: '1px solid var(--border-light)',
-                  borderRadius: '20px',
-                  padding: '32px 24px',
-                  transition: 'all 0.35s var(--ease-premium)',
-                  opacity: 0,
-                  transform: 'translateY(20px)',
-                  animation: `premiumSlideUp 0.5s var(--ease-premium) ${0.15 + i * 0.1}s both`
-                }}>
-                  <div style={{
-                    width: '56px', height: '56px', borderRadius: '16px',
-                    background: 'rgba(247,55,79,0.08)', color: 'var(--brand-red)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    margin: '0 auto 20px'
-                  }}>{item.icon}</div>
-                  <h4 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.15rem', fontWeight: 700, margin: '0 0 10px' }}>{item.title}</h4>
-                  <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>{item.desc}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        </ScrollReveal>
+        ))}
       </div>
     </>
   );

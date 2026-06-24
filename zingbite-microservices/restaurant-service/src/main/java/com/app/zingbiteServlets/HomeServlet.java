@@ -142,4 +142,15 @@ public class HomeServlet extends HttpServlet {
             return null;
         }
     }
+
+    @Override
+    public void destroy() {
+        if (restaurantCache != null) {
+            restaurantCache.shutdown();
+        }
+        if (menuSearchCache != null) {
+            menuSearchCache.shutdown();
+        }
+        super.destroy();
+    }
 }

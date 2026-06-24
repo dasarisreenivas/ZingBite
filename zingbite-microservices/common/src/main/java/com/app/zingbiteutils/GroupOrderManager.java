@@ -42,4 +42,11 @@ public class GroupOrderManager {
         if (code == null) return null;
         return roomsByCode.get(code.trim().toUpperCase(Locale.US));
     }
+
+    public static void removeRoom(int roomId) {
+        GroupRoom room = roomsById.remove(roomId);
+        if (room != null && room.roomCode != null) {
+            roomsByCode.remove(room.roomCode);
+        }
+    }
 }

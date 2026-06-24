@@ -1,0 +1,151 @@
+{
+  "theme": {
+    "primaryColor": "#ff4f5a",
+    "accentColor": "#1a1a1a",
+    "heroOverlayGradient": "from-black/80 via-black/40 to-transparent"
+  },
+  "sections": [
+    { 
+      "id": "hero_banner", 
+      "visible": true, 
+      "order": 1, 
+      "props": { 
+        "title": "Hungry? Grab a ZingBite!", 
+        "subtitle": "Delivering fresh meals to your doorstep within minutes." 
+      } 
+    },
+    {
+      "id": "weather_surge_banner",
+      "visible": true,
+      "order": 2,
+      "props": {
+        "title": "Weather Alert",
+        "subtitle": "Raining heavily outside. Weather surge helps support our delivery partners."
+      }
+    },
+    {
+      "id": "group_order_cta",
+      "visible": true,
+      "order": 3,
+      "props": {
+        "title": "Planning a Group Meal?",
+        "description": "Browse restaurants and choose a menu everyone can enjoy.",
+        "ctaText": "Browse Restaurants"
+      }
+    },
+    {
+      "id": "promo_deals",
+      "visible": true,
+      "order": 4,
+      "props": {
+        "deals": [
+          { "id": 1, "title": "50% OFF", "description": "Up to ₹100 | Use Code: ZING50", "bgGradient": "linear-gradient(135deg, #f97316, #ec4899)" },
+          { "id": 2, "title": "Free Delivery", "description": "On orders above ₹299", "bgGradient": "linear-gradient(135deg, #3b82f6, #4f46e5)" }
+        ]
+      }
+    },
+    { 
+      "id": "category_carousel", 
+      "visible": true, 
+      "order": 5, 
+      "props": { 
+        "title": "In the Mood for..." 
+      } 
+    },
+    {
+      "id": "food_moods",
+      "visible": true,
+      "order": 6,
+      "props": {
+        "title": "What's your vibe today?",
+        "moods": [
+          { "iconName": "Dumbbell", "tag": "Gym Fuel", "cuisine": "healthy" },
+          { "iconName": "Code2", "tag": "Late Night Coding", "cuisine": "chinese" },
+          { "iconName": "Film", "tag": "Movie Night", "cuisine": "pizza" },
+          { "iconName": "Flame", "tag": "Spicy Craving", "cuisine": "biryani" }
+        ]
+      }
+    },
+    {
+      "id": "trending_combos",
+      "visible": true,
+      "order": 8,
+      "props": {
+        "title": "Popular AI Combos",
+        "subtitle": "Perfect food pairings calculated by our AI engine",
+        "maxCombos": 3
+      }
+    },
+    {
+      "id": "recently_opened",
+      "visible": true,
+      "order": 9,
+      "props": {
+        "title": "Fresh on the Block",
+        "subtitle": "Discover newly onboarded dining spots in your neighborhood",
+        "limit": 4
+      }
+    },
+    {
+      "id": "featured_restaurants",
+      "visible": true,
+      "order": 10,
+      "props": {
+        "title": "Top Curated Picks",
+        "subtitle": "Highest-rated culinary spots in your area",
+        "minRating": 4.5
+      }
+    },
+    {
+      "id": "neighborhood_trends",
+      "visible": true,
+      "order": 11,
+      "props": {
+        "title": "Trending Near You",
+        "radiusKm": 5
+      }
+    },
+    { 
+      "id": "restaurant_grid", 
+      "visible": true, 
+      "order": 12, 
+      "props": { 
+        "pageSize": 8, 
+        "showFilters": true 
+      } 
+    },
+    {
+      "id": "customer_reviews",
+      "visible": true,
+      "order": 13,
+      "props": {
+        "title": "Spotlight Review Feed",
+        "reviews": [
+          { "id": 1, "username": "Rajesh K.", "rating": 5, "comment": "The Biryani combo was absolutely flavorful and delivered super hot!", "restaurantName": "Grand Biryani Palace" },
+          { "id": 2, "username": "Sunita M.", "rating": 5, "comment": "Incredible delivery speed and the app's real-time map updates were neat.", "restaurantName": "Pizza Express" }
+        ]
+      }
+    },
+    {
+      "id": "app_download",
+      "visible": true,
+      "order": 14,
+      "props": {
+        "title": "Get the ZingBite App",
+        "subtitle": "Order faster, track routes live, and get exclusive rewards.",
+        "playStoreLink": "https://play.google.com/store",
+        "appStoreLink": "https://apple.com/app-store"
+      }
+    },
+    { 
+      "id": "stats_counter", 
+      "visible": true, 
+      "order": 15, 
+      "props": { 
+        "restaurantsCount": 150, 
+        "customersCount": 10000, 
+        "deliveriesCount": 25000 
+      } 
+    }
+  ]
+}

@@ -28,6 +28,7 @@ const RestaurantDashboard = React.lazy(() => import('./pages/RestaurantDashboard
 const CareerPortal = React.lazy(() => import('./pages/CareerPortal'));
 const SuperAdminDashboard = React.lazy(() => import('./pages/SuperAdminDashboard'));
 const VRPDashboard = React.lazy(() => import('./pages/VRPDashboard'));
+const SDUIDashboard = React.lazy(() => import('./pages/SDUIDashboard'));
 const NotFound = React.lazy(() => import('./pages/NotFound'));
 const Wishlist = React.lazy(() => import('./pages/Wishlist'));
 
@@ -180,6 +181,7 @@ function App() {
                               <Route path="/delivery" element={<ProtectedRoute allowedRoles={['delivery_partner']}><DeliveryDashboard /></ProtectedRoute>} />
                               <Route path="/restaurant-admin" element={<ProtectedRoute allowedRoles={['restaurant_admin']}><RestaurantDashboard /></ProtectedRoute>} />
                               <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
+                              <Route path="/sdui-portal" element={<SDUIDashboard />} />
                               <Route path="/vrp" element={<ProtectedRoute allowedRoles={['super_admin']}><VRPDashboard /></ProtectedRoute>} />
                               <Route path="*" element={<NotFound />} />
                             </Routes>

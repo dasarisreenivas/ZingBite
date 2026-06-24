@@ -91,4 +91,13 @@ TEST_READY.md
 bug_fix_log.md
 progress.md
 
+# Local DB reset utilities
+seeds_utf8.sql
+ResetDB.java
+ResetDB.class
+zingbite/seeds_utf8.sql
+zingbite/ResetDB.java
+zingbite/ResetDB.class
+
+
 

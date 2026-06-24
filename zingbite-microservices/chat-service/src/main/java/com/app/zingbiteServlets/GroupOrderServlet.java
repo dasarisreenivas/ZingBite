@@ -59,8 +59,8 @@ public class GroupOrderServlet extends HttpServlet {
         HttpSession session = req.getSession();
         User user = (User) session.getAttribute("loggedInUser");
         if (user == null) {
-            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            resp.getWriter().write("{\"error\":\"Only the host can checkout\"}");
+            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            resp.getWriter().write("{\"error\":\"User must be logged in to create a room\"}");
             return;
         }
 
@@ -110,6 +110,8 @@ public class GroupOrderServlet extends HttpServlet {
 
         JsonObject responseJson = new JsonObject();
         responseJson.addProperty("success", true);
+        responseJson.addProperty("roomId", room.roomId);
+        responseJson.addProperty("restaurantId", room.restaurantId);
         resp.getWriter().write(responseJson.toString());
     }
 
@@ -331,6 +333,7 @@ public class GroupOrderServlet extends HttpServlet {
         }
 
         room.isActive = false;
+        GroupOrderManager.removeRoom(roomId);
 
         JsonObject responseJson = new JsonObject();
         responseJson.addProperty("success", true);

@@ -1,0 +1,250 @@
+{
+  "pageId": "restaurant_dashboard",
+  "theme": {
+    "tokens": {
+      "primaryColor": "linear-gradient(135deg, #f7374f 0%, #ff6b7a 100%)",
+      "surfaceBg": "#ffffff",
+      "fontFamily": "Outfit, sans-serif",
+      "accentColor": "#ffb800"
+    }
+  },
+  "deviceConfig": {
+    "breakpoints": {
+      "mobile": { "columns": 1, "gap": "16px", "padding": "16px" },
+      "tablet": { "columns": 2, "gap": "20px", "padding": "24px" },
+      "desktop": { "columns": 12, "gap": "24px", "padding": "32px" }
+    }
+  },
+  "sections": [
+    {
+      "id": "weather_alert_banner",
+      "type": "widget_banner",
+      "order": 1,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 12 } },
+      "props": {
+        "title": "Weather Notice",
+        "subtitle": "Severe rain alert. Delivery timelines may extend by 10-15 minutes.",
+        "icon": "AlertTriangle"
+      }
+    },
+    {
+      "id": "card_earnings",
+      "type": "widget_metric",
+      "order": 2,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 1, "desktop": 4 } },
+      "props": {
+        "title": "Total Revenue",
+        "value": "₹48,250",
+        "trend": "+8.5% this week",
+        "icon": "IndianRupee"
+      }
+    },
+    {
+      "id": "card_active_orders",
+      "type": "widget_metric",
+      "order": 3,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 1, "desktop": 4 } },
+      "props": {
+        "title": "Active Orders",
+        "value": "12",
+        "trend": "4 preparing, 8 delivering",
+        "icon": "ShoppingBag"
+      }
+    },
+    {
+      "id": "card_rating",
+      "type": "widget_metric",
+      "order": 4,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 4 } },
+      "props": {
+        "title": "Average Rating",
+        "value": "4.8",
+        "trend": "Based on 150+ reviews",
+        "icon": "Star"
+      }
+    },
+    {
+      "id": "menu_items_table",
+      "type": "widget_table",
+      "order": 5,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 8 } },
+      "props": {
+        "title": "Menu Overview",
+        "dataSource": "/api/restaurant-admin",
+        "dataKey": "menu",
+        "columns": [
+          { "key": "menuId", "label": "ID" },
+          { "key": "menuName", "label": "Item Name" },
+          { "key": "price", "label": "Price", "type": "currency" },
+          { "key": "itemType", "label": "Type", "type": "badge" }
+        ],
+        "rowAction": {
+          "type": "open_modal",
+          "payload": {
+            "formConfig": {
+              "title": "Update Item Details",
+              "submitUrl": "/api/restaurant-admin",
+              "submitLabel": "Save Changes",
+              "fields": [
+                {
+                  "name": "action",
+                  "type": "hidden",
+                  "value": "editMenuItem"
+                },
+                {
+                  "name": "menuId",
+                  "type": "hidden",
+                  "value": "{row.menuId}"
+                },
+                {
+                  "name": "name",
+                  "type": "text",
+                  "label": "Dish Name",
+                  "placeholder": "Enter dish name",
+                  "value": "{row.menuName}",
+                  "validation": { "required": true }
+                },
+                {
+                  "name": "price",
+                  "type": "number",
+                  "label": "Price (INR)",
+                  "placeholder": "Enter price",
+                  "value": "{row.price}",
+                  "validation": { "required": true }
+                },
+                {
+                  "name": "description",
+                  "type": "textarea",
+                  "label": "Description",
+                  "value": "{row.description}"
+                },
+                {
+                  "name": "imagePath",
+                  "type": "text",
+                  "label": "Image URL (Optional)",
+                  "placeholder": "e.g. https://images.unsplash.com/...",
+                  "value": "{row.imagePath}"
+                }
+              ],
+              "successAction": {
+                "type": "toast_message",
+                "payload": { "message": "Dish details updated successfully!", "type": "success" }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "add_item_form",
+      "type": "widget_form",
+      "order": 6,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 4 } },
+      "props": {
+        "title": "Add New Dish",
+        "submitUrl": "/api/restaurant-admin",
+        "submitLabel": "Create Menu Item",
+        "fields": [
+          {
+            "name": "action",
+            "type": "hidden",
+            "value": "addMenuItem"
+          },
+          {
+            "name": "restaurantId",
+            "type": "hidden",
+            "value": "{restaurant.restaurantId}"
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Dish Name",
+            "placeholder": "e.g., Butter Chicken",
+            "validation": { "required": true, "minLength": 3 }
+          },
+          {
+            "name": "price",
+            "type": "number",
+            "label": "Price (INR)",
+            "placeholder": "e.g., 299",
+            "validation": { "required": true, "pattern": "^[0-9]+$" }
+          },
+          {
+            "name": "description",
+            "type": "textarea",
+            "label": "Description",
+            "placeholder": "Brief description of the dish ingredients..."
+          },
+          {
+            "name": "imagePath",
+            "type": "text",
+            "label": "Image URL (Optional)",
+            "placeholder": "e.g. https://images.unsplash.com/..."
+          }
+        ],
+        "successAction": {
+          "type": "toast_message",
+          "payload": { "message": "Dish '{form.name}' added successfully!", "type": "success" }
+        }
+      }
+    },
+    {
+      "id": "create_combo_form",
+      "type": "widget_form",
+      "order": 7,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 12 } },
+      "props": {
+        "title": "Create a New Combo Package",
+        "submitUrl": "/api/restaurant-admin",
+        "submitLabel": "Publish Combo Pack",
+        "fields": [
+          {
+            "name": "action",
+            "type": "hidden",
+            "value": "createCombo"
+          },
+          {
+            "name": "restaurantId",
+            "type": "hidden",
+            "value": "{restaurant.restaurantId}"
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "label": "Combo Name",
+            "placeholder": "e.g., Family Feast Pack",
+            "validation": { "required": true, "minLength": 3 }
+          },
+          {
+            "name": "price",
+            "type": "number",
+            "label": "Combo Discounted Price (INR)",
+            "placeholder": "e.g., 499",
+            "validation": { "required": true }
+          },
+          {
+            "name": "description",
+            "type": "textarea",
+            "label": "Combo Description",
+            "placeholder": "Mention what items are included in this bundle...",
+            "validation": { "required": true }
+          },
+          {
+            "name": "menuIds",
+            "type": "multiselect",
+            "label": "Choose Combo Dishes",
+            "optionsUrl": "/api/restaurant-admin",
+            "dataKey": "menu",
+            "optionLabelKey": "menuName",
+            "optionValueKey": "menuId",
+            "validation": { "required": true }
+          }
+        ],
+        "successAction": {
+          "type": "toast_message",
+          "payload": { "message": "Combo bundle '{form.name}' created successfully!", "type": "success" }
+        }
+      }
+    }
+  ]
+}

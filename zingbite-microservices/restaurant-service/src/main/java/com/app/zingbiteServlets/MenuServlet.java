@@ -98,4 +98,12 @@ public class MenuServlet extends HttpServlet {
             response.getWriter().write(jsonResponse.toString());
         }
     }
+
+    @Override
+    public void destroy() {
+        if (menuCache != null) {
+            menuCache.shutdown();
+        }
+        super.destroy();
+    }
 }

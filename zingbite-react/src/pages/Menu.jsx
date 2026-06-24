@@ -40,6 +40,189 @@ const Menu = () => {
 
   const isFetchingMenuRef = useRef(false);
 
+  const [groupRoom, setGroupRoom] = useState(null); // { roomId, roomCode, restaurantId, hostId, participants: [] }
+  const [groupCartItems, setGroupCartItems] = useState([]); // [{ menuId, itemId, itemName, price, quantity, userId, userName }]
+  const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [groupError, setGroupError] = useState(null);
+  const groupWsRef = useRef(null);
+
+  const groupCartTotal = useMemo(() => {
+    return groupCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  }, [groupCartItems]);
+
+  const connectGroupWs = useCallback((roomId) => {
+    if (groupWsRef.current) {
+      groupWsRef.current.close();
+    }
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.port === '5173' ? 'localhost:8080' : window.location.host;
+    const wsUrl = `${wsProtocol}//${host}/zingbite/api/ws/group-order/${roomId}/${user?.userID}`;
+    console.log("[ZingBite GroupWS] Connecting to:", wsUrl);
+    const ws = new WebSocket(wsUrl);
+    groupWsRef.current = ws;
+    ws.onopen = () => {
+      console.log("[ZingBite GroupWS] Connected successfully.");
+      setGroupError(null);
+    };
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'cart_update') {
+          console.log("[ZingBite GroupWS] Cart update:", data.items);
+          setGroupCartItems(data.items || []);
+        }
+      } catch (err) {
+        console.error("[ZingBite GroupWS] Parse error:", err);
+      }
+    };
+    ws.onclose = (event) => {
+      console.log("[ZingBite GroupWS] Closed:", event.code, event.reason);
+      groupWsRef.current = null;
+    };
+    ws.onerror = (err) => {
+      console.error("[ZingBite GroupWS] Error:", err);
+    };
+  }, [user]);
+
+  const fetchGroupRoomDetails = useCallback(async (roomId) => {
+    try {
+      const res = await axios.get(`/api/group-order/details?roomId=${roomId}`);
+      if (res.data) {
+        setGroupRoom(prev => ({
+          ...prev,
+          roomId: res.data.roomId,
+          roomCode: res.data.roomCode,
+          restaurantId: res.data.restaurantId,
+          hostId: res.data.hostId,
+          participants: res.data.participants || []
+        }));
+      }
+    } catch (err) {
+      console.error("[ZingBite GroupDetails] Failed to fetch room details:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    let intervalId;
+    if (groupRoom && groupRoom.roomId) {
+      fetchGroupRoomDetails(groupRoom.roomId);
+      intervalId = setInterval(() => {
+        fetchGroupRoomDetails(groupRoom.roomId);
+      }, 5000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [groupRoom?.roomId, fetchGroupRoomDetails]);
+
+  useEffect(() => {
+    return () => {
+      if (groupWsRef.current) {
+        groupWsRef.current.close();
+      }
+    };
+  }, []);
+
+  const handleCreateGroupRoom = async () => {
+    if (!user) { 
+      navigate(`/login?redirect=/menu?restaurantId=${restaurantId}&restaurantName=${encodeURIComponent(restaurantNameParam)}`); 
+      return; 
+    }
+    setGroupError(null);
+    try {
+      const res = await axios.post('/api/group-order/create', { restaurantId: Number(restaurantId) });
+      if (res.data && res.data.success) {
+        const { roomId, roomCode } = res.data;
+        setGroupRoom({
+          roomId,
+          roomCode,
+          restaurantId: Number(restaurantId),
+          hostId: user.userID,
+          participants: []
+        });
+        connectGroupWs(roomId);
+      }
+    } catch (err) {
+      console.error("[ZingBite GroupRoom] Error creating room:", err);
+      setGroupError(err.response?.data?.error || "Failed to create group order room.");
+    }
+  };
+
+  const handleJoinGroupRoom = async () => {
+    if (!user) { 
+      navigate(`/login?redirect=/menu?restaurantId=${restaurantId}&restaurantName=${encodeURIComponent(restaurantNameParam)}`); 
+      return; 
+    }
+    if (!roomCodeInput.trim()) {
+      setGroupError("Please enter a room code.");
+      return;
+    }
+    setGroupError(null);
+    try {
+      const res = await axios.post('/api/group-order/join', { roomCode: roomCodeInput.trim() });
+      if (res.data && res.data.success) {
+        const { roomId, restaurantId: roomRestId } = res.data;
+        if (Number(roomRestId) !== Number(restaurantId)) {
+          setGroupError("This group order is for a different restaurant.");
+          return;
+        }
+        setGroupRoom({
+          roomId,
+          roomCode: roomCodeInput.trim(),
+          restaurantId: Number(roomRestId),
+          participants: []
+        });
+        connectGroupWs(roomId);
+        setRoomCodeInput('');
+      }
+    } catch (err) {
+      console.error("[ZingBite GroupRoom] Error joining room:", err);
+      setGroupError(err.response?.data?.error || "Room not found or inactive.");
+    }
+  };
+
+  const handleLeaveGroupRoom = () => {
+    if (groupWsRef.current) {
+      groupWsRef.current.close();
+      groupWsRef.current = null;
+    }
+    setGroupRoom(null);
+    setGroupCartItems([]);
+    setGroupError(null);
+  };
+
+  const handleCheckoutGroupRoom = async () => {
+    if (!groupRoom) return;
+    setGroupError(null);
+    try {
+      const res = await axios.post('/api/group-order/checkout', { roomId: groupRoom.roomId });
+      if (res.data && res.data.success) {
+        const orderId = res.data.orderId;
+        handleLeaveGroupRoom();
+        navigate(`/track-order?orderId=${orderId}`);
+      }
+    } catch (err) {
+      console.error("[ZingBite GroupRoom] Error checking out:", err);
+      setGroupError(err.response?.data?.error || "Failed to checkout group order.");
+    }
+  };
+
+  const handleUpdateQuantity = async (itemId, newQty) => {
+    if (groupRoom) {
+      if (groupWsRef.current && groupWsRef.current.readyState === WebSocket.OPEN) {
+        groupWsRef.current.send(JSON.stringify({
+          action: 'updateQuantity',
+          menuId: itemId,
+          quantity: newQty
+        }));
+      } else {
+        setGroupError("WebSocket connection is not active.");
+      }
+      return;
+    }
+    await updateQuantity(itemId, newQty);
+  };
+
   const fetchMenu = useCallback(async (isBackground = false) => {
     if (isFetchingMenuRef.current) return;
     isFetchingMenuRef.current = true;
@@ -114,6 +297,10 @@ const Menu = () => {
   }, [restaurantId, cartItemIds]);
 
   const getCartQuantity = (itemId) => {
+    if (groupRoom) {
+      const item = groupCartItems.find(i => Number(i.itemId) === Number(itemId) && Number(i.userId) === Number(user?.userID));
+      return item ? item.quantity : 0;
+    }
     if (!cart || !cart.items) return 0;
     const itemsArray = Array.isArray(cart.items) ? cart.items : Object.values(cart.items);
     const item = itemsArray.find(i => i.itemId === itemId);
@@ -127,6 +314,18 @@ const Menu = () => {
       return;
     }
     setCartError(null);
+    if (groupRoom) {
+      if (groupWsRef.current && groupWsRef.current.readyState === WebSocket.OPEN) {
+        groupWsRef.current.send(JSON.stringify({
+          action: 'addItem',
+          menuId: itemId,
+          quantity: 1
+        }));
+      } else {
+        setGroupError("WebSocket connection is not active.");
+      }
+      return;
+    }
     await addToCart(itemId, 1);
   };
 
@@ -271,6 +470,266 @@ const Menu = () => {
         .modal-btn-outline:hover { border-color: var(--brand-red); color: var(--brand-red); }
         .modal-btn-primary { flex: 2; padding: 13px; background: linear-gradient(135deg, var(--brand-red), #d42d42); color: #fff; border: none; font-weight: 700; font-family: inherit; font-size: 0.9rem; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 14px rgba(247,55,79,0.25); transition: all 0.25s var(--ease-premium); }
         .modal-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(247,55,79,0.35); }
+
+        /* Collaborative Dining Styles */
+        .menu-content-layout {
+          display: flex;
+          gap: 32px;
+          align-items: flex-start;
+          margin-top: 8px;
+        }
+        .menu-main-column {
+          flex: 1;
+          min-width: 0;
+        }
+        .menu-sidebar-column {
+          width: 360px;
+          flex-shrink: 0;
+          position: sticky;
+          top: 100px;
+          z-index: 100;
+        }
+        @media (max-width: 992px) {
+          .menu-content-layout {
+            flex-direction: column;
+            gap: 24px;
+          }
+          .menu-sidebar-column {
+            width: 100%;
+            position: static;
+          }
+        }
+
+        .group-order-card {
+          background: linear-gradient(135deg, #1e1e2f 0%, #11111d 100%);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 24px;
+          padding: 24px;
+          color: #fff;
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+          margin-bottom: 24px;
+          font-family: 'Outfit', sans-serif;
+          position: relative;
+          overflow: hidden;
+        }
+        .group-order-card::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background: radial-gradient(circle, rgba(247, 55, 79, 0.08) 0%, transparent 60%);
+          pointer-events: none;
+        }
+        .group-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 18px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          padding-bottom: 12px;
+        }
+        .group-title {
+          font-size: 1.25rem;
+          font-weight: 800;
+          letter-spacing: -0.3px;
+          background: linear-gradient(90deg, #ff8a9a, #f7374f);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+        .group-badge {
+          background: rgba(247, 55, 79, 0.15);
+          color: #ffcbd1;
+          font-size: 0.72rem;
+          font-weight: 800;
+          padding: 3px 8px;
+          border-radius: 6px;
+          text-transform: uppercase;
+        }
+        .group-action-section {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .group-input-group {
+          display: flex;
+          gap: 8px;
+        }
+        .group-input {
+          flex: 1;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 12px;
+          padding: 10px 14px;
+          color: #fff;
+          font-size: 0.9rem;
+          outline: none;
+          transition: all 0.2s;
+        }
+        .group-input:focus {
+          border-color: var(--brand-red);
+          background: rgba(255, 255, 255, 0.1);
+        }
+        .group-btn {
+          padding: 10px 18px;
+          border-radius: 12px;
+          font-weight: 700;
+          font-size: 0.9rem;
+          cursor: pointer;
+          transition: all 0.25s var(--ease-premium);
+          border: none;
+        }
+        .group-btn-primary {
+          background: linear-gradient(135deg, var(--brand-red), #d42d42);
+          color: #fff;
+          box-shadow: 0 4px 14px rgba(247, 55, 79, 0.25);
+        }
+        .group-btn-primary:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 20px rgba(247, 55, 79, 0.35);
+        }
+        .group-btn-secondary {
+          background: rgba(255, 255, 255, 0.08);
+          color: #fff;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .group-btn-secondary:hover:not(:disabled) {
+          background: rgba(255, 255, 255, 0.15);
+        }
+        .group-btn-danger {
+          background: rgba(220, 53, 69, 0.15);
+          color: #ff9da6;
+          border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+        .group-btn-danger:hover:not(:disabled) {
+          background: rgba(220, 53, 69, 0.25);
+        }
+        .group-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none !important;
+          box-shadow: none !important;
+        }
+        .room-code-display {
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px dashed rgba(255, 255, 255, 0.2);
+          border-radius: 12px;
+          padding: 12px;
+          text-align: center;
+          margin-bottom: 16px;
+        }
+        .room-code-label {
+          font-size: 0.75rem;
+          color: rgba(255, 255, 255, 0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 4px;
+        }
+        .room-code-value {
+          font-size: 1.5rem;
+          font-weight: 800;
+          letter-spacing: 2px;
+          color: #ffcbd1;
+        }
+        .participants-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-bottom: 20px;
+        }
+        .participant-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.88rem;
+          color: rgba(255, 255, 255, 0.85);
+          background: rgba(255, 255, 255, 0.03);
+          padding: 6px 12px;
+          border-radius: 8px;
+        }
+        .participant-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #4bcf56;
+          box-shadow: 0 0 8px #4bcf56;
+        }
+        .participant-host-tag {
+          font-size: 0.65rem;
+          font-weight: 800;
+          background: #ffb703;
+          color: #000;
+          padding: 2px 5px;
+          border-radius: 4px;
+          margin-left: auto;
+          text-transform: uppercase;
+        }
+        .group-cart-section {
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          padding-top: 16px;
+          margin-bottom: 20px;
+        }
+        .group-cart-title {
+          font-size: 1rem;
+          font-weight: 700;
+          color: rgba(255, 255, 255, 0.9);
+          margin-bottom: 12px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .group-cart-empty {
+          font-size: 0.85rem;
+          color: rgba(255, 255, 255, 0.4);
+          text-align: center;
+          padding: 16px 0;
+        }
+        .group-cart-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 12px;
+          font-size: 0.85rem;
+          margin-bottom: 10px;
+          background: rgba(255, 255, 255, 0.02);
+          padding: 8px 12px;
+          border-radius: 8px;
+        }
+        .group-cart-item-name {
+          font-weight: 600;
+          color: #fff;
+        }
+        .group-cart-item-meta {
+          font-size: 0.75rem;
+          color: rgba(255, 255, 255, 0.5);
+          margin-top: 2px;
+        }
+        .group-cart-item-price {
+          font-weight: 700;
+          color: #ffcbd1;
+          text-align: right;
+          flex-shrink: 0;
+        }
+        .group-cart-total {
+          display: flex;
+          justify-content: space-between;
+          font-weight: 800;
+          font-size: 1rem;
+          color: #fff;
+          margin-top: 12px;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          padding-top: 12px;
+        }
+        .group-error-msg {
+          color: #ff9da6;
+          font-size: 0.8rem;
+          margin-top: 8px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
         @media (max-width: 992px) { .menu-items-grid { grid-template-columns: 1fr; gap: 20px; } }
         @media (max-width: 768px) {
           .restaurant-hero { height: auto; min-height: 280px; }
@@ -383,182 +842,323 @@ const Menu = () => {
           </div>
         </div>
 
-        <div className="menu-items-grid">
-          {isMenuLoading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} style={{ height: '360px', borderRadius: '20px' }} className="skeleton animate-card" />
-            ))
-          ) : sortedList.length > 0 ? (
-            visibleMenuItems.map((item, idx) => {
-              const qty = getCartQuantity(item.menuId);
-              const isVeg = isVegDish(item);
-              return (
-                <div key={item.menuId} className="menu-dish-card animate-card" style={{ animationDelay: `${idx * 0.05}s` }}>
-                  <div className="dish-card-info">
-                    <div>
-                      <div className="dish-card-header-tags">
-                        <div className={isVeg ? "dish-type-badge veg" : "dish-type-badge nonveg"}>
-                          <span className="dot"></span><span>{isVeg ? 'VEG' : 'NON-VEG'}</span>
-                        </div>
-                        {idx % 3 === 0 && <span className="dish-featured-tag"><Star size={12} fill="#ff9f40" color="#ff9f40" /> Bestseller</span>}
-                      </div>
-                      <h3 className="dish-card-title">{item.menuName}</h3>
-                      <div className="dish-card-price-row">
-                        <span className="price-symbol">&#8377;</span>
-                        <span className="price-value">{item.price}</span>
-                      </div>
-                      <p className="dish-card-desc">{item.description}</p>
-                    </div>
-                  </div>
-                  <div className="dish-card-media">
-                    <div className="dish-card-img-container">
-                      <img src={item.imagePath || DEFAULT_DISH_IMAGE} alt={item.menuName} className="dish-card-img" loading="lazy"
-                        onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_DISH_IMAGE; }}
-                      />
-                      {user && user.role === 'customer' && (
-                        <button 
-                          type="button"
-                          className={`heart-toggle-btn ${wishlistIds.has(item.menuId) ? 'active' : ''}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            toggleWishlist(item);
-                          }}
-                          aria-label={wishlistIds.has(item.menuId) ? "Remove from wishlist" : "Add to wishlist"}
-                        >
-                          <Heart 
-                            size={18} 
-                            fill={wishlistIds.has(item.menuId) ? "var(--brand-red)" : "transparent"} 
-                            color={wishlistIds.has(item.menuId) ? "var(--brand-red)" : "rgba(0,0,0,0.45)"}
-                          />
-                        </button>
-                      )}
-                    </div>
-                    <div className="dish-card-action">
-                      {qty === 0 ? (
-                        <button className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>
-                          {(!item.isAvailable) ? 'SOLD OUT' : (dynRestaurant && !dynRestaurant.isOpen) ? 'CLOSED' : 'ADD'}
-                        </button>
-                      ) : (
-                        <div className="qty-stepper" style={{ opacity: (dynRestaurant && !dynRestaurant.isOpen) ? 0.6 : 1, borderColor: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--border-medium)' : 'var(--success)' }}>
-                          <button 
-                            className="step-btn" 
-                            disabled={dynRestaurant && !dynRestaurant.isOpen} 
-                            onClick={() => updateQuantity(item.menuId, qty - 1)}
-                            style={{ cursor: (dynRestaurant && !dynRestaurant.isOpen) ? 'not-allowed' : 'pointer', color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
-                          >
-                            <Minus size={12} />
-                          </button>
-                          <span className="step-val">{qty}</span>
-                          <button 
-                            className="step-btn" 
-                            disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} 
-                            onClick={() => updateQuantity(item.menuId, qty + 1)}
-                            style={{ cursor: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 'not-allowed' : 'pointer', opacity: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 0.5 : 1, color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
-                          >
-                            <Plus size={12} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="no-data-dish">
-              <p style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>No dishes found</p>
-              <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Try adjusting your search or filter.</p>
-            </div>
-          )}
-        </div>
-
-        {hasMoreMenuItems && (
-          <div className="load-more-wrap" style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
-            <button type="button" className="load-more-btn" onClick={() => setVisibleMenuCount(count => count + MENU_PAGE_SIZE)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', background: 'var(--bg-surface)', border: '1px solid var(--border-medium)', borderRadius: '12px', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.25s var(--ease-premium)' }}
-              onMouseEnter={e => { e.target.style.borderColor = 'var(--brand-red)'; e.target.style.color = 'var(--brand-red)'; e.target.style.background = 'rgba(247,55,79,0.03)'; }}
-              onMouseLeave={e => { e.target.style.borderColor = ''; e.target.style.color = ''; e.target.style.background = ''; }}
-            >
-              Load more dishes ({sortedList.length - visibleMenuCount} left) <ArrowRight size={14} />
-            </button>
-          </div>
-        )}
-
-        {!recommendationsLoading && recommendations.length > 0 && (
-          <div className="animate-card" style={{ marginTop: '56px' }}>
-            <div style={{ marginBottom: '24px' }}>
-              <span className="promise-subtitle">PAIRED PERFECTION</span>
-              <h2 className="promise-title" style={{ fontSize: '1.8rem', marginTop: '4px' }}>Frequently Ordered Together</h2>
-            </div>
+        <div className="menu-content-layout">
+          <div className="menu-main-column">
             <div className="menu-items-grid">
-              {visibleRecommendations.map((item, idx) => {
-                const qty = getCartQuantity(item.menuId);
-                const isVeg = isVegDish(item);
-                return (
-                  <div key={`rec-${item.menuId}`} className="menu-dish-card" style={{ animationDelay: `${idx * 0.05}s`, borderLeft: '4px solid var(--brand-red)' }}>
-                    <div className="dish-card-info">
-                      <div>
-                        <div className="dish-card-header-tags">
-                          <div className={isVeg ? "dish-type-badge veg" : "dish-type-badge nonveg"}><span className="dot"></span><span>{isVeg ? 'VEG' : 'NON-VEG'}</span></div>
-                          <span className="dish-featured-tag" style={{ color: 'var(--brand-red)', background: 'rgba(247,55,79,0.05)', borderColor: 'rgba(247,55,79,0.1)' }}><ShoppingBag size={12} /> Recommended</span>
+              {isMenuLoading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} style={{ height: '360px', borderRadius: '20px' }} className="skeleton animate-card" />
+                ))
+              ) : sortedList.length > 0 ? (
+                visibleMenuItems.map((item, idx) => {
+                  const qty = getCartQuantity(item.menuId);
+                  const isVeg = isVegDish(item);
+                  return (
+                    <div key={item.menuId} className="menu-dish-card animate-card" style={{ animationDelay: `${idx * 0.05}s` }}>
+                      <div className="dish-card-info">
+                        <div>
+                          <div className="dish-card-header-tags">
+                            <div className={isVeg ? "dish-type-badge veg" : "dish-type-badge nonveg"}>
+                              <span className="dot"></span><span>{isVeg ? 'VEG' : 'NON-VEG'}</span>
+                            </div>
+                            {item.itemType === 'COMBO' ? (
+                              <span className="dish-featured-tag" style={{ color: 'var(--brand-red)', background: 'rgba(247,55,79,0.08)', borderColor: 'rgba(247,55,79,0.15)' }}>
+                                <Flame size={12} fill="var(--brand-red)" /> Combo Bundle
+                              </span>
+                            ) : idx % 3 === 0 ? (
+                              <span className="dish-featured-tag"><Star size={12} fill="#ff9f40" color="#ff9f40" /> Bestseller</span>
+                            ) : null}
+                          </div>
+                          <h3 className="dish-card-title">{item.menuName}</h3>
+                          <div className="dish-card-price-row">
+                            <span className="price-symbol">&#8377;</span>
+                            <span className="price-value">{item.price}</span>
+                          </div>
+                          <p className="dish-card-desc">{item.description}</p>
                         </div>
-                        <h3 className="dish-card-title">{item.menuName}</h3>
-                        <div className="dish-card-price-row"><span className="price-symbol">&#8377;</span><span className="price-value">{item.price}</span></div>
-                        <p className="dish-card-desc">{item.description}</p>
+                      </div>
+                      <div className="dish-card-media">
+                        <div className="dish-card-img-container">
+                          <img src={item.imagePath || DEFAULT_DISH_IMAGE} alt={item.menuName} className="dish-card-img" loading="lazy"
+                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_DISH_IMAGE; }}
+                          />
+                          {user && user.role === 'customer' && (
+                            <button 
+                              type="button"
+                              className={`heart-toggle-btn ${wishlistIds.has(item.menuId) ? 'active' : ''}`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                toggleWishlist(item);
+                              }}
+                              aria-label={wishlistIds.has(item.menuId) ? "Remove from wishlist" : "Add to wishlist"}
+                            >
+                              <Heart 
+                                size={18} 
+                                fill={wishlistIds.has(item.menuId) ? "var(--brand-red)" : "transparent"} 
+                                color={wishlistIds.has(item.menuId) ? "var(--brand-red)" : "rgba(0,0,0,0.45)"}
+                              />
+                            </button>
+                          )}
+                        </div>
+                        <div className="dish-card-action">
+                          {qty === 0 ? (
+                            <button className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>
+                              {(!item.isAvailable) ? 'SOLD OUT' : (dynRestaurant && !dynRestaurant.isOpen) ? 'CLOSED' : 'ADD'}
+                            </button>
+                          ) : (
+                            <div className="qty-stepper" style={{ opacity: (dynRestaurant && !dynRestaurant.isOpen) ? 0.6 : 1, borderColor: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--border-medium)' : 'var(--success)' }}>
+                              <button 
+                                className="step-btn" 
+                                disabled={dynRestaurant && !dynRestaurant.isOpen} 
+                                onClick={() => handleUpdateQuantity(item.menuId, qty - 1)}
+                                style={{ cursor: (dynRestaurant && !dynRestaurant.isOpen) ? 'not-allowed' : 'pointer', color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
+                              >
+                                <Minus size={12} />
+                              </button>
+                              <span className="step-val">{qty}</span>
+                              <button 
+                                className="step-btn" 
+                                disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} 
+                                onClick={() => handleUpdateQuantity(item.menuId, qty + 1)}
+                                style={{ cursor: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 'not-allowed' : 'pointer', opacity: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 0.5 : 1, color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
+                              >
+                                <Plus size={12} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="dish-card-media">
-                      <div className="dish-card-img-container">
-                        <img src={item.imagePath || DEFAULT_DISH_IMAGE} alt={item.menuName} className="dish-card-img" loading="lazy"
-                          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_DISH_IMAGE; }}
-                        />
-                      </div>
-                      <div className="dish-card-action">
-                        {qty === 0 ? (
-                          <button className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>{(!item.isAvailable) ? 'SOLD OUT' : (dynRestaurant && !dynRestaurant.isOpen) ? 'CLOSED' : 'ADD'}</button>
-                        ) : (
-                          <div className="qty-stepper" style={{ opacity: (dynRestaurant && !dynRestaurant.isOpen) ? 0.6 : 1, borderColor: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--border-medium)' : 'var(--success)' }}>
-                            <button 
-                              className="step-btn" 
-                              disabled={dynRestaurant && !dynRestaurant.isOpen} 
-                              onClick={() => updateQuantity(item.menuId, qty - 1)}
-                              style={{ cursor: (dynRestaurant && !dynRestaurant.isOpen) ? 'not-allowed' : 'pointer', color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
-                            >
-                              <Minus size={12} />
-                            </button>
-                            <span className="step-val">{qty}</span>
-                            <button 
-                              className="step-btn" 
-                              disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} 
-                              onClick={() => updateQuantity(item.menuId, qty + 1)}
-                              style={{ cursor: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 'not-allowed' : 'pointer', opacity: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 0.5 : 1, color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
-                            >
-                              <Plus size={12} />
-                            </button>
+                  );
+                })
+              ) : (
+                <div className="no-data-dish">
+                  <p style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>No dishes found</p>
+                  <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Try adjusting your search or filter.</p>
+                </div>
+              )}
+            </div>
+
+            {hasMoreMenuItems && (
+              <div className="load-more-wrap" style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
+                <button type="button" className="load-more-btn" onClick={() => setVisibleMenuCount(count => count + MENU_PAGE_SIZE)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', background: 'var(--bg-surface)', border: '1px solid var(--border-medium)', borderRadius: '12px', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.25s var(--ease-premium)' }}
+                  onMouseEnter={e => { e.target.style.borderColor = 'var(--brand-red)'; e.target.style.color = 'var(--brand-red)'; e.target.style.background = 'rgba(247,55,79,0.03)'; }}
+                  onMouseLeave={e => { e.target.style.borderColor = ''; e.target.style.color = ''; e.target.style.background = ''; }}
+                >
+                  Load more dishes ({sortedList.length - visibleMenuCount} left) <ArrowRight size={14} />
+                </button>
+              </div>
+            )}
+
+            {!recommendationsLoading && recommendations.length > 0 && (
+              <div className="animate-card" style={{ marginTop: '56px' }}>
+                <div style={{ marginBottom: '24px' }}>
+                  <span className="promise-subtitle">PAIRED PERFECTION</span>
+                  <h2 className="promise-title" style={{ fontSize: '1.8rem', marginTop: '4px' }}>Frequently Ordered Together</h2>
+                </div>
+                <div className="menu-items-grid">
+                  {visibleRecommendations.map((item, idx) => {
+                    const qty = getCartQuantity(item.menuId);
+                    const isVeg = isVegDish(item);
+                    return (
+                      <div key={`rec-${item.menuId}`} className="menu-dish-card" style={{ animationDelay: `${idx * 0.05}s`, borderLeft: '4px solid var(--brand-red)' }}>
+                        <div className="dish-card-info">
+                          <div>
+                            <div className="dish-card-header-tags">
+                              <div className={isVeg ? "dish-type-badge veg" : "dish-type-badge nonveg"}><span className="dot"></span><span>{isVeg ? 'VEG' : 'NON-VEG'}</span></div>
+                              <span className="dish-featured-tag" style={{ color: 'var(--brand-red)', background: 'rgba(247,55,79,0.05)', borderColor: 'rgba(247,55,79,0.1)' }}><ShoppingBag size={12} /> Recommended</span>
+                            </div>
+                            <h3 className="dish-card-title">{item.menuName}</h3>
+                            <div className="dish-card-price-row"><span className="price-symbol">&#8377;</span><span className="price-value">{item.price}</span></div>
+                            <p className="dish-card-desc">{item.description}</p>
                           </div>
-                        )}
+                        </div>
+                        <div className="dish-card-media">
+                          <div className="dish-card-img-container">
+                            <img src={item.imagePath || DEFAULT_DISH_IMAGE} alt={item.menuName} className="dish-card-img" loading="lazy"
+                              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_DISH_IMAGE; }}
+                            />
+                          </div>
+                          <div className="dish-card-action">
+                            {qty === 0 ? (
+                              <button className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>{(!item.isAvailable) ? 'SOLD OUT' : (dynRestaurant && !dynRestaurant.isOpen) ? 'CLOSED' : 'ADD'}</button>
+                            ) : (
+                              <div className="qty-stepper" style={{ opacity: (dynRestaurant && !dynRestaurant.isOpen) ? 0.6 : 1, borderColor: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--border-medium)' : 'var(--success)' }}>
+                                <button 
+                                  className="step-btn" 
+                                  disabled={dynRestaurant && !dynRestaurant.isOpen} 
+                                  onClick={() => handleUpdateQuantity(item.menuId, qty - 1)}
+                                  style={{ cursor: (dynRestaurant && !dynRestaurant.isOpen) ? 'not-allowed' : 'pointer', color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
+                                >
+                                  <Minus size={12} />
+                                </button>
+                                <span className="step-val">{qty}</span>
+                                <button 
+                                  className="step-btn" 
+                                  disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} 
+                                  onClick={() => handleUpdateQuantity(item.menuId, qty + 1)}
+                                  style={{ cursor: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 'not-allowed' : 'pointer', opacity: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 0.5 : 1, color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
+                                >
+                                  <Plus size={12} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
+                    );
+                  })}
+                  {hasMoreRecommendations && (
+                    <div className="load-more-wrap" style={{ gridColumn: '1 / -1', margin: '4px auto 0' }}>
+                      <button type="button" className="load-more-btn" onClick={() => setVisibleRecommendationCount(count => count + RECOMMENDATION_PAGE_SIZE)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', background: 'var(--bg-surface)', border: '1px solid var(--border-medium)', borderRadius: '12px', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.25s var(--ease-premium)' }}
+                        onMouseEnter={e => { e.target.style.borderColor = 'var(--brand-red)'; e.target.style.color = 'var(--brand-red)'; e.target.style.background = 'rgba(247,55,79,0.03)'; }}
+                        onMouseLeave={e => { e.target.style.borderColor = ''; e.target.style.color = ''; e.target.style.background = ''; }}
+                      >
+                        More recommendations ({recommendations.length - visibleRecommendationCount} left) <ArrowRight size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {restaurantId && <ReviewsSection restaurantId={restaurantId} />}
+          </div>
+
+          <div className="menu-sidebar-column">
+            <div className="group-order-card">
+              <div className="group-header">
+                <span className="group-title">Collaborative Dining</span>
+                <span className="group-badge">Real-Time</span>
+              </div>
+              
+              {!groupRoom ? (
+                <div className="group-action-section">
+                  <p style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.7)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                    Order with friends or family! Create a room, share the code, and build a combined cart in real-time.
+                  </p>
+                  <button className="group-btn group-btn-primary" onClick={handleCreateGroupRoom}>
+                    Create Group Order
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0' }}>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>or</span>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+                  </div>
+                  <div className="group-input-group">
+                    <input 
+                      type="text" 
+                      placeholder="Enter Room Code" 
+                      className="group-input" 
+                      value={roomCodeInput}
+                      onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+                    />
+                    <button className="group-btn group-btn-secondary" onClick={handleJoinGroupRoom}>
+                      Join
+                    </button>
+                  </div>
+                  {groupError && (
+                    <div className="group-error-msg">
+                      <AlertCircle size={14} />
+                      <span>{groupError}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <div className="room-code-display">
+                    <div className="room-code-label">Room Access Code</div>
+                    <div className="room-code-value">{groupRoom.roomCode}</div>
+                  </div>
+                  
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', fontWeight: 600 }}>
+                      Participants ({groupRoom.participants?.length || 0})
+                    </div>
+                    <div className="participants-list">
+                      {groupRoom.participants?.map((p, idx) => (
+                        <div key={idx} className="participant-item">
+                          <span className="participant-dot"></span>
+                          <span>{p.username || 'User'}</span>
+                          {p.userId === groupRoom.hostId && (
+                            <span className="participant-host-tag">Host</span>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                );
-              })}
-              {hasMoreRecommendations && (
-                <div className="load-more-wrap" style={{ gridColumn: '1 / -1', margin: '4px auto 0' }}>
-                  <button type="button" className="load-more-btn" onClick={() => setVisibleRecommendationCount(count => count + RECOMMENDATION_PAGE_SIZE)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', background: 'var(--bg-surface)', border: '1px solid var(--border-medium)', borderRadius: '12px', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.25s var(--ease-premium)' }}
-                    onMouseEnter={e => { e.target.style.borderColor = 'var(--brand-red)'; e.target.style.color = 'var(--brand-red)'; e.target.style.background = 'rgba(247,55,79,0.03)'; }}
-                    onMouseLeave={e => { e.target.style.borderColor = ''; e.target.style.color = ''; e.target.style.background = ''; }}
-                  >
-                    More recommendations ({recommendations.length - visibleRecommendationCount} left) <ArrowRight size={14} />
-                  </button>
+                  
+                  <div className="group-cart-section">
+                    <div className="group-cart-title">
+                      <span>Shared Cart</span>
+                      <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>
+                        {groupCartItems.reduce((acc, item) => acc + item.quantity, 0)} item(s)
+                      </span>
+                    </div>
+                    
+                    {groupCartItems.length === 0 ? (
+                      <div className="group-cart-empty">
+                        No items added yet. Start adding items from the menu!
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
+                          {groupCartItems.map((item, idx) => (
+                            <div key={idx} className="group-cart-item">
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div className="group-cart-item-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {item.itemName}
+                                </div>
+                                <div className="group-cart-item-meta">
+                                  Qty: {item.quantity} • {item.userName}
+                                </div>
+                              </div>
+                              <div className="group-cart-item-price">
+                                &#8377;{item.price * item.quantity}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="group-cart-total">
+                          <span>Subtotal</span>
+                          <span>&#8377;{groupCartTotal}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {user?.userID === groupRoom.hostId ? (
+                      <button 
+                        className="group-btn group-btn-primary" 
+                        onClick={handleCheckoutGroupRoom}
+                        disabled={groupCartItems.length === 0}
+                      >
+                        Checkout Group Order
+                      </button>
+                    ) : (
+                      <div style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)', textAlign: 'center', paddingBottom: '6px' }}>
+                        Waiting for host to checkout...
+                      </div>
+                    )}
+                    <button className="group-btn group-btn-danger" onClick={handleLeaveGroupRoom}>
+                      Leave Room
+                    </button>
+                  </div>
+                  {groupError && (
+                    <div className="group-error-msg">
+                      <AlertCircle size={14} />
+                      <span>{groupError}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
-        )}
-
-        {restaurantId && <ReviewsSection restaurantId={restaurantId} />}
+        </div>
 
         <div className="zingbite-promise-section">
           <div className="promise-header">
@@ -605,7 +1205,7 @@ const Menu = () => {
         document.body
       )}
 
-      {cart && cart.itemCount > 0 && ReactDOM.createPortal(
+      {!groupRoom && cart && cart.itemCount > 0 && ReactDOM.createPortal(
         <div className="cart-bar-popup slide-up">
           <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ShoppingBag size={18} /> {cart.itemCount} item{cart.itemCount > 1 ? 's' : ''} in cart

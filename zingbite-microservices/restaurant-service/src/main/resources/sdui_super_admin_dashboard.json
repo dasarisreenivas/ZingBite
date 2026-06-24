@@ -1,0 +1,134 @@
+{
+  "pageId": "super_admin_dashboard",
+  "theme": {
+    "tokens": {
+      "primaryColor": "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)",
+      "surfaceBg": "#ffffff",
+      "fontFamily": "Outfit, sans-serif",
+      "accentColor": "#ef4444"
+    }
+  },
+  "deviceConfig": {
+    "breakpoints": {
+      "mobile": { "columns": 1, "gap": "16px", "padding": "16px" },
+      "tablet": { "columns": 2, "gap": "20px", "padding": "24px" },
+      "desktop": { "columns": 12, "gap": "24px", "padding": "32px" }
+    }
+  },
+  "sections": [
+    {
+      "id": "card_users",
+      "type": "widget_metric",
+      "order": 1,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 1, "desktop": 3 } },
+      "props": {
+        "title": "Total Platform Users",
+        "value": "15,840",
+        "trend": "+22% monthly increase",
+        "icon": "Users"
+      }
+    },
+    {
+      "id": "card_restaurants",
+      "type": "widget_metric",
+      "order": 2,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 1, "desktop": 3 } },
+      "props": {
+        "title": "Active Restaurants",
+        "value": "248",
+        "trend": "18 pending review",
+        "icon": "Store"
+      }
+    },
+    {
+      "id": "card_orders",
+      "type": "widget_metric",
+      "order": 3,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 1, "desktop": 3 } },
+      "props": {
+        "title": "Lifetime Orders",
+        "value": "45,820",
+        "trend": "Average value: ₹340",
+        "icon": "ShoppingBag"
+      }
+    },
+    {
+      "id": "card_revenue",
+      "type": "widget_metric",
+      "order": 4,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 1, "desktop": 3 } },
+      "props": {
+        "title": "Gross Revenue",
+        "value": "₹1.5M",
+        "trend": "+12% week-on-week",
+        "icon": "IndianRupee"
+      }
+    },
+    {
+      "id": "restaurant_requests_table",
+      "type": "widget_table",
+      "order": 5,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 12 } },
+      "props": {
+        "title": "Pending Restaurant Applications",
+        "dataSource": "/api/super-admin/requests",
+        "columns": [
+          { "key": "requestId", "label": "ID" },
+          { "key": "name", "label": "Restaurant Name" },
+          { "key": "cuisine", "label": "Cuisine" },
+          { "key": "address", "label": "Address" },
+          { "key": "status", "label": "Status", "type": "badge" }
+        ],
+        "rowAction": {
+          "type": "open_modal",
+          "payload": {
+            "title": "Review Request",
+            "message": "Dynamic panel for reviewing: {row.name} located at {row.address}."
+          }
+        }
+      }
+    },
+    {
+      "id": "create_job_form",
+      "type": "widget_form",
+      "order": 6,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 6 } },
+      "props": {
+        "title": "Post Platform Job Vacancy",
+        "submitUrl": "/api/super-admin/jobs",
+        "submitLabel": "Publish Job Listing",
+        "fields": [
+          {
+            "name": "title",
+            "type": "text",
+            "label": "Job Title",
+            "placeholder": "e.g., Senior Software Engineer",
+            "validation": { "required": true }
+          },
+          {
+            "name": "department",
+            "type": "select",
+            "label": "Department",
+            "options": [
+              { "value": "Engineering", "label": "Engineering" },
+              { "value": "Operations", "label": "Operations" },
+              { "value": "Logistics", "label": "Rider Logistics" },
+              { "value": "Marketing", "label": "Marketing" }
+            ],
+            "validation": { "required": true }
+          },
+          {
+            "name": "description",
+            "type": "textarea",
+            "label": "Job Description & Requirements",
+            "placeholder": "Enter detailed role description..."
+          }
+        ],
+        "successAction": {
+          "type": "toast_message",
+          "payload": { "message": "Job Listing published for '{form.title}'!", "type": "success" }
+        }
+      }
+    }
+  ]
+}

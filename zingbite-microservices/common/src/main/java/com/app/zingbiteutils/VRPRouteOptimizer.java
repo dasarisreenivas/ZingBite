@@ -60,9 +60,9 @@ public class VRPRouteOptimizer {
     }
 
     // Interactive VRP Simulation Configuration
-    public static String weather = "Sunny"; // Sunny, Rainy, Stormy
-    public static boolean perishableLifo = false; // Toggle for LIFO delivery sequence
-    public static boolean useAStar = true; // Toggle for using A* vs Dijkstra
+    public static volatile String weather = "Sunny"; // Sunny, Rainy, Stormy
+    public static volatile boolean perishableLifo = false; // Toggle for LIFO delivery sequence
+    public static volatile boolean useAStar = true; // Toggle for using A* vs Dijkstra
     public static final Map<String, String> roadTraffic = new ConcurrentHashMap<>();
     public static final Map<String, Boolean> roadBlockages = new ConcurrentHashMap<>();
 

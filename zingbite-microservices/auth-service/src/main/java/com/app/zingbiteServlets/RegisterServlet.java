@@ -69,6 +69,31 @@ public class RegisterServlet extends HttpServlet {
                 resp.getWriter().write(jsonResponse.toString());
                 return;
             }
+
+            if (password.length() < 8) {
+                jsonResponse.addProperty("error", "Password must be at least 8 characters long");
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                resp.getWriter().write(jsonResponse.toString());
+                return;
+            }
+
+            boolean hasUppercase = false;
+            boolean hasLowercase = false;
+            boolean hasDigit = false;
+            boolean hasSpecial = false;
+            for (char c : password.toCharArray()) {
+                if (Character.isUpperCase(c)) hasUppercase = true;
+                else if (Character.isLowerCase(c)) hasLowercase = true;
+                else if (Character.isDigit(c)) hasDigit = true;
+                else if ("!@#$%^&*()_+-=[]{}|;':\",./<>?".indexOf(c) >= 0) hasSpecial = true;
+            }
+
+            if (!hasUppercase || !hasLowercase || !hasDigit || !hasSpecial) {
+                jsonResponse.addProperty("error", "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character");
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                resp.getWriter().write(jsonResponse.toString());
+                return;
+            }
             
             UserDAO userDAO = new UserDAOImplementation();
             User existingUser = userDAO.getUserById(email);

@@ -9,6 +9,8 @@ import {
   MapPin, Phone, IndianRupee, Loader, AlertCircle, FileText 
 } from 'lucide-react';
 import useSSE from '../hooks/useSSE';
+import { useSDUI } from '../hooks/useSDUI';
+import SDUIRenderer from '../components/sdui/SDUIRenderer';
 
 const RESTAURANT_DASHBOARD_PAGE_SIZE = 6;
 
@@ -225,6 +227,8 @@ const RestaurantDashboard = () => {
   const { user, logout, loading: authLoading } = useContext(AuthContext);
   const navigate = useNavigate();
   const { showAlert } = useModal();
+
+  const { sduiConfig, loading: sduiLoading, error: sduiError, viewport, refreshLayout } = useSDUI('restaurant_dashboard');
 
   const [activeTab, setActiveTab] = useState('orders');
   const [data, setData] = useState({ restaurant: null, menu: [], orders: [], request: null });
@@ -1960,90 +1964,31 @@ const RestaurantDashboard = () => {
         {/* Content Tabs */}
         {activeTab === 'menu' && (
           <div className="fade-in">
-            <div className="search-bar-container">
-              <div className="search-input-wrapper">
-                <Search size={18} className="search-icon-inside" />
-                <input 
-                  type="text" 
-                  placeholder="Search dishes by name or description..." 
-                  value={menuSearch}
-                  onChange={(e) => setMenuSearch(e.target.value)}
-                />
+            {sduiLoading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+                <Loader className="spin" size={24} style={{ color: 'var(--brand-red)' }} />
               </div>
-              <button className="btn-primary" onClick={() => setShowAddModal(true)}>
-                <Plus size={18} /> Add Menu Item
-              </button>
-            </div>
-
-            {filteredMenu.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '48px', border: '1px dashed var(--border-medium)', borderRadius: '12px' }}>
-                <p style={{ color: 'var(--text-secondary)' }}>No menu items found. Add some delicious dishes to get started!</p>
+            ) : sduiError ? (
+              <div style={{ color: 'var(--danger)', padding: '20px', textAlign: 'center' }}>
+                {sduiError}
               </div>
             ) : (
-              <div className="menu-grid">
-                {visibleMenuItems.map((item, idx) => (
-                  <div 
-                    key={item.menuId} 
-                    className="menu-item-card animate-card"
-                    style={{ animationDelay: `${idx * 0.04}s` }}
-                  >
-                    <div className="menu-item-img-wrapper">
-                      <img 
-                        src={item.imagePath || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop'} 
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop';
-                        }}
-                        alt={item.menuName} 
-                        className="menu-item-img" 
-                        loading="lazy"
-                      />
-                    </div>
-                    <div className="menu-item-body">
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                          <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{item.menuName}</h4>
-                          <span style={{ fontWeight: 800, color: 'var(--brand-red)', display: 'flex', alignItems: 'center' }}>
-                            <IndianRupee size={14} />{item.price}
-                          </span>
-                        </div>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.4' }}>
-                          {item.description}
-                        </p>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-light)', paddingTop: '12px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Status:</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: item.isAvailable ? 'var(--success)' : 'var(--text-muted)' }}>
-                            {item.isAvailable ? 'Available' : 'Unavailable'}
-                          </span>
-                          <button 
-                            className="toggle-container-btn"
-                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                            onClick={() => handleToggleAvailability(item.menuId, item.isAvailable)}
-                            aria-label="Toggle availability"
-                          >
-                            <div className={`admin-toggle-switch ${item.isAvailable ? 'available' : ''}`}>
-                              <div className="admin-toggle-knob" />
-                            </div>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {hasMoreMenuItems && (
-                  <div className="load-more-wrap" style={{ gridColumn: '1 / -1', margin: '4px auto 0' }}>
-                    <button
-                      type="button"
-                      className="load-more-btn"
-                      onClick={() => setVisibleMenuCount(count => count + RESTAURANT_DASHBOARD_PAGE_SIZE)}
-                    >
-                      Load more menu items ({filteredMenu.length - visibleMenuCount} left) <ChevronRight className="load-more-icon" size={16} />
-                    </button>
-                  </div>
-                )}
-              </div>
+              <SDUIRenderer
+                sduiConfig={sduiConfig}
+                viewport={viewport}
+                context={{
+                  user,
+                  logout,
+                  restaurant,
+                  menu,
+                  orders,
+                  analytics: data.analytics
+                }}
+                refreshPage={() => {
+                  fetchRestaurantData(true);
+                  refreshLayout();
+                }}
+              />
             )}
           </div>
         )}

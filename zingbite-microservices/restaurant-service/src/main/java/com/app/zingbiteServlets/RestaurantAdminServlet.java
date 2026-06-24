@@ -440,6 +440,48 @@ public class RestaurantAdminServlet extends HttpServlet {
                     resp.getWriter().write("{\"error\":\"Restaurant not found\"}");
                 }
 
+            } else if ("editMenuItem".equals(action)) {
+                int menuId = requestBody.get("menuId").getAsInt();
+                String name = SanitizationUtils.escapeHtml(requestBody.get("name").getAsString());
+                double price = requestBody.get("price").getAsDouble();
+                String description = SanitizationUtils.escapeHtml(requestBody.get("description").getAsString());
+                String imagePath = requestBody.has("imagePath") && !requestBody.get("imagePath").isJsonNull() ? requestBody.get("imagePath").getAsString() : null;
+
+                try (Session hibernateSession = DBUtils.openSession()) {
+                    tx = hibernateSession.beginTransaction();
+                    Menu menu = hibernateSession.get(Menu.class, menuId);
+                    if (menu != null) {
+                        Restaurant restaurant = menu.getRestaurant();
+                        if (restaurant == null || restaurant.getAdminId() == null || restaurant.getAdminId() != user.getUserID()) {
+                            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            resp.getWriter().write("{\"error\":\"Forbidden: You do not own this restaurant item.\"}");
+                            return;
+                        }
+
+                        menu.setMenuName(name);
+                        menu.setPrice(price);
+                        menu.setDescription(description);
+                        if (imagePath != null && !imagePath.trim().isEmpty()) {
+                            menu.setImagePath(imagePath);
+                        }
+                        
+                        hibernateSession.merge(menu);
+                        tx.commit();
+
+                        // Invalidate LRU Cache
+                        MenuServlet.menuCache.remove(restaurant.getRestaurantId());
+                        HomeServlet.menuSearchCache.clear();
+
+                        resp.getWriter().write("{\"success\":true}");
+                    } else {
+                        resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                        resp.getWriter().write("{\"error\":\"Menu item not found\"}");
+                    }
+                } catch (Exception e) {
+                    if (tx != null) tx.rollback();
+                    throw e;
+                }
+
             } else if ("createCombo".equals(action)) {
                 String name = requestBody.has("name") && !requestBody.get("name").isJsonNull() ? SanitizationUtils.escapeHtml(requestBody.get("name").getAsString()) : "Combo";
                 double price = requestBody.has("price") && !requestBody.get("price").isJsonNull() ? requestBody.get("price").getAsDouble() : 0.0;

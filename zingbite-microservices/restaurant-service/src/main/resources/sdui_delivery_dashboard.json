@@ -1,0 +1,90 @@
+{
+  "pageId": "delivery_dashboard",
+  "theme": {
+    "tokens": {
+      "primaryColor": "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+      "surfaceBg": "#ffffff",
+      "fontFamily": "Outfit, sans-serif",
+      "accentColor": "#f59e0b"
+    }
+  },
+  "deviceConfig": {
+    "breakpoints": {
+      "mobile": { "columns": 1, "gap": "16px", "padding": "12px" },
+      "tablet": { "columns": 2, "gap": "20px", "padding": "20px" },
+      "desktop": { "columns": 12, "gap": "24px", "padding": "32px" }
+    }
+  },
+  "sections": [
+    {
+      "id": "alert_surge",
+      "type": "widget_banner",
+      "order": 1,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 12 } },
+      "props": {
+        "title": "Surge Active",
+        "subtitle": "Weather surge applies. Earn ₹25 extra on every delivery completed during the next 3 hours.",
+        "icon": "Flame"
+      }
+    },
+    {
+      "id": "card_earnings_day",
+      "type": "widget_metric",
+      "order": 2,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 1, "desktop": 4 } },
+      "props": {
+        "title": "Today's Earnings",
+        "value": "₹1,250",
+        "trend": "5 trips completed",
+        "icon": "IndianRupee"
+      }
+    },
+    {
+      "id": "card_trips_weekly",
+      "type": "widget_metric",
+      "order": 3,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 1, "desktop": 4 } },
+      "props": {
+        "title": "Weekly Trips",
+        "value": "34",
+        "trend": "+8 trips vs target",
+        "icon": "ShoppingBag"
+      }
+    },
+    {
+      "id": "card_rating_rider",
+      "type": "widget_metric",
+      "order": 4,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 4 } },
+      "props": {
+        "title": "Partner Rating",
+        "value": "4.92",
+        "trend": "Gold tier rewards unlocked",
+        "icon": "Star"
+      }
+    },
+    {
+      "id": "active_deliveries_table",
+      "type": "widget_table",
+      "order": 5,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 12 } },
+      "props": {
+        "title": "Assigned Routes",
+        "dataSource": "/api/delivery/active-trips",
+        "columns": [
+          { "key": "tripId", "label": "Trip ID" },
+          { "key": "restaurantName", "label": "Pick up" },
+          { "key": "customerAddress", "label": "Drop off" },
+          { "key": "eta", "label": "ETA (min)", "type": "number" },
+          { "key": "payout", "label": "Estimated Payout", "type": "currency" }
+        ],
+        "rowAction": {
+          "type": "navigation",
+          "payload": {
+            "path": "/delivery/map?tripId={row.tripId}"
+          }
+        }
+      }
+    }
+  ]
+}

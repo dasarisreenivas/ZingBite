@@ -1,0 +1,112 @@
+{
+  "pageId": "career_portal",
+  "theme": {
+    "tokens": {
+      "primaryColor": "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+      "surfaceBg": "#ffffff",
+      "fontFamily": "Outfit, sans-serif",
+      "accentColor": "#ef4444"
+    }
+  },
+  "deviceConfig": {
+    "breakpoints": {
+      "mobile": { "columns": 1, "gap": "16px", "padding": "16px" },
+      "tablet": { "columns": 2, "gap": "20px", "padding": "24px" },
+      "desktop": { "columns": 12, "gap": "24px", "padding": "32px" }
+    }
+  },
+  "sections": [
+    {
+      "id": "hero_careers_banner",
+      "type": "widget_banner",
+      "order": 1,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 12 } },
+      "props": {
+        "title": "Build the Future of Food Delivery with ZingBite",
+        "subtitle": "Join our fast-growing logistics, engineering, and support teams. Explore open roles below.",
+        "icon": "Briefcase"
+      }
+    },
+    {
+      "id": "openings_table",
+      "type": "widget_table",
+      "order": 2,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 8 } },
+      "props": {
+        "title": "Open Opportunities",
+        "dataSource": "/api/careers/listings",
+        "columns": [
+          { "key": "jobId", "label": "ID" },
+          { "key": "title", "label": "Role" },
+          { "key": "department", "label": "Department" },
+          { "key": "location", "label": "Location" }
+        ],
+        "rowAction": {
+          "type": "open_modal",
+          "payload": {
+            "title": "Role: {row.title}",
+            "message": "This is a full-time position located in {row.location}. Please submit your details in the application form to apply."
+          }
+        }
+      }
+    },
+    {
+      "id": "apply_job_form",
+      "type": "widget_form",
+      "order": 3,
+      "layout": { "colSpan": { "mobile": 1, "tablet": 2, "desktop": 4 } },
+      "props": {
+        "title": "Apply Today",
+        "submitUrl": "/api/careers/apply",
+        "submitLabel": "Submit Application",
+        "fields": [
+          {
+            "name": "fullName",
+            "type": "text",
+            "label": "Full Name",
+            "placeholder": "Enter your name",
+            "validation": { "required": true, "minLength": 2 }
+          },
+          {
+            "name": "email",
+            "type": "email",
+            "label": "Email Address",
+            "placeholder": "name@example.com",
+            "validation": {
+              "required": true,
+              "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+              "errorMessage": "Invalid email address format."
+            }
+          },
+          {
+            "name": "mobile",
+            "type": "text",
+            "label": "Phone Number",
+            "placeholder": "10-digit number",
+            "validation": {
+              "required": true,
+              "pattern": "^[0-9]{10}$",
+              "errorMessage": "Phone number must be exactly 10 digits."
+            }
+          },
+          {
+            "name": "experience",
+            "type": "select",
+            "label": "Years of Experience",
+            "options": [
+              { "value": "Fresh", "label": "Fresher" },
+              { "value": "1-3", "label": "1-3 years" },
+              { "value": "3-5", "label": "3-5 years" },
+              { "value": "5+", "label": "5+ years" }
+            ],
+            "validation": { "required": true }
+          }
+        ],
+        "successAction": {
+          "type": "toast_message",
+          "payload": { "message": "Thank you, {form.fullName}! Your application has been logged.", "type": "success" }
+        }
+      }
+    }
+  ]
+}
