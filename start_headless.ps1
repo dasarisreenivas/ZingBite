@@ -15,7 +15,38 @@ if (Test-Path $envFile) {
         [Environment]::SetEnvironmentVariable($name, $value, "Process")
     }
 }
-$services = @("auth-service", "orders-service", "restaurant-service", "delivery-service", "careers-service", "chat-service", "gateway-service")
+$services = @("auth-service", "orders-service", "restaurant-service", "delivery-service", "careers-service", "chat-service", "ai-service", "gateway-service")
+$mlServiceRoot = Join-Path $repoRoot "zingbite-ml-service"
+
+function Get-ZingBitePython {
+    if ($env:ZINGBITE_PYTHON -and (Test-Path $env:ZINGBITE_PYTHON)) {
+        return @{ FilePath = $env:ZINGBITE_PYTHON; Args = @("app.py") }
+    }
+    $python = (Get-Command python.exe -ErrorAction SilentlyContinue).Source
+    if ($python) {
+        return @{ FilePath = $python; Args = @("app.py") }
+    }
+    $py = (Get-Command py.exe -ErrorAction SilentlyContinue).Source
+    if ($py) {
+        return @{ FilePath = $py; Args = @("-3", "app.py") }
+    }
+    return $null
+}
+
+if (Test-Path $mlServiceRoot) {
+    $python = Get-ZingBitePython
+    if ($python) {
+        if (-not $env:ZINGBITE_ML_SERVICE_URL) {
+            $env:ZINGBITE_ML_SERVICE_URL = "http://localhost:5010"
+        }
+        Write-Host "Starting zingbite-ml-service..."
+        Start-Process -FilePath $python.FilePath -ArgumentList $python.Args -WorkingDirectory $mlServiceRoot -WindowStyle Hidden
+        Start-Sleep -Seconds 2
+    } else {
+        Write-Warning "Python was not found. Skipping zingbite-ml-service. Set ZINGBITE_PYTHON to enable it."
+    }
+}
+
 foreach ($service in $services) {
     $jarPath = "d:\ZingBite\zingbite-microservices\$service\target\$service-0.0.1-SNAPSHOT.jar"
     Write-Host "Starting $service..."

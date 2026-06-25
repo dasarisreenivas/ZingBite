@@ -99,5 +99,12 @@ zingbite/seeds_utf8.sql
 zingbite/ResetDB.java
 zingbite/ResetDB.class
 
+# Python test cache
+**/.pytest_cache/
+
+# ML platform temporary/test output
+zingbite-ml-service/scratch/
+
+
 
 

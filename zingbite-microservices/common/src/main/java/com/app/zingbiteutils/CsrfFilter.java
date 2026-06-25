@@ -14,7 +14,9 @@ import jakarta.servlet.http.HttpServletResponse;
 public class CsrfFilter implements Filter {
 
     private static final String[] EXCLUDED_PATHS = {
-        "/api/login", "/api/register", "/api/payment/webhook", "/api/ws/", "/api/analytics", "/api/contact"
+        "/api/login", "/api/register", "/api/payment/webhook", "/api/ws/", "/api/analytics", "/api/contact",
+        "/api/ai/voice-command", "/api/ai/assistant", "/api/ai/search-rank", "/api/ai/cart-optimize",
+        "/api/ai/eta", "/api/ai/feedback", "/api/ai/chat-assist"
     };
 
     @Override

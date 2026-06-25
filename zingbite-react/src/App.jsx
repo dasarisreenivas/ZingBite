@@ -9,6 +9,7 @@ import { NotificationProvider } from './context/NotificationContext';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
+import AIAssistant from './components/AIAssistant';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Flame } from 'lucide-react';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -190,6 +191,7 @@ function App() {
                       </ErrorBoundary>
                     </main>
                     <Footer />
+                    <AIAssistant />
                   </div>
                 </Router>
               </CartProvider>

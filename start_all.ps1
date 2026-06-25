@@ -9,6 +9,7 @@ param(
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $microservicesRoot = Join-Path $repoRoot "zingbite-microservices"
 $frontendRoot = Join-Path $repoRoot "zingbite-react"
+$mlServiceRoot = Join-Path $repoRoot "zingbite-ml-service"
 $envFile = Join-Path $repoRoot ".env"
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
@@ -41,19 +42,61 @@ if (-not $mvn) {
 if (-not $mvn) {
     throw "Maven was not found. Install Maven or add mvn.cmd to PATH."
 }
-$services = @("auth-service", "orders-service", "restaurant-service", "delivery-service", "careers-service", "chat-service", "gateway-service")
+$services = @("auth-service", "orders-service", "restaurant-service", "delivery-service", "careers-service", "chat-service", "ai-service", "gateway-service")
+
+function Get-ZingBitePython {
+    if ($env:ZINGBITE_PYTHON -and (Test-Path $env:ZINGBITE_PYTHON)) {
+        return @{ FilePath = $env:ZINGBITE_PYTHON; Args = @("app.py") }
+    }
+
+    $python = (Get-Command python.exe -ErrorAction SilentlyContinue).Source
+    if ($python) {
+        return @{ FilePath = $python; Args = @("app.py") }
+    }
+
+    $py = (Get-Command py.exe -ErrorAction SilentlyContinue).Source
+    if ($py) {
+        return @{ FilePath = $py; Args = @("-3", "app.py") }
+    }
+
+    return $null
+}
+
+function Start-ZingBiteMlService {
+    if (-not (Test-Path $mlServiceRoot)) {
+        return
+    }
+
+    $python = Get-ZingBitePython
+    if (-not $python) {
+        Write-Warning "Python was not found. Skipping zingbite-ml-service. Set ZINGBITE_PYTHON to enable it."
+        return
+    }
+
+    if (-not $env:ZINGBITE_ML_SERVICE_URL) {
+        $env:ZINGBITE_ML_SERVICE_URL = "http://localhost:5010"
+    }
+
+    Write-Host "Launching zingbite-ml-service at $env:ZINGBITE_ML_SERVICE_URL..." -ForegroundColor DarkGreen
+    Start-Process -FilePath $python.FilePath -ArgumentList $python.Args -WorkingDirectory $mlServiceRoot -WindowStyle Hidden
+    Start-Sleep -Seconds 2
+}
 
 function Stop-ZingBiteServices {
     $running = @(Get-CimInstance Win32_Process -Filter "name = 'java.exe'" -ErrorAction Stop |
         Where-Object {
             $_.CommandLine -like "*$microservicesRoot*"
         })
+    $mlRunning = @(Get-CimInstance Win32_Process -ErrorAction Stop |
+        Where-Object {
+            $_.Name -like "python*" -and $_.CommandLine -like "*$mlServiceRoot*"
+        })
 
-    if ($running.Count -eq 0) {
+    if ($running.Count -eq 0 -and $mlRunning.Count -eq 0) {
         return
     }
 
-    $processIds = @($running | Select-Object -ExpandProperty ProcessId -Unique)
+    $processIds = @($running + $mlRunning | Select-Object -ExpandProperty ProcessId -Unique)
     Write-Host "Stopping existing ZingBite services before restart..." -ForegroundColor Yellow
     Stop-Process -Id $processIds -Force -ErrorAction Stop
 
@@ -104,6 +147,7 @@ if ($choice -eq "2") {
 
 if ($choice -eq "1") {
     Stop-ZingBiteServices
+    Start-ZingBiteMlService
     Write-Host "Launching services via Maven..." -ForegroundColor Green
     foreach ($service in $services) {
         Write-Host "Launching $service..." -ForegroundColor DarkGreen
@@ -114,6 +158,7 @@ if ($choice -eq "1") {
     if ($choice -eq "3") {
         Stop-ZingBiteServices
     }
+    Start-ZingBiteMlService
     Write-Host "Launching services via JAR files..." -ForegroundColor Green
     foreach ($service in $services) {
         $jarPath = Join-Path $microservicesRoot "$service\target\$service-0.0.1-SNAPSHOT.jar"

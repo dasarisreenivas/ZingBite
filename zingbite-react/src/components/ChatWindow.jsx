@@ -46,7 +46,7 @@ const ChatWindow = ({ type, targetId, onClose }) => {
 
     try {
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.port === '5173' ? 'localhost:8080' : window.location.host;
+      const host = window.location.port === '5173' ? 'localhost:8090' : window.location.host;
       const wsUrl = `${wsProtocol}//${host}/zingbite/api/ws/chat/${type}/${targetId}/${user.userID}`;
 
       setWsStatus('connecting');
@@ -113,32 +113,68 @@ const ChatWindow = ({ type, targetId, onClose }) => {
     }, 5000);
   };
 
+  const requestAiReply = async (userText) => {
+    try {
+      const res = await axios.post('/api/ai/chat-assist', {
+        messageText: userText,
+        type,
+        targetId
+      });
+      if (!res.data?.reply) return;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `ai-${Date.now()}`,
+          senderId: 0,
+          senderName: res.data.senderName || 'ZingBite Support AI',
+          messageText: res.data.reply,
+          timestamp: new Date().toISOString()
+        }
+      ]);
+    } catch (err) {
+      console.warn('[ChatWindow] AI reply unavailable:', err);
+    }
+  };
+
   // Send message via WebSocket or REST fallback
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !user) return;
 
+    const userText = newMessage.trim();
+
     const msgPayload = {
-      messageText: newMessage,
+      messageText: userText,
       receiverId: 0,
       orderId: type === 'order' ? targetId : null,
       applicationId: type === 'application' ? targetId : null
     };
 
+    let sent = false;
+
     if (wsStatus === 'open' && socketRef.current) {
-      // Send via WebSocket
-      socketRef.current.send(JSON.stringify(msgPayload));
-      setNewMessage('');
+      try {
+        socketRef.current.send(JSON.stringify(msgPayload));
+        sent = true;
+      } catch (err) {
+        console.error('[ChatWindow] Failed to send message via WebSocket:', err);
+        setError('Failed to send message. Please try again.');
+      }
     } else {
       // REST fallback
       try {
         const res = await axios.post('/api/chat', msgPayload);
         setMessages((prev) => [...prev, res.data]);
-        setNewMessage('');
+        sent = true;
       } catch (err) {
         console.error('[ChatWindow] Failed to send message via REST:', err);
         setError('Failed to send message. Please try again.');
       }
+    }
+
+    if (sent) {
+      setNewMessage('');
+      requestAiReply(userText);
     }
   };
 

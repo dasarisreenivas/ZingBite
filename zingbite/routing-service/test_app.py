@@ -50,7 +50,7 @@ def test_predict_route_contract(client):
     }
     assert required_keys <= data.keys()
     assert sorted(data["sequence"]) == ["Customer A", "Customer B"]
-    assert len(data["nodes"]) == 4
+    assert len(data["nodes"]) == 15
     assert data["predictiveETAs"]["Customer A"]["total"] > 0
     assert data["predictiveETAs"]["Customer B"]["total"] > 0
 

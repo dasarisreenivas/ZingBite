@@ -26,6 +26,7 @@ public class GetHttpSessionConfigurator extends ServerEndpointConfig.Configurato
                originHeaderValue.equals("http://localhost:8090") ||
                originHeaderValue.equals("http://127.0.0.1:8090") ||
                originHeaderValue.equals("http://localhost:8086") ||
-               originHeaderValue.equals("http://127.0.0.1:8086");
+               originHeaderValue.equals("http://127.0.0.1:8086") ||
+               originHeaderValue.endsWith(".trycloudflare.com");
     }
 }

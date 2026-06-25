@@ -37,6 +37,13 @@ public class Review implements Serializable {
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
 
+    @Column(name = "restaurantReply", length = 1200)
+    private String restaurantReply;
+
+    @Column(name = "restaurantReplyAt")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date restaurantReplyAt;
+
     public Review() {
         super();
         this.createdAt = new Date();
@@ -97,5 +104,21 @@ public class Review implements Serializable {
 
     public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getRestaurantReply() {
+        return restaurantReply;
+    }
+
+    public void setRestaurantReply(String restaurantReply) {
+        this.restaurantReply = restaurantReply;
+    }
+
+    public Date getRestaurantReplyAt() {
+        return restaurantReplyAt;
+    }
+
+    public void setRestaurantReplyAt(Date restaurantReplyAt) {
+        this.restaurantReplyAt = restaurantReplyAt;
     }
 }

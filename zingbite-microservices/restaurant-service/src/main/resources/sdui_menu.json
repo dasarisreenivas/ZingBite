@@ -1,0 +1,44 @@
+{
+  "theme": {
+    "primaryColor": "#f7374f",
+    "accentColor": "#1a1a1a"
+  },
+  "sections": [
+    {
+      "id": "menu_combos",
+      "visible": true,
+      "order": 1,
+      "props": {
+        "title": "Combos & Value Deals",
+        "subtitle": "Perfect pairings at pocket-friendly prices"
+      }
+    },
+    {
+      "id": "menu_drinks",
+      "visible": true,
+      "order": 2,
+      "props": {
+        "title": "Drinks & Beverages",
+        "subtitle": "Refreshing beverages to accompany your meal"
+      }
+    },
+    {
+      "id": "menu_desserts",
+      "visible": true,
+      "order": 3,
+      "props": {
+        "title": "Desserts & Sweets",
+        "subtitle": "Indulgent treats to satisfy your sweet tooth"
+      }
+    },
+    {
+      "id": "menu_normal_items",
+      "visible": true,
+      "order": 4,
+      "props": {
+        "title": "Single Dishes",
+        "subtitle": "Choose from our wide range of individual dishes"
+      }
+    }
+  ]
+}

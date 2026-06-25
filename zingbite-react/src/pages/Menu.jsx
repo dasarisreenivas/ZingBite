@@ -5,12 +5,13 @@ import axios from 'axios';
 import useSSE from '../hooks/useSSE';
 import { useCart } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
-import { 
+import {
   Minus, Plus, ArrowRight, AlertCircle,
   Search, MapPin, Clock, Star, ShoppingBag, Flame, AlertTriangle, Heart
 } from 'lucide-react';
 import { useWishlist } from '../context/WishlistContext';
 import ReviewsSection from '../components/ReviewsSection';
+import { useSDUI } from '../hooks/useSDUI';
 
 const DEFAULT_RESTAURANT_IMAGE = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop';
 const DEFAULT_DISH_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop';
@@ -22,7 +23,25 @@ const Menu = () => {
   const [searchParams] = useSearchParams();
   const restaurantId = searchParams.get('restaurantId');
   const restaurantNameParam = searchParams.get('restaurantName') || 'Restaurant Menu';
-  
+
+  const DEFAULT_MENU_SDUI_CONFIG = useMemo(() => ({
+    sections: [
+      { id: 'menu_combos', visible: true, order: 1, props: { title: "Combos & Value Deals", subtitle: "Perfect pairings at pocket-friendly prices" } },
+      { id: 'menu_drinks', visible: true, order: 2, props: { title: "Drinks & Beverages", subtitle: "Refreshing beverages to accompany your meal" } },
+      { id: 'menu_desserts', visible: true, order: 3, props: { title: "Desserts & Sweets", subtitle: "Indulgent treats to satisfy your sweet tooth" } },
+      { id: 'menu_normal_items', visible: true, order: 4, props: { title: "Single Dishes", subtitle: "Choose from our wide range of individual dishes" } }
+    ]
+  }), []);
+
+  const { sduiConfig } = useSDUI('menu', DEFAULT_MENU_SDUI_CONFIG);
+
+  const sortedSections = useMemo(() => {
+    if (!sduiConfig || !Array.isArray(sduiConfig.sections)) return [];
+    return [...sduiConfig.sections]
+      .filter(sec => sec.visible !== false)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [sduiConfig]);
+
   const [menuList, setMenuList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,7 +52,7 @@ const Menu = () => {
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
   const [visibleMenuCount, setVisibleMenuCount] = useState(MENU_PAGE_SIZE);
   const [visibleRecommendationCount, setVisibleRecommendationCount] = useState(RECOMMENDATION_PAGE_SIZE);
-  
+
   const { user } = useContext(AuthContext);
   const { cart, addToCart, updateQuantity, conflictPopup, clearAndAdd, setConflictPopup, cartError, setCartError } = useCart();
   const { wishlistIds, toggleWishlist } = useWishlist();
@@ -55,7 +74,7 @@ const Menu = () => {
       groupWsRef.current.close();
     }
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.port === '5173' ? 'localhost:8080' : window.location.host;
+    const host = window.location.port === '5173' ? 'localhost:8090' : window.location.host;
     const wsUrl = `${wsProtocol}//${host}/zingbite/api/ws/group-order/${roomId}/${user?.userID}`;
     console.log("[ZingBite GroupWS] Connecting to:", wsUrl);
     const ws = new WebSocket(wsUrl);
@@ -124,9 +143,9 @@ const Menu = () => {
   }, []);
 
   const handleCreateGroupRoom = async () => {
-    if (!user) { 
-      navigate(`/login?redirect=/menu?restaurantId=${restaurantId}&restaurantName=${encodeURIComponent(restaurantNameParam)}`); 
-      return; 
+    if (!user) {
+      navigate(`/login?redirect=/menu?restaurantId=${restaurantId}&restaurantName=${encodeURIComponent(restaurantNameParam)}`);
+      return;
     }
     setGroupError(null);
     try {
@@ -149,9 +168,9 @@ const Menu = () => {
   };
 
   const handleJoinGroupRoom = async () => {
-    if (!user) { 
-      navigate(`/login?redirect=/menu?restaurantId=${restaurantId}&restaurantName=${encodeURIComponent(restaurantNameParam)}`); 
-      return; 
+    if (!user) {
+      navigate(`/login?redirect=/menu?restaurantId=${restaurantId}&restaurantName=${encodeURIComponent(restaurantNameParam)}`);
+      return;
     }
     if (!roomCodeInput.trim()) {
       setGroupError("Please enter a room code.");
@@ -287,14 +306,16 @@ const Menu = () => {
       if (!restaurantId) return;
       try {
         setRecommendationsLoading(true);
-        const res = await axios.get(`/api/recommendations?restaurantId=${restaurantId}&cartItems=${cartItemIds}`);
-        setRecommendations(Array.isArray(res.data) ? res.data : (res.data.recommendations || []));
+        const hour = new Date().getHours();
+        const timeOfDay = hour < 11 ? 'Morning' : hour > 18 ? 'Night' : 'Afternoon';
+        const res = await axios.get(`/api/ai/recommend?restaurantId=${restaurantId}&weather=Rain&timeOfDay=${timeOfDay}`);
+        setRecommendations(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         console.error("[ZingBite] Error fetching recommendations:", err);
       } finally { setRecommendationsLoading(false); }
     };
     fetchRecommendations();
-  }, [restaurantId, cartItemIds]);
+  }, [restaurantId]);
 
   const getCartQuantity = (itemId) => {
     if (groupRoom) {
@@ -377,15 +398,252 @@ const Menu = () => {
     if (sortBy === 'PriceHighLow') return b.price - a.price;
     return 0;
   });
-  const visibleMenuItems = sortedList.slice(0, visibleMenuCount);
+
+  const isDrink = useCallback((item) => {
+    const category = (item.menuName || '').toLowerCase();
+    return category === 'drink' || category === 'drinks' || category === 'coffee';
+  }, []);
+
+  const isDessert = useCallback((item) => {
+    const category = (item.menuName || '').toLowerCase();
+    return category === 'dessert' || category === 'desserts' || category === 'sweet' || category === 'sweets';
+  }, []);
+
+  const combos = useMemo(() => {
+    return sortedList.filter(item => item.itemType === 'COMBO');
+  }, [sortedList]);
+
+  const drinks = useMemo(() => {
+    return sortedList.filter(item => item.itemType !== 'COMBO' && isDrink(item));
+  }, [sortedList, isDrink]);
+
+  const desserts = useMemo(() => {
+    return sortedList.filter(item => item.itemType !== 'COMBO' && isDessert(item));
+  }, [sortedList, isDessert]);
+
+  const normalItems = useMemo(() => {
+    return sortedList.filter(item => item.itemType !== 'COMBO' && !isDrink(item) && !isDessert(item));
+  }, [sortedList, isDrink, isDessert]);
+
+  const visibleNormalItems = useMemo(() => {
+    return normalItems.slice(0, visibleMenuCount);
+  }, [normalItems, visibleMenuCount]);
+
   const visibleRecommendations = recommendations.slice(0, visibleRecommendationCount);
-  const hasMoreMenuItems = visibleMenuCount < sortedList.length;
+  const hasMoreMenuItems = visibleMenuCount < normalItems.length;
   const hasMoreRecommendations = visibleRecommendationCount < recommendations.length;
+
+  const renderDishCard = (item, idx, isCombo = false) => {
+    const qty = getCartQuantity(item.menuId);
+    const isVeg = isVegDish(item);
+    return (
+      <div key={item.menuId} className={`menu-dish-card animate-card ${isCombo ? 'combo-dish-card' : ''}`} style={{ animationDelay: `${idx * 0.05}s` }}>
+        <div className="dish-card-info">
+          <div>
+            <div className="dish-card-header-tags">
+              <div className={isVeg ? "dish-type-badge veg" : "dish-type-badge nonveg"}>
+                <span className="dot"></span><span>{isVeg ? 'VEG' : 'NON-VEG'}</span>
+              </div>
+              {item.itemType === 'COMBO' ? (
+                <span className="dish-featured-tag" style={{ color: 'var(--brand-red)', background: 'rgba(247,55,79,0.08)', borderColor: 'rgba(247,55,79,0.15)' }}>
+                  <Flame size={12} fill="var(--brand-red)" /> Combo Bundle
+                </span>
+              ) : idx % 3 === 0 ? (
+                <span className="dish-featured-tag"><Star size={12} fill="#ff9f40" color="#ff9f40" /> Bestseller</span>
+              ) : null}
+            </div>
+            <h3 className="dish-card-title">{item.menuName}</h3>
+            <div className="dish-card-price-row">
+              <span className="price-symbol">&#8377;</span>
+              <span className="price-value">{item.price}</span>
+            </div>
+            <p className="dish-card-desc">{item.description}</p>
+          </div>
+        </div>
+        <div className="dish-card-media">
+          <div className="dish-card-img-container">
+            <img src={item.imagePath || DEFAULT_DISH_IMAGE} alt={item.menuName} className="dish-card-img" loading="lazy"
+              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_DISH_IMAGE; }}
+            />
+            {user && user.role === 'customer' && (
+              <button
+                type="button"
+                className={`heart-toggle-btn ${wishlistIds.has(item.menuId) ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleWishlist(item);
+                }}
+                aria-label={wishlistIds.has(item.menuId) ? "Remove from wishlist" : "Add to wishlist"}
+              >
+                <Heart
+                  size={18}
+                  fill={wishlistIds.has(item.menuId) ? "var(--brand-red)" : "transparent"}
+                  color={wishlistIds.has(item.menuId) ? "var(--brand-red)" : "rgba(0,0,0,0.45)"}
+                />
+              </button>
+            )}
+          </div>
+          <div className="dish-card-action">
+            {qty === 0 ? (
+              <button className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>
+                {(!item.isAvailable) ? 'SOLD OUT' : (dynRestaurant && !dynRestaurant.isOpen) ? 'CLOSED' : 'ADD'}
+              </button>
+            ) : (
+              <div className="qty-stepper" style={{ opacity: (dynRestaurant && !dynRestaurant.isOpen) ? 0.6 : 1, borderColor: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--border-medium)' : 'var(--success)' }}>
+                <button
+                  className="step-btn"
+                  disabled={dynRestaurant && !dynRestaurant.isOpen}
+                  onClick={() => handleUpdateQuantity(item.menuId, qty - 1)}
+                  style={{ cursor: (dynRestaurant && !dynRestaurant.isOpen) ? 'not-allowed' : 'pointer', color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
+                >
+                  <Minus size={12} />
+                </button>
+                <span className="step-val">{qty}</span>
+                <button
+                  className="step-btn"
+                  disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)}
+                  onClick={() => handleUpdateQuantity(item.menuId, qty + 1)}
+                  style={{ cursor: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 'not-allowed' : 'pointer', opacity: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 0.5 : 1, color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCombosSection = (props) => {
+    if (combos.length === 0) return null;
+    return (
+      <div key="combos-section" style={{ marginBottom: '40px' }}>
+        <div className="menu-section-header">
+          <div className="menu-section-title-wrap">
+            <Flame size={22} color="var(--brand-red)" fill="var(--brand-red)" />
+            <h2 className="menu-section-title">{props.title || "Combos & Value Deals"}</h2>
+          </div>
+          <span className="menu-section-subtitle">{props.subtitle || "Perfect pairings at pocket-friendly prices"}</span>
+        </div>
+        <div className="menu-items-grid">
+          {combos.map((item, idx) => renderDishCard(item, idx, true))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDrinksSection = (props) => {
+    if (drinks.length === 0) return null;
+    return (
+      <div key="drinks-section" style={{ marginBottom: '40px' }}>
+        <div className="menu-section-header">
+          <div className="menu-section-title-wrap">
+            <h2 className="menu-section-title">{props.title || "Drinks & Beverages"}</h2>
+          </div>
+          <span className="menu-section-subtitle">{props.subtitle || "Refreshing beverages to accompany your meal"}</span>
+        </div>
+        <div className="menu-items-grid">
+          {drinks.map((item, idx) => renderDishCard(item, idx, false))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDessertsSection = (props) => {
+    if (desserts.length === 0) return null;
+    return (
+      <div key="desserts-section" style={{ marginBottom: '40px' }}>
+        <div className="menu-section-header">
+          <div className="menu-section-title-wrap">
+            <h2 className="menu-section-title">{props.title || "Desserts & Sweets"}</h2>
+          </div>
+          <span className="menu-section-subtitle">{props.subtitle || "Indulgent treats to satisfy your sweet tooth"}</span>
+        </div>
+        <div className="menu-items-grid">
+          {desserts.map((item, idx) => renderDishCard(item, idx, false))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderNormalItemsSection = (props) => {
+    if (normalItems.length === 0) return null;
+    return (
+      <div key="normal-items-section" style={{ marginBottom: '40px' }}>
+        <div className="menu-section-header">
+          <div className="menu-section-title-wrap">
+            <h2 className="menu-section-title">{props.title || "Single Dishes"}</h2>
+          </div>
+          <span className="menu-section-subtitle">{props.subtitle || "Choose from our wide range of individual dishes"}</span>
+        </div>
+        <div className="menu-items-grid">
+          {visibleNormalItems.map((item, idx) => renderDishCard(item, idx, false))}
+        </div>
+        {hasMoreMenuItems && (
+          <div className="load-more-wrap" style={{ display: 'flex', justifyContent: 'center', marginTop: '24px' }}>
+            <button type="button" className="load-more-btn" onClick={() => setVisibleMenuCount(count => count + MENU_PAGE_SIZE)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', background: 'var(--bg-surface)', border: '1px solid var(--border-medium)', borderRadius: '12px', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.25s var(--ease-premium)' }}
+              onMouseEnter={e => { e.target.style.borderColor = 'var(--brand-red)'; e.target.style.color = 'var(--brand-red)'; e.target.style.background = 'rgba(247,55,79,0.03)'; }}
+              onMouseLeave={e => { e.target.style.borderColor = ''; e.target.style.color = ''; e.target.style.background = ''; }}
+            >
+              Load more dishes ({normalItems.length - visibleMenuCount} left) <ArrowRight size={14} />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
       <style>{`
         .menu-page-container { max-width: 1400px; width: 92%; margin: 0 auto 64px; padding: 0; }
+        /* Dynamic Menu Section Styles */
+        .menu-section-header {
+          margin: 40px 0 24px;
+          border-bottom: 2px solid rgba(247, 55, 79, 0.08);
+          padding-bottom: 12px;
+          position: relative;
+        }
+        .menu-section-header::after {
+          content: '';
+          position: absolute;
+          bottom: -2px;
+          left: 0;
+          width: 60px;
+          height: 2px;
+          background: var(--brand-red);
+        }
+        .menu-section-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .menu-section-title {
+          font-family: 'Outfit', sans-serif;
+          font-size: 1.6rem;
+          font-weight: 800;
+          color: var(--text-primary);
+          margin: 0;
+          letter-spacing: -0.3px;
+        }
+        .menu-section-subtitle {
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          margin-top: 2px;
+          display: block;
+        }
+        .combo-dish-card {
+          background: linear-gradient(135deg, #ffffff 0%, rgba(247, 55, 79, 0.02) 100%) !important;
+          border: 1.5px solid rgba(247, 55, 79, 0.12) !important;
+          box-shadow: 0 4px 20px rgba(247, 55, 79, 0.03) !important;
+        }
+        .combo-dish-card:hover {
+          border-color: rgba(247, 55, 79, 0.25) !important;
+          box-shadow: 0 12px 36px rgba(247, 55, 79, 0.08) !important;
+        }
         .restaurant-hero { position: relative; height: 340px; border-radius: 24px; overflow: hidden; margin-top: 24px; margin-bottom: 24px; box-shadow: 0 8px 40px rgba(0,0,0,0.08); }
         .slideshow-container { width: 100%; height: 100%; position: relative; }
         .hero-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s ease-in-out; z-index: 1; }
@@ -844,111 +1102,32 @@ const Menu = () => {
 
         <div className="menu-content-layout">
           <div className="menu-main-column">
-            <div className="menu-items-grid">
-              {isMenuLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
+            {isMenuLoading ? (
+              <div className="menu-items-grid">
+                {Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} style={{ height: '360px', borderRadius: '20px' }} className="skeleton animate-card" />
-                ))
-              ) : sortedList.length > 0 ? (
-                visibleMenuItems.map((item, idx) => {
-                  const qty = getCartQuantity(item.menuId);
-                  const isVeg = isVegDish(item);
-                  return (
-                    <div key={item.menuId} className="menu-dish-card animate-card" style={{ animationDelay: `${idx * 0.05}s` }}>
-                      <div className="dish-card-info">
-                        <div>
-                          <div className="dish-card-header-tags">
-                            <div className={isVeg ? "dish-type-badge veg" : "dish-type-badge nonveg"}>
-                              <span className="dot"></span><span>{isVeg ? 'VEG' : 'NON-VEG'}</span>
-                            </div>
-                            {item.itemType === 'COMBO' ? (
-                              <span className="dish-featured-tag" style={{ color: 'var(--brand-red)', background: 'rgba(247,55,79,0.08)', borderColor: 'rgba(247,55,79,0.15)' }}>
-                                <Flame size={12} fill="var(--brand-red)" /> Combo Bundle
-                              </span>
-                            ) : idx % 3 === 0 ? (
-                              <span className="dish-featured-tag"><Star size={12} fill="#ff9f40" color="#ff9f40" /> Bestseller</span>
-                            ) : null}
-                          </div>
-                          <h3 className="dish-card-title">{item.menuName}</h3>
-                          <div className="dish-card-price-row">
-                            <span className="price-symbol">&#8377;</span>
-                            <span className="price-value">{item.price}</span>
-                          </div>
-                          <p className="dish-card-desc">{item.description}</p>
-                        </div>
-                      </div>
-                      <div className="dish-card-media">
-                        <div className="dish-card-img-container">
-                          <img src={item.imagePath || DEFAULT_DISH_IMAGE} alt={item.menuName} className="dish-card-img" loading="lazy"
-                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_DISH_IMAGE; }}
-                          />
-                          {user && user.role === 'customer' && (
-                            <button 
-                              type="button"
-                              className={`heart-toggle-btn ${wishlistIds.has(item.menuId) ? 'active' : ''}`}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                toggleWishlist(item);
-                              }}
-                              aria-label={wishlistIds.has(item.menuId) ? "Remove from wishlist" : "Add to wishlist"}
-                            >
-                              <Heart 
-                                size={18} 
-                                fill={wishlistIds.has(item.menuId) ? "var(--brand-red)" : "transparent"} 
-                                color={wishlistIds.has(item.menuId) ? "var(--brand-red)" : "rgba(0,0,0,0.45)"}
-                              />
-                            </button>
-                          )}
-                        </div>
-                        <div className="dish-card-action">
-                          {qty === 0 ? (
-                            <button className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>
-                              {(!item.isAvailable) ? 'SOLD OUT' : (dynRestaurant && !dynRestaurant.isOpen) ? 'CLOSED' : 'ADD'}
-                            </button>
-                          ) : (
-                            <div className="qty-stepper" style={{ opacity: (dynRestaurant && !dynRestaurant.isOpen) ? 0.6 : 1, borderColor: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--border-medium)' : 'var(--success)' }}>
-                              <button 
-                                className="step-btn" 
-                                disabled={dynRestaurant && !dynRestaurant.isOpen} 
-                                onClick={() => handleUpdateQuantity(item.menuId, qty - 1)}
-                                style={{ cursor: (dynRestaurant && !dynRestaurant.isOpen) ? 'not-allowed' : 'pointer', color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
-                              >
-                                <Minus size={12} />
-                              </button>
-                              <span className="step-val">{qty}</span>
-                              <button 
-                                className="step-btn" 
-                                disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} 
-                                onClick={() => handleUpdateQuantity(item.menuId, qty + 1)}
-                                style={{ cursor: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 'not-allowed' : 'pointer', opacity: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 0.5 : 1, color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
-                              >
-                                <Plus size={12} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="no-data-dish">
-                  <p style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>No dishes found</p>
-                  <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Try adjusting your search or filter.</p>
-                </div>
-              )}
-            </div>
-
-            {hasMoreMenuItems && (
-              <div className="load-more-wrap" style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
-                <button type="button" className="load-more-btn" onClick={() => setVisibleMenuCount(count => count + MENU_PAGE_SIZE)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', background: 'var(--bg-surface)', border: '1px solid var(--border-medium)', borderRadius: '12px', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.25s var(--ease-premium)' }}
-                  onMouseEnter={e => { e.target.style.borderColor = 'var(--brand-red)'; e.target.style.color = 'var(--brand-red)'; e.target.style.background = 'rgba(247,55,79,0.03)'; }}
-                  onMouseLeave={e => { e.target.style.borderColor = ''; e.target.style.color = ''; e.target.style.background = ''; }}
-                >
-                  Load more dishes ({sortedList.length - visibleMenuCount} left) <ArrowRight size={14} />
-                </button>
+                ))}
+              </div>
+            ) : sortedList.length > 0 ? (
+              sortedSections.map(section => {
+                if (section.id === 'menu_combos') {
+                  return renderCombosSection(section.props);
+                }
+                if (section.id === 'menu_drinks') {
+                  return renderDrinksSection(section.props);
+                }
+                if (section.id === 'menu_desserts') {
+                  return renderDessertsSection(section.props);
+                }
+                if (section.id === 'menu_normal_items') {
+                  return renderNormalItemsSection(section.props);
+                }
+                return null;
+              })
+            ) : (
+              <div className="no-data-dish">
+                <p style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>No dishes found</p>
+                <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Try adjusting your search or filter.</p>
               </div>
             )}
 
@@ -968,11 +1147,16 @@ const Menu = () => {
                           <div>
                             <div className="dish-card-header-tags">
                               <div className={isVeg ? "dish-type-badge veg" : "dish-type-badge nonveg"}><span className="dot"></span><span>{isVeg ? 'VEG' : 'NON-VEG'}</span></div>
-                              <span className="dish-featured-tag" style={{ color: 'var(--brand-red)', background: 'rgba(247,55,79,0.05)', borderColor: 'rgba(247,55,79,0.1)' }}><ShoppingBag size={12} /> Recommended</span>
+                              <span className="dish-featured-tag" style={{ color: 'var(--brand-red)', background: 'rgba(247,55,79,0.05)', borderColor: 'rgba(247,55,79,0.1)' }}><ShoppingBag size={12} /> {item.tag || 'Recommended'}</span>
                             </div>
                             <h3 className="dish-card-title">{item.menuName}</h3>
                             <div className="dish-card-price-row"><span className="price-symbol">&#8377;</span><span className="price-value">{item.price}</span></div>
                             <p className="dish-card-desc">{item.description}</p>
+                            {item.reason && (
+                              <p style={{ fontSize: '0.78rem', color: 'var(--brand-red)', marginTop: '4px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span>✨</span> <span>{item.reason}</span>
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="dish-card-media">
@@ -986,18 +1170,18 @@ const Menu = () => {
                               <button className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>{(!item.isAvailable) ? 'SOLD OUT' : (dynRestaurant && !dynRestaurant.isOpen) ? 'CLOSED' : 'ADD'}</button>
                             ) : (
                               <div className="qty-stepper" style={{ opacity: (dynRestaurant && !dynRestaurant.isOpen) ? 0.6 : 1, borderColor: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--border-medium)' : 'var(--success)' }}>
-                                <button 
-                                  className="step-btn" 
-                                  disabled={dynRestaurant && !dynRestaurant.isOpen} 
+                                <button
+                                  className="step-btn"
+                                  disabled={dynRestaurant && !dynRestaurant.isOpen}
                                   onClick={() => handleUpdateQuantity(item.menuId, qty - 1)}
                                   style={{ cursor: (dynRestaurant && !dynRestaurant.isOpen) ? 'not-allowed' : 'pointer', color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
                                 >
                                   <Minus size={12} />
                                 </button>
                                 <span className="step-val">{qty}</span>
-                                <button 
-                                  className="step-btn" 
-                                  disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} 
+                                <button
+                                  className="step-btn"
+                                  disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)}
                                   onClick={() => handleUpdateQuantity(item.menuId, qty + 1)}
                                   style={{ cursor: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 'not-allowed' : 'pointer', opacity: (!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)) ? 0.5 : 1, color: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--text-muted)' : 'var(--success)' }}
                                 >
@@ -1034,7 +1218,7 @@ const Menu = () => {
                 <span className="group-title">Collaborative Dining</span>
                 <span className="group-badge">Real-Time</span>
               </div>
-              
+
               {!groupRoom ? (
                 <div className="group-action-section">
                   <p style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.7)', margin: '0 0 12px', lineHeight: 1.5 }}>
@@ -1049,10 +1233,10 @@ const Menu = () => {
                     <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
                   </div>
                   <div className="group-input-group">
-                    <input 
-                      type="text" 
-                      placeholder="Enter Room Code" 
-                      className="group-input" 
+                    <input
+                      type="text"
+                      placeholder="Enter Room Code"
+                      className="group-input"
                       value={roomCodeInput}
                       onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
                     />
@@ -1073,7 +1257,7 @@ const Menu = () => {
                     <div className="room-code-label">Room Access Code</div>
                     <div className="room-code-value">{groupRoom.roomCode}</div>
                   </div>
-                  
+
                   <div style={{ marginBottom: '16px' }}>
                     <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', fontWeight: 600 }}>
                       Participants ({groupRoom.participants?.length || 0})
@@ -1090,7 +1274,7 @@ const Menu = () => {
                       ))}
                     </div>
                   </div>
-                  
+
                   <div className="group-cart-section">
                     <div className="group-cart-title">
                       <span>Shared Cart</span>
@@ -1098,7 +1282,7 @@ const Menu = () => {
                         {groupCartItems.reduce((acc, item) => acc + item.quantity, 0)} item(s)
                       </span>
                     </div>
-                    
+
                     {groupCartItems.length === 0 ? (
                       <div className="group-cart-empty">
                         No items added yet. Start adding items from the menu!
@@ -1129,11 +1313,11 @@ const Menu = () => {
                       </>
                     )}
                   </div>
-                  
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {user?.userID === groupRoom.hostId ? (
-                      <button 
-                        className="group-btn group-btn-primary" 
+                      <button
+                        className="group-btn group-btn-primary"
                         onClick={handleCheckoutGroupRoom}
                         disabled={groupCartItems.length === 0}
                       >

@@ -28,6 +28,9 @@ import com.app.zingbitemodels.WishlistItem;
 import com.app.zingbitemodels.Review;
 import com.app.zingbitemodels.Notification;
 import com.app.zingbitemodels.ComboMapping;
+import com.app.zingbitemodels.MlModelRegistry;
+import com.app.zingbitemodels.MlPredictionLog;
+import com.app.zingbitemodels.MlTrainingRun;
 
 	public class DBUtils {
 
@@ -64,7 +67,10 @@ import com.app.zingbitemodels.ComboMapping;
 									.addAnnotatedClass(WishlistItem.class)
 									.addAnnotatedClass(Review.class)
 									.addAnnotatedClass(Notification.class)
-									.addAnnotatedClass(ComboMapping.class);
+									.addAnnotatedClass(ComboMapping.class)
+									.addAnnotatedClass(MlModelRegistry.class)
+									.addAnnotatedClass(MlPredictionLog.class)
+									.addAnnotatedClass(MlTrainingRun.class);
 			sf = config.buildSessionFactory();
 			System.out.println("session factory created successfully");
 

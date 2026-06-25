@@ -3,10 +3,11 @@ import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../context/ModalContext';
-import { 
-  Store, Utensils, ClipboardList, Plus, Search, 
-  CheckCircle2, ChevronRight, 
-  MapPin, Phone, IndianRupee, Loader, AlertCircle, FileText 
+import {
+  Store, Utensils, ClipboardList, Plus, Search,
+  CheckCircle2, ChevronRight,
+  MapPin, Phone, IndianRupee, Loader, AlertCircle, FileText,
+  Bot, Sparkles, ShieldAlert
 } from 'lucide-react';
 import useSSE from '../hooks/useSSE';
 import { useSDUI } from '../hooks/useSDUI';
@@ -28,10 +29,10 @@ const getStatusClass = (status) => {
 
 const playToneNotification = (type) => {
   const isNewOrder = type === 'new';
-  const url = isNewOrder 
+  const url = isNewOrder
     ? 'https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav'
     : 'https://assets.mixkit.co/active_storage/sfx/2019/2019-84.wav';
-  
+
   const audio = new Audio(url);
   audio.volume = isNewOrder ? 0.5 : 0.4;
   audio.play().catch(err => {
@@ -41,7 +42,7 @@ const playToneNotification = (type) => {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
       const ctx = new AudioContextClass();
-      
+
       const playChime = (time, freq, duration) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -72,7 +73,7 @@ const playToneNotification = (type) => {
 
 const DailySalesChart = ({ data }) => {
   const [activePoint, setActivePoint] = React.useState(null);
-  
+
   if (!data || data.length === 0) {
     return (
       <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-medium)', textAlign: 'center' }}>
@@ -101,7 +102,7 @@ const DailySalesChart = ({ data }) => {
     return i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`;
   }, '');
 
-  const areaD = points.length > 0 
+  const areaD = points.length > 0
     ? `${pathD} L ${points[points.length - 1].x} ${margin.top + chartHeight} L ${points[0].x} ${margin.top + chartHeight} Z`
     : '';
 
@@ -232,6 +233,105 @@ const RestaurantDashboard = () => {
 
   const [activeTab, setActiveTab] = useState('orders');
   const [data, setData] = useState({ restaurant: null, menu: [], orders: [], request: null });
+  const [aiReviews, setAiReviews] = useState(null);
+  const [aiReviewsLoading, setAiReviewsLoading] = useState(false);
+  const [aiInventory, setAiInventory] = useState([]);
+  const [aiInventoryLoading, setAiInventoryLoading] = useState(false);
+  const [restaurantReviews, setRestaurantReviews] = useState([]);
+  const [restaurantReviewsLoading, setRestaurantReviewsLoading] = useState(false);
+  const [reviewReplyDrafts, setReviewReplyDrafts] = useState({});
+  const [draftReplyLoading, setDraftReplyLoading] = useState({});
+
+  useEffect(() => {
+    if (activeTab === 'ai-ops' && data?.restaurant?.restaurantId) {
+      const fetchAiOpsData = async () => {
+        const restId = data.restaurant.restaurantId;
+        try {
+          setAiReviewsLoading(true);
+          const revRes = await axios.get(`/api/ai/reviews/summary?restaurantId=${restId}`);
+          setAiReviews(revRes.data);
+        } catch (err) {
+          console.error("AI reviews fetch error:", err);
+        } finally {
+          setAiReviewsLoading(false);
+        }
+
+        try {
+          setAiInventoryLoading(true);
+          const invRes = await axios.get(`/api/ai/inventory/forecast?restaurantId=${restId}`);
+          setAiInventory(Array.isArray(invRes.data) ? invRes.data : []);
+        } catch (err) {
+          console.error("AI inventory fetch error:", err);
+        } finally {
+          setAiInventoryLoading(false);
+        }
+
+        try {
+          setRestaurantReviewsLoading(true);
+          const reviewsRes = await axios.get(`/api/reviews?restaurantId=${restId}`);
+          const liveReviews = Array.isArray(reviewsRes.data) ? reviewsRes.data : [];
+          setRestaurantReviews(liveReviews.map(review => ({
+            ...review,
+            username: review.userName || 'Customer',
+            comment: review.reviewText || '',
+            dish: review.createdAt || 'Review'
+          })));
+        } catch (err) {
+          console.error("Reviews fetch error:", err);
+          setRestaurantReviews([]);
+        } finally {
+          setRestaurantReviewsLoading(false);
+        }
+      };
+      fetchAiOpsData();
+    }
+  }, [activeTab, data?.restaurant?.restaurantId]);
+
+  const handleGenerateReplyDraft = async (reviewId) => {
+    try {
+      setDraftReplyLoading(prev => ({ ...prev, [reviewId]: true }));
+      const res = await axios.post('/api/ai/reviews/reply', { reviewId });
+      if (res.data && res.data.suggestedReply) {
+        setReviewReplyDrafts(prev => ({ ...prev, [reviewId]: res.data.suggestedReply }));
+      }
+    } catch (err) {
+      showAlert('Failed to generate draft: ' + (err.response?.data?.error || err.message), 'error');
+    } finally {
+      setDraftReplyLoading(prev => ({ ...prev, [reviewId]: false }));
+    }
+  };
+
+  const handleSendDraftReply = async (reviewId) => {
+    const replyText = reviewReplyDrafts[reviewId];
+    if (!replyText || !replyText.trim()) {
+      showAlert('Reply text cannot be empty.', 'error');
+      return;
+    }
+
+    try {
+      setDraftReplyLoading(prev => ({ ...prev, [reviewId]: true }));
+      const res = await axios.post('/api/ai/reviews/reply', { reviewId, replyText, save: true });
+      setRestaurantReviews(prev => prev.map(review => (
+        review.id === reviewId
+          ? {
+              ...review,
+              restaurantReply: res.data?.suggestedReply || replyText,
+              restaurantReplyAt: res.data?.restaurantReplyAt || new Date().toString()
+            }
+          : review
+      )));
+      showAlert('AI response saved to review.', 'success');
+      setReviewReplyDrafts(prev => {
+        const copy = { ...prev };
+        delete copy[reviewId];
+        return copy;
+      });
+    } catch (err) {
+      showAlert('Failed to save reply: ' + (err.response?.data?.error || err.message), 'error');
+    } finally {
+      setDraftReplyLoading(prev => ({ ...prev, [reviewId]: false }));
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(true);
   const [toggleStatusLoading, setToggleStatusLoading] = useState(false);
@@ -263,7 +363,7 @@ const RestaurantDashboard = () => {
   };
   const [error, setError] = useState(null);
   const [alerts, setAlerts] = useState([]);
-  
+
   // Onboarding Form state
   const [onboardForm, setOnboardForm] = useState({
     name: '', cuisine: '', address: '', deliveryTime: '30 mins', imagePath: '',
@@ -276,7 +376,7 @@ const RestaurantDashboard = () => {
   const [newDish, setNewDish] = useState({ name: '', price: '', description: '', imagePath: '' });
   const [submitting, setSubmitting] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
-  
+
   // Search and filter states
   const [menuSearch, setMenuSearch] = useState('');
   const [orderFilter, setOrderFilter] = useState('All');
@@ -317,22 +417,22 @@ const RestaurantDashboard = () => {
     try {
       const payload = JSON.parse(event.data);
       console.log("[ZingBite SSE] Received real-time restaurant dashboard update:", payload);
-      
+
       // Play notification sound on new order
       if (payload && (payload.event === 'new_order' || payload.event === 'new_request')) {
         playToneNotification('new');
-        
+
         const newAlert = {
           id: Date.now(),
           type: payload.event,
           title: payload.event === 'new_order' ? 'New Order Incoming!' : 'New Onboarding Request!',
-          body: payload.event === 'new_order' 
-            ? `Order ZB-${payload.orderId} received for ₹${payload.total || payload.amount || '0.00'}` 
+          body: payload.event === 'new_order'
+            ? `Order ZB-${payload.orderId} received for ₹${payload.total || payload.amount || '0.00'}`
             : 'A new partner onboarding request is pending verification.'
         };
-        
+
         setAlerts(prev => [newAlert, ...prev]);
-        
+
         setTimeout(() => {
           setAlerts(prev => prev.filter(a => a.id !== newAlert.id));
         }, 8000);
@@ -403,7 +503,7 @@ const RestaurantDashboard = () => {
     // 1. Optimistic Update: Change status in state immediately
     setData(prev => ({
       ...prev,
-      menu: (prev.menu || []).map(item => 
+      menu: (prev.menu || []).map(item =>
         item.menuId === menuId ? { ...item, isAvailable: !currentAvailable } : item
       )
     }));
@@ -418,7 +518,7 @@ const RestaurantDashboard = () => {
       // 2. Rollback: If API call fails, revert state and show error toast
       setData(prev => ({
         ...prev,
-        menu: (prev.menu || []).map(item => 
+        menu: (prev.menu || []).map(item =>
           item.menuId === menuId ? { ...item, isAvailable: currentAvailable } : item
         )
       }));
@@ -576,7 +676,7 @@ const RestaurantDashboard = () => {
                         <Loader className="spin" size={14} style={{ pointerEvents: 'none' }} />
                       ) : (
                         idx === 0 ? <ChevronRight size={14} style={{ pointerEvents: 'none' }} /> :
-                        idx === 1 ? <Utensils size={14} style={{ pointerEvents: 'none' }} /> : 
+                        idx === 1 ? <Utensils size={14} style={{ pointerEvents: 'none' }} /> :
                         idx === 2 ? <CheckCircle2 size={14} style={{ pointerEvents: 'none' }} /> :
                         <ChevronRight size={14} style={{ pointerEvents: 'none' }} />
                       )}
@@ -612,15 +712,15 @@ const RestaurantDashboard = () => {
         <h3 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Access Restricted</h3>
         <p style={{ color: 'var(--text-secondary)', marginTop: '8px', marginBottom: '24px' }}>{error}</p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
-          <button 
-            onClick={() => navigate('/login?redirect=/restaurant-admin')} 
-            className="btn-primary" 
+          <button
+            onClick={() => navigate('/login?redirect=/restaurant-admin')}
+            className="btn-primary"
             style={{ width: 'auto', padding: '10px 20px', fontSize: '0.9rem', borderRadius: '4px' }}
           >
             Switch Account
           </button>
-          <button 
-            onClick={async () => { await logout(); navigate('/login?redirect=/restaurant-admin'); }} 
+          <button
+            onClick={async () => { await logout(); navigate('/login?redirect=/restaurant-admin'); }}
             className="portal-logout-btn"
           >
             Logout
@@ -752,7 +852,7 @@ const RestaurantDashboard = () => {
               <form onSubmit={handleOnboardSubmit}>
                 <div className="form-group">
                   <label>Restaurant Name *</label>
-                  <input 
+                  <input
                     type="text" required placeholder="e.g. Punjabi Tadka Kitchen"
                     value={onboardForm.name} onChange={e => setOnboardForm({...onboardForm, name: e.target.value})}
                   />
@@ -760,14 +860,14 @@ const RestaurantDashboard = () => {
                 <div className="form-row-2">
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>Cuisine Type *</label>
-                    <input 
+                    <input
                       type="text" required placeholder="e.g. North Indian"
                       value={onboardForm.cuisine} onChange={e => setOnboardForm({...onboardForm, cuisine: e.target.value})}
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>Avg Delivery Time *</label>
-                    <input 
+                    <input
                       type="text" required placeholder="e.g. 35 mins"
                       value={onboardForm.deliveryTime} onChange={e => setOnboardForm({...onboardForm, deliveryTime: e.target.value})}
                     />
@@ -775,14 +875,14 @@ const RestaurantDashboard = () => {
                 </div>
                 <div className="form-group">
                   <label>Full Address *</label>
-                  <input 
+                  <input
                     type="text" required placeholder="Street, City, State"
                     value={onboardForm.address} onChange={e => setOnboardForm({...onboardForm, address: e.target.value})}
                   />
                 </div>
                 <div className="form-group">
                   <label>Image URL (Cover Banner)</label>
-                  <input 
+                  <input
                     type="url" placeholder="https://images.unsplash.com/..."
                     value={onboardForm.imagePath} onChange={e => setOnboardForm({...onboardForm, imagePath: e.target.value})}
                   />
@@ -795,35 +895,35 @@ const RestaurantDashboard = () => {
 
                 <div className="form-group">
                   <label>FSSAI Food License Number *</label>
-                  <input 
+                  <input
                     type="text" required placeholder="14-digit FSSAI Number"
                     maxLength={14}
                     pattern="\d{14}"
                     title="FSSAI License Number must be exactly 14 digits"
-                    value={onboardForm.licenseNo} 
+                    value={onboardForm.licenseNo}
                     onChange={e => setOnboardForm({...onboardForm, licenseNo: e.target.value.replace(/\D/g, '')})}
                   />
                 </div>
                 <div className="form-row-2">
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>Owner Aadhaar Number *</label>
-                    <input 
+                    <input
                       type="text" required placeholder="12-digit Aadhaar"
                       maxLength={12}
                       pattern="\d{12}"
                       title="Owner Aadhaar Number must be exactly 12 digits"
-                      value={onboardForm.aadhaarNo} 
+                      value={onboardForm.aadhaarNo}
                       onChange={e => setOnboardForm({...onboardForm, aadhaarNo: e.target.value.replace(/\D/g, '')})}
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>GSTIN Registration Number *</label>
-                    <input 
+                    <input
                       type="text" required placeholder="15-digit GSTIN"
                       maxLength={15}
                       pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
                       title="GSTIN must be a 15-character ID in standard format (e.g. 22AAAAA1111A1Z1)"
-                      value={onboardForm.gstNo} 
+                      value={onboardForm.gstNo}
                       onChange={e => setOnboardForm({...onboardForm, gstNo: e.target.value.toUpperCase()})}
                     />
                   </div>
@@ -840,8 +940,8 @@ const RestaurantDashboard = () => {
     );
   }
 
-  const filteredMenu = (menu || []).filter(item => 
-    ((item.menuName || '').toLowerCase().includes(menuSearch.toLowerCase())) || 
+  const filteredMenu = (menu || []).filter(item =>
+    ((item.menuName || '').toLowerCase().includes(menuSearch.toLowerCase())) ||
     ((item.description || '').toLowerCase().includes(menuSearch.toLowerCase()))
   );
 
@@ -1330,7 +1430,7 @@ const RestaurantDashboard = () => {
           transform: translateY(-2px);
           box-shadow: var(--shadow-md);
         }
-        
+
         .order-card.status-placed, .order-card.status-accepted { border-left-color: #36a2eb; }
         .order-card.status-preparing { border-left-color: #ff9f40; }
         .order-card.status-waiting-to-dispatch { border-left-color: #ffcd56; }
@@ -1552,7 +1652,7 @@ const RestaurantDashboard = () => {
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
         }
-        
+
         .premium-stepper-container {
           width: 100%;
           padding: 16px 8px 0;
@@ -1822,9 +1922,9 @@ const RestaurantDashboard = () => {
       <div className="admin-container fade-in page-enter">
         {/* Banner */}
         {restaurant && (
-          <div 
+          <div
             className="restaurant-header-banner"
-            style={{ 
+            style={{
               backgroundImage: `url(${restaurant.imagePath || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop'})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center'
@@ -1832,14 +1932,14 @@ const RestaurantDashboard = () => {
           >
             <div className="banner-overlay" />
             <div className="banner-info-wrap">
-              <img 
-                src={restaurant.imagePath || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop'} 
+              <img
+                src={restaurant.imagePath || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop'}
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.src = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop';
                 }}
-                alt={restaurant.restaurantName} 
-                className="restaurant-img" 
+                alt={restaurant.restaurantName}
+                className="restaurant-img"
                 loading="lazy"
               />
               <div className="banner-details">
@@ -1941,23 +2041,30 @@ const RestaurantDashboard = () => {
 
         {/* Tab Bar */}
         <div className="tab-bar">
-          <button 
-            className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`} 
+          <button
+            className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveTab('orders')}
           >
             Orders Manager
           </button>
-          <button 
-            className={`tab-btn ${activeTab === 'menu' ? 'active' : ''}`} 
+          <button
+            className={`tab-btn ${activeTab === 'menu' ? 'active' : ''}`}
             onClick={() => setActiveTab('menu')}
           >
             Menu Manager
           </button>
-          <button 
-            className={`tab-btn ${activeTab === 'analytics' ? 'active' : ''}`} 
+          <button
+            className={`tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
             onClick={() => setActiveTab('analytics')}
           >
             Sales Analytics
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'ai-ops' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ai-ops')}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Sparkles size={14} /> AI Ops Hub
           </button>
         </div>
 
@@ -1998,7 +2105,7 @@ const RestaurantDashboard = () => {
             <div className="main-content-area">
               <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none', msOverflowStyle: 'none' }} className="hide-scrollbar">
                 {['All', 'Placed', 'Accepted', 'Preparing', 'Ready for Pickup', 'Out for Delivery', 'Delivered'].map(status => (
-                  <button 
+                  <button
                     key={status}
                     className={`pill-filter ${orderFilter === status ? 'active' : ''}`}
                     onClick={() => setOrderFilter(status)}
@@ -2024,20 +2131,20 @@ const RestaurantDashboard = () => {
                           </span>
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Ordered {o.time}</span>
                         </div>
-                        
+
                         <div className="customer-info-box">
                           <div className="customer-name">
                             Customer: {o.userName}
                           </div>
                           <div className="customer-detail">
-                            <Phone size={12} /> 
+                            <Phone size={12} />
                             <span>{o.userPhone}</span>
                             <a href={`tel:${o.userPhone}`} className="call-customer-btn">
                               <Phone size={10} /> Call
                             </a>
                           </div>
                           <div className="customer-detail" style={{ alignItems: 'flex-start' }}>
-                            <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} /> 
+                            <MapPin size={12} style={{ flexShrink: 0, marginTop: '2px' }} />
                             <span>Address: {o.userAddress}</span>
                           </div>
                         </div>
@@ -2050,7 +2157,7 @@ const RestaurantDashboard = () => {
                             &#8377;{(o.total || 0).toFixed(2)}
                           </div>
                         </div>
-                        
+
                         {o.riderName ? (
                           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textAlign: 'right', marginTop: '8px' }}>
                             Rider: <strong>{o.riderName}</strong>
@@ -2185,23 +2292,194 @@ const RestaurantDashboard = () => {
             </div>
           </div>
         )}
+
+        {activeTab === 'ai-ops' && (
+          <div className="dashboard-content-layout fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '28px' }}>
+            {/* Main AI Operations Console */}
+            <div className="main-content-area flex flex-col gap-6">
+              {/* AI Reviews Summary Section */}
+              <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-medium)', boxShadow: 'var(--shadow-sm)' }}>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
+                  <Bot size={20} color="var(--brand-red)" /> AI Review Sentiment & Summarizer
+                </h4>
+
+                {aiReviewsLoading ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '30px' }}>
+                    <Loader className="spin" size={24} style={{ color: 'var(--brand-red)' }} />
+                  </div>
+                ) : aiReviews ? (
+                  <div className="space-y-4">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px', background: 'rgba(247,55,79,0.02)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(247,55,79,0.08)' }}>
+                      <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                        <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--brand-red)' }}>{aiReviews.overallSentimentScore}%</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase' }}>Sentiment Score</div>
+                      </div>
+                      <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.6' }}>{aiReviews.summaryText}</p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '12px' }}>
+                      {aiReviews.positiveTags?.map((tag, idx) => (
+                        <span key={`pos-${idx}`} style={{ fontSize: '0.75rem', fontWeight: 700, background: 'rgba(96,178,70,0.08)', color: 'var(--success)', padding: '4px 10px', borderRadius: '12px', border: '1px solid rgba(96,178,70,0.15)' }}>
+                          👍 {tag}
+                        </span>
+                      ))}
+                      {aiReviews.negativeTags?.map((tag, idx) => (
+                        <span key={`neg-${idx}`} style={{ fontSize: '0.75rem', fontWeight: 700, background: 'rgba(226,55,68,0.08)', color: 'var(--danger)', padding: '4px 10px', borderRadius: '12px', border: '1px solid rgba(226,55,68,0.15)' }}>
+                          ⚠️ {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>No review analytics available.</p>
+                )}
+              </div>
+
+              {/* Reviews List & Reply Engine */}
+              <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-medium)', boxShadow: 'var(--shadow-sm)', marginTop: '24px' }}>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>Customer Reviews & AI Responses</h4>
+                {restaurantReviewsLoading ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '30px' }}>
+                    <Loader className="spin" size={24} style={{ color: 'var(--brand-red)' }} />
+                  </div>
+                ) : restaurantReviews.length === 0 ? (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>No reviews posted yet.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                    {restaurantReviews.map((rev) => (
+                      <div key={rev.id} style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', gap: '12px', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{rev.username} &bull; <span style={{ color: '#ffb703' }}>{'★'.repeat(rev.rating)}</span></span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Reviewed: {rev.dish}</span>
+                        </div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 10px' }}>"{rev.comment}"</p>
+
+                        {rev.restaurantReply && !reviewReplyDrafts[rev.id] && (
+                          <div style={{ background: 'rgba(96,178,70,0.05)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(96,178,70,0.14)', marginTop: '8px', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--success)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>SAVED RESTAURANT REPLY:</span>
+                            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{rev.restaurantReply}</p>
+                          </div>
+                        )}
+
+                        {/* Draft container */}
+                        {reviewReplyDrafts[rev.id] ? (
+                          <div style={{ background: 'var(--bg-surface)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-medium)', marginTop: '8px' }}>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>AI DRAFT REPLY:</span>
+                            <textarea
+                              value={reviewReplyDrafts[rev.id]}
+                              onChange={(e) => {
+                                const newText = e.target.value;
+                                setReviewReplyDrafts(prev => ({ ...prev, [rev.id]: newText }));
+                              }}
+                              style={{ width: '100%', minHeight: '60px', padding: '8px', fontSize: '0.82rem', border: '1px solid var(--border-medium)', borderRadius: '6px', outline: 'none' }}
+                            />
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px', justifyContent: 'flex-end' }}>
+                              <button onClick={() => setReviewReplyDrafts(prev => { const c = {...prev}; delete c[rev.id]; return c; })} style={{ background: 'transparent', border: 'none', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
+                              <button disabled={draftReplyLoading[rev.id]} onClick={() => handleSendDraftReply(rev.id)} style={{ background: 'var(--success)', border: 'none', color: '#fff', borderRadius: '4px', padding: '4px 10px', fontSize: '0.8rem', fontWeight: 700, cursor: draftReplyLoading[rev.id] ? 'default' : 'pointer', opacity: draftReplyLoading[rev.id] ? 0.7 : 1 }}>
+                                {draftReplyLoading[rev.id] ? 'Saving...' : 'Save Reply'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            disabled={draftReplyLoading[rev.id]}
+                            onClick={() => handleGenerateReplyDraft(rev.id)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: 'transparent',
+                              border: '1.5px dashed rgba(247,55,79,0.3)',
+                              color: 'var(--brand-red)',
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            {draftReplyLoading[rev.id] ? <Loader size={12} className="spin" /> : <Sparkles size={12} />}
+                            {rev.restaurantReply ? 'Regenerate AI Reply' : 'One-Click AI Reply'}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Sidebar with Demand Forecasting */}
+            <div className="dashboard-sidebar">
+              <div className="sidebar-card">
+                <h3 className="sidebar-card-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldAlert size={16} color="var(--brand-red)" /> Smart Stock Planner
+                </h3>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: '1.4' }}>
+                  AI monitors local weather reports and forecasts demand spikes for tomorrow so you can pre-order ingredients.
+                </p>
+
+                {aiInventoryLoading ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
+                    <Loader className="spin" size={20} style={{ color: 'var(--brand-red)' }} />
+                  </div>
+                ) : aiInventory.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {aiInventory.slice(0, 4).map((item) => (
+                      <div key={item.menuId} style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{item.itemName}</span>
+                          <span style={{
+                            fontSize: '0.65rem',
+                            fontWeight: 800,
+                            padding: '2px 6px',
+                            borderRadius: '8px',
+                            background: item.trend === 'HIGH_DEMAND_WARNING' ? 'rgba(255,193,7,0.1)' : 'rgba(96,178,70,0.1)',
+                            color: item.trend === 'HIGH_DEMAND_WARNING' ? '#b58900' : 'var(--success)'
+                          }}>
+                            {item.trend.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          <span>Forecasted: <strong>{item.predictedQuantity} units</strong></span>
+                          <span>In Stock: <strong>{item.currentStock} units</strong></span>
+                        </div>
+                        {item.currentStock < item.predictedQuantity && (
+                          <div style={{ fontSize: '0.72rem', color: 'var(--danger)', fontWeight: 700, marginTop: '4px' }}>
+                            ⚠️ Shortage Risk: Suggest ordering {(item.predictedQuantity - item.currentStock)} units additional stock.
+                          </div>
+                        )}
+                        <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '4px 0 0', fontStyle: 'italic' }}>
+                          Reason: {item.reason}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>No inventory forecast available.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Floating Visual Toast Alerts */}
       <div style={{ position: 'fixed', top: '24px', right: '24px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '12px', pointerEvents: 'none' }}>
         {alerts.map(alert => (
-          <div 
-            key={alert.id} 
+          <div
+            key={alert.id}
             style={{
               pointerEvents: 'auto',
-              background: 'white', 
+              background: 'white',
               borderLeft: '6px solid var(--brand-red)',
-              padding: '16px 20px', 
-              borderRadius: '8px', 
+              padding: '16px 20px',
+              borderRadius: '8px',
               boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
-              minWidth: '320px', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
+              minWidth: '320px',
+              display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'flex-start',
               animation: 'slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}
@@ -2215,8 +2493,8 @@ const RestaurantDashboard = () => {
                 {alert.body}
               </p>
             </div>
-            <button 
-              onClick={() => setAlerts(prev => prev.filter(a => a.id !== alert.id))} 
+            <button
+              onClick={() => setAlerts(prev => prev.filter(a => a.id !== alert.id))}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '1rem', padding: '0 0 0 12px' }}
             >
               ✕
@@ -2233,55 +2511,55 @@ const RestaurantDashboard = () => {
             <form onSubmit={handleAddDish}>
               <div className="form-group">
                 <label>Dish Name *</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
-                  placeholder="e.g. Garlic Butter Naan" 
+                  placeholder="e.g. Garlic Butter Naan"
                   value={newDish.name}
                   onChange={(e) => setNewDish(prev => ({ ...prev, name: e.target.value }))}
                 />
               </div>
               <div className="form-group">
                 <label>Price (INR) *</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   required
                   step="0.01"
-                  placeholder="e.g. 120.00" 
+                  placeholder="e.g. 120.00"
                   value={newDish.price}
                   onChange={(e) => setNewDish(prev => ({ ...prev, price: e.target.value }))}
                 />
               </div>
               <div className="form-group">
                 <label>Description *</label>
-                <textarea 
+                <textarea
                   required
                   rows="3"
-                  placeholder="Describe the dish ingredients, taste, portion..." 
+                  placeholder="Describe the dish ingredients, taste, portion..."
                   value={newDish.description}
                   onChange={(e) => setNewDish(prev => ({ ...prev, description: e.target.value }))}
                 />
               </div>
               <div className="form-group">
                 <label>Image URL (Optional)</label>
-                <input 
-                  type="url" 
-                  placeholder="https://images.unsplash.com/..." 
+                <input
+                  type="url"
+                  placeholder="https://images.unsplash.com/..."
                   value={newDish.imagePath}
                   onChange={(e) => setNewDish(prev => ({ ...prev, imagePath: e.target.value }))}
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
-                <button 
-                  type="button" 
-                  className="pill-filter" 
+                <button
+                  type="button"
+                  className="pill-filter"
                   onClick={() => setShowAddModal(false)}
                   style={{ borderRadius: 'var(--radius-sm)' }}
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={submitting}
                   className="btn-primary"
                   style={{ width: 'auto' }}

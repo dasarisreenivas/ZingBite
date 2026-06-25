@@ -16,6 +16,7 @@ spring:
             allowedOriginPatterns:
               - "http://localhost:5173"
               - "http://127.0.0.1:5173"
+              - "https://*.trycloudflare.com"
               - "${ZINGBITE_ALLOWED_ORIGIN:https://zingbite.invalid}"
             allowedMethods:
               - GET
@@ -47,6 +48,14 @@ spring:
           uri: http://localhost:8083
           predicates:
             - Path=/zingbite/api/home, /zingbite/api/menu, /zingbite/api/restaurant-admin, /zingbite/api/reviews, /zingbite/api/recommendations, /zingbite/api/sdui/**
+          filters:
+            - StripPrefix=1
+
+        # AI Service
+        - id: ai-service
+          uri: http://localhost:8087
+          predicates:
+            - Path=/zingbite/api/ai/**
           filters:
             - StripPrefix=1
 

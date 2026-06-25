@@ -3,9 +3,9 @@ import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../context/ModalContext';
-import { 
-  Users, Store, ShoppingBag, IndianRupee, Briefcase, 
-  FileText, Plus, CheckCircle, XCircle, AlertTriangle, 
+import {
+  Users, Store, ShoppingBag, IndianRupee, Briefcase,
+  FileText, Plus, CheckCircle, XCircle, AlertTriangle,
   Loader, Shield, UserCheck, Check, X, FileCheck2, LogOut, MessageSquare, ChevronRight,
   Activity
 } from 'lucide-react';
@@ -32,7 +32,39 @@ const SuperAdminDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+  const [anomalies, setAnomalies] = useState([]);
+  const [anomaliesLoading, setAnomaliesLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'ai-security') {
+      const fetchAnomalies = async () => {
+        try {
+          setAnomaliesLoading(true);
+          const res = await axios.get('/api/ai/super-admin/anomaly');
+          setAnomalies(Array.isArray(res.data) ? res.data : []);
+        } catch (err) {
+          console.error("Failed to load anomalies:", err);
+        } finally {
+          setAnomaliesLoading(false);
+        }
+      };
+      fetchAnomalies();
+    }
+  }, [activeTab]);
+
+  const handleBlockUserToggle = async (userId) => {
+    try {
+      setActionLoading(`block-${userId}`);
+      await axios.post('/api/super-admin', { action: 'toggleBlockUser', userId });
+      showAlert(`User ID ${userId} block status toggled successfully.`, 'success');
+      await fetchAdminData(true);
+    } catch (err) {
+      showAlert('Failed to toggle block status: ' + (err.response?.data?.error || err.message), 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   // Action triggers
   const [actionLoading, setActionLoading] = useState(null);
   const [activeChatAppId, setActiveChatAppId] = useState(null);
@@ -92,7 +124,7 @@ const SuperAdminDashboard = () => {
     try {
       const payload = JSON.parse(event.data);
       console.log("[ZingBite SSE] Received real-time admin update:", payload);
-      
+
       // Play notification sound on new onboarding request
       if (payload && payload.event === 'new_request') {
         try {
@@ -101,7 +133,7 @@ const SuperAdminDashboard = () => {
           audio.play();
         } catch (audioErr) {}
       }
-      
+
       fetchAdminData(true);
     } catch (err) {
       console.error("[ZingBite SSE] Error on message:", err);
@@ -277,15 +309,15 @@ const SuperAdminDashboard = () => {
         <h3 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Access Restricted</h3>
         <p style={{ color: 'var(--text-secondary)', marginTop: '8px', marginBottom: '24px' }}>{error}</p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
-          <button 
-            onClick={() => navigate('/login?redirect=/admin')} 
-            className="btn-primary" 
+          <button
+            onClick={() => navigate('/login?redirect=/admin')}
+            className="btn-primary"
             style={{ width: 'auto', padding: '10px 20px', fontSize: '0.9rem', borderRadius: '4px' }}
           >
             Switch Account
           </button>
-          <button 
-            onClick={async () => { await logout(); navigate('/login?redirect=/admin'); }} 
+          <button
+            onClick={async () => { await logout(); navigate('/login?redirect=/admin'); }}
             className="portal-logout-btn"
           >
             Logout
@@ -332,7 +364,7 @@ const SuperAdminDashboard = () => {
         .stat-icon.green { background: rgba(75,192,192,0.08); color: #4bc0c0; }
         .stat-icon.purple { background: rgba(153,102,255,0.08); color: #9966ff; }
         .stat-number { font-size: 1.8rem; font-weight: 800; line-height: 1.1; margin-top: 4px; }
-        
+
         .tab-bar {
           display: flex;
           border-bottom: 2px solid var(--border-light);
@@ -501,7 +533,7 @@ const SuperAdminDashboard = () => {
         .badge.rejected { background: rgba(226,55,68,0.08); color: var(--danger); }
         .badge.pending { background: rgba(255,159,64,0.08); color: #ff9f40; }
         .badge.approved { background: rgba(75,192,192,0.08); color: #4bc0c0; }
-        
+
         .request-card {
           background: white;
           border: 1px solid var(--border-medium);
@@ -556,7 +588,7 @@ const SuperAdminDashboard = () => {
           color: var(--danger);
           background: rgba(226, 55, 68, 0.04);
         }
-        
+
         /* Glassmorphic Analytics Dashboard Styles */
         .analytics-dashboard {
           display: grid;
@@ -699,29 +731,36 @@ const SuperAdminDashboard = () => {
 
         {/* Navigation Tabs */}
         <div className="tab-bar">
-          <button 
-            className={`tab-btn ${activeTab === 'metrics' ? 'active' : ''}`} 
+          <button
+            className={`tab-btn ${activeTab === 'metrics' ? 'active' : ''}`}
             onClick={() => setActiveTab('metrics')}
           >
             Overview & Creators
           </button>
-          <button 
-            className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`} 
+          <button
+            className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
             onClick={() => setActiveTab('requests')}
           >
             Restaurant Requests {pendingRequests.length > 0 && `(${pendingRequests.length})`}
           </button>
-          <button 
-            className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`} 
+          <button
+            className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => setActiveTab('users')}
           >
             Users Control ({(data?.users || []).length})
           </button>
-          <button 
-            className={`tab-btn ${activeTab === 'applications' ? 'active' : ''}`} 
+          <button
+            className={`tab-btn ${activeTab === 'applications' ? 'active' : ''}`}
             onClick={() => setActiveTab('applications')}
           >
             Applications Review ({(data?.applications || []).length})
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'ai-security' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ai-security')}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Shield size={14} /> AI Security
           </button>
         </div>
 
@@ -741,15 +780,15 @@ const SuperAdminDashboard = () => {
                     <h2 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                       <Store size={20} style={{ color: 'var(--brand-red)' }} /> Platform Conversion Funnel
                     </h2>
-                    <button 
-                      onClick={fetchAnalyticsData} 
-                      className="portal-logout-btn" 
+                    <button
+                      onClick={fetchAnalyticsData}
+                      className="portal-logout-btn"
                       style={{ padding: '4px 10px', fontSize: '0.8rem', borderRadius: '8px' }}
                     >
                       Refresh
                     </button>
                   </div>
-                  
+
                   <div className="funnel-container">
                     {/* Step 1 */}
                     <div className="funnel-step">
@@ -803,7 +842,7 @@ const SuperAdminDashboard = () => {
                   <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Users size={20} style={{ color: 'var(--brand-red)' }} /> Popular Searches
                   </h2>
-                  
+
                   {analytics.popularSearches && analytics.popularSearches.length > 0 ? (
                     <div className="popular-searches-list">
                       {analytics.popularSearches.map((item, idx) => (
@@ -856,12 +895,12 @@ const SuperAdminDashboard = () => {
                           </strong>
                         </div>
                         <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
-                          <div 
-                            style={{ 
-                              height: '100%', 
-                              background: 'var(--brand-red)', 
-                              width: `${((analytics.systemMetrics?.hikari?.totalConnections ?? 5) / (analytics.systemMetrics?.hikari?.maxConnections ?? 20)) * 100}%` 
-                            }} 
+                          <div
+                            style={{
+                              height: '100%',
+                              background: 'var(--brand-red)',
+                              width: `${((analytics.systemMetrics?.hikari?.totalConnections ?? 5) / (analytics.systemMetrics?.hikari?.maxConnections ?? 20)) * 100}%`
+                            }}
                           />
                         </div>
                       </div>
@@ -892,12 +931,12 @@ const SuperAdminDashboard = () => {
                           <strong style={{ color: '#36a2eb' }}>{analytics.systemMetrics?.hibernate?.cacheHitRate ?? 0}%</strong>
                         </div>
                         <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
-                          <div 
-                            style={{ 
-                              height: '100%', 
-                              background: '#36a2eb', 
-                              width: `${analytics.systemMetrics?.hibernate?.cacheHitRate ?? 0}%` 
-                            }} 
+                          <div
+                            style={{
+                              height: '100%',
+                              background: '#36a2eb',
+                              width: `${analytics.systemMetrics?.hibernate?.cacheHitRate ?? 0}%`
+                            }}
                           />
                         </div>
                       </div>
@@ -926,12 +965,12 @@ const SuperAdminDashboard = () => {
                           <strong style={{ color: '#4bc0c0' }}>STABLE</strong>
                         </div>
                         <div style={{ height: '6px', background: 'rgba(0,0,0,0.05)', borderRadius: '3px', overflow: 'hidden', marginTop: '4px' }}>
-                          <div 
-                            style={{ 
-                              height: '100%', 
-                              background: '#4bc0c0', 
-                              width: '100%' 
-                            }} 
+                          <div
+                            style={{
+                              height: '100%',
+                              background: '#4bc0c0',
+                              width: '100%'
+                            }}
                           />
                         </div>
                       </div>
@@ -943,12 +982,12 @@ const SuperAdminDashboard = () => {
 
             {/* Toggle button to show manual registration forms */}
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px', marginBottom: '24px' }}>
-              <button 
-                onClick={() => setShowForms(!showForms)} 
+              <button
+                onClick={() => setShowForms(!showForms)}
                 className="portal-logout-btn"
                 style={{ padding: '10px 24px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px', background: showForms ? 'rgba(247, 55, 79, 0.04)' : 'transparent', color: showForms ? 'var(--brand-red)' : 'var(--text-secondary)' }}
               >
-                {showForms ? <X size={16} /> : <Plus size={16} />} 
+                {showForms ? <X size={16} /> : <Plus size={16} />}
                 {showForms ? 'Hide Creation Portal' : 'Show Direct Creation Portal (Manual Restaurant/Jobs)'}
               </button>
             </div>
@@ -963,9 +1002,9 @@ const SuperAdminDashboard = () => {
                   <form onSubmit={handleAddRestaurant}>
                     <div className="form-group">
                       <label>Restaurant Name *</label>
-                      <input 
-                        type="text" 
-                        required 
+                      <input
+                        type="text"
+                        required
                         placeholder="e.g. Royal Biryani House"
                         value={restaurantForm.name}
                         onChange={(e) => setRestaurantForm(prev => ({ ...prev, name: e.target.value }))}
@@ -973,9 +1012,9 @@ const SuperAdminDashboard = () => {
                     </div>
                     <div className="form-group">
                       <label>Cuisine Type *</label>
-                      <input 
-                        type="text" 
-                        required 
+                      <input
+                        type="text"
+                        required
                         placeholder="e.g. North Indian, Mughlai"
                         value={restaurantForm.cuisine}
                         onChange={(e) => setRestaurantForm(prev => ({ ...prev, cuisine: e.target.value }))}
@@ -983,9 +1022,9 @@ const SuperAdminDashboard = () => {
                     </div>
                     <div className="form-group">
                       <label>Full Address *</label>
-                      <input 
-                        type="text" 
-                        required 
+                      <input
+                        type="text"
+                        required
                         placeholder="Street, City, State"
                         value={restaurantForm.address}
                         onChange={(e) => setRestaurantForm(prev => ({ ...prev, address: e.target.value }))}
@@ -993,8 +1032,8 @@ const SuperAdminDashboard = () => {
                     </div>
                     <div className="form-group">
                       <label>Delivery Time (e.g., "35 mins")</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         placeholder="e.g. 30 mins"
                         value={restaurantForm.deliveryTime}
                         onChange={(e) => setRestaurantForm(prev => ({ ...prev, deliveryTime: e.target.value }))}
@@ -1002,8 +1041,8 @@ const SuperAdminDashboard = () => {
                     </div>
                     <div className="form-group">
                       <label>Cover Image URL</label>
-                      <input 
-                        type="url" 
+                      <input
+                        type="url"
                         placeholder="https://images.unsplash.com/..."
                         value={restaurantForm.imagePath}
                         onChange={(e) => setRestaurantForm(prev => ({ ...prev, imagePath: e.target.value }))}
@@ -1023,9 +1062,9 @@ const SuperAdminDashboard = () => {
                   <form onSubmit={handleAddJob}>
                     <div className="form-group">
                       <label>Job Title *</label>
-                      <input 
-                        type="text" 
-                        required 
+                      <input
+                        type="text"
+                        required
                         placeholder="e.g. Operations Manager"
                         value={jobForm.title}
                         onChange={(e) => setJobForm(prev => ({ ...prev, title: e.target.value }))}
@@ -1033,8 +1072,8 @@ const SuperAdminDashboard = () => {
                     </div>
                     <div className="form-group">
                       <label>Department *</label>
-                      <select 
-                        required 
+                      <select
+                        required
                         value={jobForm.department}
                         onChange={(e) => setJobForm(prev => ({ ...prev, department: e.target.value }))}
                       >
@@ -1047,9 +1086,9 @@ const SuperAdminDashboard = () => {
                     </div>
                     <div className="form-group">
                       <label>Location *</label>
-                      <input 
-                        type="text" 
-                        required 
+                      <input
+                        type="text"
+                        required
                         placeholder="e.g. Bangalore, KA (or Remote)"
                         value={jobForm.location}
                         onChange={(e) => setJobForm(prev => ({ ...prev, location: e.target.value }))}
@@ -1057,9 +1096,9 @@ const SuperAdminDashboard = () => {
                     </div>
                     <div className="form-group">
                       <label>Job Description *</label>
-                      <textarea 
-                        required 
-                        rows="4" 
+                      <textarea
+                        required
+                        rows="4"
                         placeholder="Outline job responsibilities, skills needed, compensation details..."
                         value={jobForm.description}
                         onChange={(e) => setJobForm(prev => ({ ...prev, description: e.target.value }))}
@@ -1078,7 +1117,7 @@ const SuperAdminDashboard = () => {
         {activeTab === 'requests' && (
           <div>
             <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '18px' }}>Pending Approvals ({pendingRequests.length})</h2>
-            
+
             {pendingRequests.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px', border: '1px dashed var(--border-medium)', borderRadius: '12px', background: '#fff', marginBottom: '32px' }}>
                 <p style={{ color: 'var(--text-secondary)' }}>No pending restaurant onboarding requests found.</p>
@@ -1096,20 +1135,20 @@ const SuperAdminDashboard = () => {
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Cuisine: {req.cuisineType} | Address: {req.address}</p>
                         <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>Submitted by Partner ID: #{req.adminId} on {req.submittedDate}</p>
                       </div>
-                      
+
                       <div style={{ display: 'flex', gap: '10px' }}>
-                        <button 
+                        <button
                           disabled={actionLoading === `req-${req.id}`}
                           onClick={() => handleReviewRestaurant(req.id, 'Approved')}
-                          className="btn-primary" 
+                          className="btn-primary"
                           style={{ background: 'var(--success)', padding: '8px 16px', fontSize: '0.85rem' }}
                         >
                           <Check size={16} /> Approve
                         </button>
-                        <button 
+                        <button
                           disabled={actionLoading === `req-${req.id}`}
                           onClick={() => handleReviewRestaurant(req.id, 'Rejected')}
-                          className="btn-primary" 
+                          className="btn-primary"
                           style={{ background: 'var(--danger)', padding: '8px 16px', fontSize: '0.85rem' }}
                         >
                           <X size={16} /> Reject
@@ -1277,7 +1316,7 @@ const SuperAdminDashboard = () => {
                     </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <select 
+                        <select
                           className="role-selector"
                           value={u.role || 'customer'}
                           disabled={actionLoading === `role-${u.userID}`}
@@ -1403,17 +1442,17 @@ const SuperAdminDashboard = () => {
                         </td>
                         <td>{app.appliedDate}</td>
                         <td>
-                          <a 
-                            href={app.resumeUrl} 
-                            target="_blank" 
-                            rel="noreferrer" 
+                          <a
+                            href={app.resumeUrl}
+                            target="_blank"
+                            rel="noreferrer"
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
                           >
                             <FileText size={14} /> Resume
                           </a>
                         </td>
                         <td>
-                          <button 
+                          <button
                             onClick={() => setActiveChatAppId(app.id)}
                             style={{
                               background: 'transparent',
@@ -1434,7 +1473,7 @@ const SuperAdminDashboard = () => {
                         </td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <select 
+                            <select
                               className="role-selector"
                               value={app.status || 'Applied'}
                               disabled={actionLoading === `app-${app.id}`}
@@ -1467,6 +1506,97 @@ const SuperAdminDashboard = () => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'ai-security' && (
+          <div className="fade-in" style={{ padding: '8px 0' }}>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Shield size={20} style={{ color: 'var(--brand-red)' }} /> AI Threat & Sybil Attack Prevention Console
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '24px', lineHeight: '1.5' }}>
+              Our AI engine continuously scans coordinate locations and account registrations to identify sybil coupon farming operations.
+            </p>
+
+            {anomaliesLoading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+                <Loader className="spin" size={28} style={{ color: 'var(--brand-red)' }} />
+              </div>
+            ) : anomalies.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '48px 16px', border: '1.5px dashed var(--border-medium)', borderRadius: '12px', background: '#fff' }}>
+                <CheckCircle size={36} color="var(--success)" style={{ marginBottom: '12px' }} />
+                <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>No Security Threats Detected</h4>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '6px' }}>All recent customer accounts mapped to unique locations.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {anomalies.map((anomaly, idx) => (
+                  <div key={idx} style={{
+                    background: '#fff',
+                    border: '1px solid var(--border-medium)',
+                    borderLeft: `5px solid ${anomaly.threatLevel === 'CRITICAL' ? 'var(--danger)' : '#ff9f40'}`,
+                    padding: '20px',
+                    borderRadius: '12px',
+                    boxShadow: 'var(--shadow-sm)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '16px'
+                  }}>
+                    <div style={{ flex: 1, minWidth: '250px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                        <span style={{
+                          fontSize: '0.65rem',
+                          fontWeight: 800,
+                          padding: '3px 8px',
+                          borderRadius: '8px',
+                          background: anomaly.threatLevel === 'CRITICAL' ? 'rgba(226,55,68,0.1)' : 'rgba(255,159,64,0.1)',
+                          color: anomaly.threatLevel === 'CRITICAL' ? 'var(--danger)' : '#ff9f40'
+                        }}>
+                          {anomaly.threatLevel} THREAT
+                        </span>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Location: {anomaly.address || 'Seeded Coordinates'}</span>
+                      </div>
+                      <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 700, margin: '0 0 8px 0' }}>{anomaly.description}</p>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Affected Account IDs: {anomaly.affectedUserIds?.map(id => (
+                          <span key={id} style={{ background: 'var(--bg-surface)', padding: '2px 6px', borderRadius: '4px', marginRight: '6px', fontWeight: 600, border: '1px solid var(--border-light)' }}>
+                            ZB-{id}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => {
+                          anomaly.affectedUserIds?.forEach(id => {
+                            const listedUser = (data?.users || []).find(u => Number(u.userID || u.userId) === Number(id));
+                            if (!listedUser?.blocked) {
+                              handleBlockUserToggle(id);
+                            }
+                          });
+                        }}
+                        style={{
+                          background: 'var(--danger)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '10px 18px',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 8px rgba(226,55,68,0.2)'
+                        }}
+                      >
+                        Block All Threat Accounts
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -1,16 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useCart } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
-import { ShoppingCart, Minus, Plus, Trash2, Tag, ArrowRight, ShoppingBag, Percent, Truck } from 'lucide-react';
+import { Sparkles, ShoppingCart, Minus, Plus, Trash2, Tag, ArrowRight, ShoppingBag, Percent, Truck } from 'lucide-react';
 
 const Cart = () => {
   const { cart, updateQuantity, removeFromCart, clearCart, coupon, applyCoupon, removeCoupon } = useCart();
   const { user } = React.useContext(AuthContext);
   const navigate = useNavigate();
-  
+
   const [promoCode, setPromoCode] = useState('');
   const [couponError, setCouponError] = useState('');
+  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [splitCount, setSplitCount] = useState(2);
+
+  const items = cart?.items ? (Array.isArray(cart.items) ? cart.items : Object.values(cart.items)) : [];
+
+  useEffect(() => {
+    const fetchOptimization = async () => {
+      if (items.length === 0) return;
+      try {
+        const formattedItems = items.map(i => ({
+          menuId: i.itemId,
+          name: i.itemName,
+          price: i.price,
+          quantity: i.quantity
+        }));
+        const res = await axios.post('/api/ai/cart-optimize', { cartItems: formattedItems });
+        if (res.data && res.data.optimizationAvailable) {
+          setAiSuggestion(res.data.message);
+        } else {
+          setAiSuggestion(null);
+        }
+      } catch (err) {
+        console.error("AI Cart Optimization Error:", err);
+      }
+    };
+    fetchOptimization();
+  }, [items]);
 
   const handleApplyPromo = () => {
     setCouponError('');
@@ -27,8 +55,6 @@ const Cart = () => {
     setCouponError('');
     applyCoupon(code);
   };
-
-  const items = cart?.items ? (Array.isArray(cart.items) ? cart.items : Object.values(cart.items)) : [];
 
   if (!cart || items.length === 0) {
     return (
@@ -358,6 +384,45 @@ const Cart = () => {
             </h2>
             <button onClick={clearCart} className="clear-cart-btn"><Trash2 size={14} /> Clear</button>
           </div>
+
+          {aiSuggestion && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '14px 18px',
+              borderRadius: '12px',
+              background: 'rgba(247, 55, 79, 0.05)',
+              border: '1px solid rgba(247, 55, 79, 0.15)',
+              color: 'var(--brand-red)',
+              fontSize: '0.88rem',
+              marginBottom: '20px',
+              fontWeight: 600
+            }}>
+              <Sparkles size={18} style={{ color: 'var(--brand-red)', flexShrink: 0, animation: 'pulse 1.5s infinite' }} />
+              <div style={{ flex: 1 }}>{aiSuggestion}</div>
+              <button
+                onClick={() => {
+                  applyCoupon('ZING50');
+                  setAiSuggestion(null);
+                }}
+                style={{
+                  background: 'var(--brand-red)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '6px 14px',
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(247, 55, 79, 0.2)'
+                }}
+              >
+                Apply Bundle Deal
+              </button>
+            </div>
+          )}
+
           <div className="cart-items-list">
             {items.map((item) => (
               <div key={item.itemId} className="cart-item-row">
@@ -418,6 +483,53 @@ const Cart = () => {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* AI Smart Splitter */}
+          <div style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-medium)',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '20px',
+          }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', fontWeight: 700, margin: '0 0 10px 0', color: 'var(--text-primary)' }}>
+              <Sparkles size={15} style={{ color: 'var(--brand-red)' }} /> AI Smart Splitter
+            </h3>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: '1.4' }}>
+              Splitting with friends? Enter number of people to calculate equal shares.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Split between:</label>
+              <input
+                type="number"
+                min="2"
+                max="20"
+                value={splitCount}
+                onChange={(e) => setSplitCount(Math.max(2, parseInt(e.target.value) || 2))}
+                style={{
+                  width: '60px',
+                  padding: '6px 10px',
+                  fontSize: '0.85rem',
+                  border: '1px solid var(--border-medium)',
+                  borderRadius: '8px',
+                  outline: 'none',
+                  textAlign: 'center',
+                }}
+              />
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>people</span>
+            </div>
+            <div style={{
+              background: 'rgba(96, 178, 70, 0.05)',
+              border: '1px solid rgba(96, 178, 70, 0.15)',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              color: 'var(--success)',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+            }}>
+              Each pays: &#8377;{(cart.total / splitCount).toFixed(2)}
+            </div>
           </div>
 
           <div className="bill-label">Bill Details</div>

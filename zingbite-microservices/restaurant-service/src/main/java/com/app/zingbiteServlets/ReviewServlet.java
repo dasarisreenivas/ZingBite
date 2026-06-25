@@ -63,6 +63,12 @@ public class ReviewServlet extends HttpServlet {
                     obj.addProperty("rating", r.getRating());
                     obj.addProperty("reviewText", r.getReviewText());
                     obj.addProperty("createdAt", r.getCreatedAt().toString());
+                    if (r.getRestaurantReply() != null) {
+                        obj.addProperty("restaurantReply", r.getRestaurantReply());
+                    }
+                    if (r.getRestaurantReplyAt() != null) {
+                        obj.addProperty("restaurantReplyAt", r.getRestaurantReplyAt().toString());
+                    }
 
                     // Get user details
                     User u = session.get(User.class, r.getUserId());

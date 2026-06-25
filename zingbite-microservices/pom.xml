@@ -25,6 +25,7 @@
         <module>delivery-service</module>
         <module>careers-service</module>
         <module>chat-service</module>
+        <module>ai-service</module>
     </modules>
 
     <dependencies>

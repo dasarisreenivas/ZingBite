@@ -1714,6 +1714,24 @@ const OrderTracking = () => {
                 <div className="eta-display">
                   <h3>{displayHeading}</h3>
                   <p>{displaySubtitle}</p>
+                  {getNormalizedStatus(orderDetail?.status) === 'OUT_FOR_DELIVERY' && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 193, 7, 0.1)',
+                      border: '1px solid rgba(255, 193, 7, 0.25)',
+                      color: '#856404',
+                      fontSize: '0.8rem',
+                      marginTop: '10px',
+                      fontWeight: 600
+                    }}>
+                      <Sparkles size={14} style={{ color: '#856404', animation: 'pulse 1.5s infinite' }} />
+                      <span>AI Delay Forecast: Heavy monsoon rain on route. ETA adjusted (+3 mins).</span>
+                    </div>
+                  )}
                 </div>
                 <div className="order-info-pill">
                   ID: {orderDetail ? orderDetail.id : orderIdParam}

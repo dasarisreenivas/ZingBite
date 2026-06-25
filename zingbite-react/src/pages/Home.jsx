@@ -181,6 +181,17 @@ const Home = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    const handleAISearch = (e) => {
+      if (e.detail && e.detail.query) {
+        setSearchQuery(e.detail.query);
+        setDebouncedSearchQuery(e.detail.query);
+      }
+    };
+    window.addEventListener('ai-search', handleAISearch);
+    return () => window.removeEventListener('ai-search', handleAISearch);
+  }, []);
+
   // Hero image load handler
   useEffect(() => {
     const img = new Image();

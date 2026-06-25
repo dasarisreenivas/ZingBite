@@ -1,0 +1,628 @@
+{
+  "models": {
+    "cart_optimizer": {
+      "activeVersion": "20260625162511",
+      "versions": {
+        "20260625160300": {
+          "active": false,
+          "featureSchema": {
+            "optional": [
+              "restaurantId"
+            ],
+            "required": [
+              "cartItems"
+            ]
+          },
+          "metrics": {
+            "association_edges": 5,
+            "menu_items": 5
+          },
+          "modelName": "cart_optimizer",
+          "path": "cart_optimizer/20260625160300.joblib",
+          "trainedAt": "2026-06-25T16:03:00.507125+00:00",
+          "version": "20260625160300"
+        },
+        "20260625162442": {
+          "active": false,
+          "featureSchema": {
+            "optional": [
+              "restaurantId"
+            ],
+            "required": [
+              "cartItems"
+            ]
+          },
+          "metrics": {
+            "association_edges": 5,
+            "menu_items": 5
+          },
+          "modelName": "cart_optimizer",
+          "path": "cart_optimizer/20260625162442.joblib",
+          "trainedAt": "2026-06-25T16:24:42.862639+00:00",
+          "version": "20260625162442"
+        },
+        "20260625162457": {
+          "active": false,
+          "featureSchema": {
+            "optional": [
+              "restaurantId"
+            ],
+            "required": [
+              "cartItems"
+            ]
+          },
+          "metrics": {
+            "association_edges": 5,
+            "menu_items": 5
+          },
+          "modelName": "cart_optimizer",
+          "path": "cart_optimizer/20260625162457.joblib",
+          "trainedAt": "2026-06-25T16:24:57.642372+00:00",
+          "version": "20260625162457"
+        },
+        "20260625162511": {
+          "active": true,
+          "featureSchema": {
+            "optional": [
+              "restaurantId"
+            ],
+            "required": [
+              "cartItems"
+            ]
+          },
+          "metrics": {
+            "association_edges": 5,
+            "menu_items": 5
+          },
+          "modelName": "cart_optimizer",
+          "path": "cart_optimizer/20260625162511.joblib",
+          "trainedAt": "2026-06-25T16:25:11.889047+00:00",
+          "version": "20260625162511"
+        }
+      }
+    },
+    "demand_forecast": {
+      "activeVersion": "20260625162511",
+      "versions": {
+        "20260625160300": {
+          "active": false,
+          "featureSchema": {
+            "features": [
+              "restaurant_id",
+              "menu_id",
+              "day_of_week",
+              "hour",
+              "is_weekend",
+              "surge_multiplier"
+            ]
+          },
+          "metrics": {
+            "mae": 1.1429,
+            "training_rows": 35
+          },
+          "modelName": "demand_forecast",
+          "path": "demand_forecast/20260625160300.joblib",
+          "trainedAt": "2026-06-25T16:03:01.224225+00:00",
+          "version": "20260625160300"
+        },
+        "20260625162442": {
+          "active": false,
+          "featureSchema": {
+            "features": [
+              "restaurant_id",
+              "menu_id",
+              "day_of_week",
+              "hour",
+              "is_weekend",
+              "surge_multiplier"
+            ]
+          },
+          "metrics": {
+            "mae": 1.1429,
+            "training_rows": 35
+          },
+          "modelName": "demand_forecast",
+          "path": "demand_forecast/20260625162442.joblib",
+          "trainedAt": "2026-06-25T16:24:44.565794+00:00",
+          "version": "20260625162442"
+        },
+        "20260625162457": {
+          "active": false,
+          "featureSchema": {
+            "features": [
+              "restaurant_id",
+              "menu_id",
+              "day_of_week",
+              "hour",
+              "is_weekend",
+              "surge_multiplier"
+            ]
+          },
+          "metrics": {
+            "mae": 1.1429,
+            "training_rows": 35
+          },
+          "modelName": "demand_forecast",
+          "path": "demand_forecast/20260625162457.joblib",
+          "trainedAt": "2026-06-25T16:24:57.998181+00:00",
+          "version": "20260625162457"
+        },
+        "20260625162511": {
+          "active": true,
+          "featureSchema": {
+            "features": [
+              "restaurant_id",
+              "menu_id",
+              "day_of_week",
+              "hour",
+              "is_weekend",
+              "surge_multiplier"
+            ]
+          },
+          "metrics": {
+            "mae": 1.1429,
+            "training_rows": 35
+          },
+          "modelName": "demand_forecast",
+          "path": "demand_forecast/20260625162511.joblib",
+          "trainedAt": "2026-06-25T16:25:12.028377+00:00",
+          "version": "20260625162511"
+        }
+      }
+    },
+    "eta": {
+      "activeVersion": "20260625162511",
+      "versions": {
+        "20260625160300": {
+          "active": false,
+          "featureSchema": {
+            "features": [
+              "distance",
+              "traffic_level",
+              "weather",
+              "prep_time",
+              "is_high_rise"
+            ]
+          },
+          "metrics": {
+            "mae_minutes": 0.927,
+            "training_rows": 1500
+          },
+          "modelName": "eta",
+          "path": "eta/20260625160300.joblib",
+          "trainedAt": "2026-06-25T16:03:01.437428+00:00",
+          "version": "20260625160300"
+        },
+        "20260625162442": {
+          "active": false,
+          "featureSchema": {
+            "features": [
+              "distance",
+              "traffic_level",
+              "weather",
+              "prep_time",
+              "is_high_rise"
+            ]
+          },
+          "metrics": {
+            "mae_minutes": 0.927,
+            "training_rows": 1500
+          },
+          "modelName": "eta",
+          "path": "eta/20260625162442.joblib",
+          "trainedAt": "2026-06-25T16:24:45.186309+00:00",
+          "version": "20260625162442"
+        },
+        "20260625162457": {
+          "active": false,
+          "featureSchema": {
+            "features": [
+              "distance",
+              "traffic_level",
+              "weather",
+              "prep_time",
+              "is_high_rise"
+            ]
+          },
+          "metrics": {
+            "mae_minutes": 0.927,
+            "training_rows": 1500
+          },
+          "modelName": "eta",
+          "path": "eta/20260625162457.joblib",
+          "trainedAt": "2026-06-25T16:24:59.741289+00:00",
+          "version": "20260625162457"
+        },
+        "20260625162511": {
+          "active": true,
+          "featureSchema": {
+            "features": [
+              "distance",
+              "traffic_level",
+              "weather",
+              "prep_time",
+              "is_high_rise"
+            ]
+          },
+          "metrics": {
+            "mae_minutes": 0.927,
+            "training_rows": 1500
+          },
+          "modelName": "eta",
+          "path": "eta/20260625162511.joblib",
+          "trainedAt": "2026-06-25T16:25:12.570689+00:00",
+          "version": "20260625162511"
+        }
+      }
+    },
+    "fraud": {
+      "activeVersion": "20260625162511",
+      "versions": {
+        "20260625160300": {
+          "active": false,
+          "featureSchema": {
+            "features": [
+              "account_age_days",
+              "order_count",
+              "review_count",
+              "shared_address_count",
+              "shared_coordinate_count",
+              "ip_user_count",
+              "user_agent_count",
+              "refund_events",
+              "coupon_events"
+            ]
+          },
+          "metrics": {
+            "risk_threshold": -0.0246,
+            "training_users": 3
+          },
+          "modelName": "fraud",
+          "path": "fraud/20260625160300.joblib",
+          "trainedAt": "2026-06-25T16:03:01.564968+00:00",
+          "version": "20260625160300"
+        },
+        "20260625162442": {
+          "active": false,
+          "featureSchema": {
+            "features": [
+              "account_age_days",
+              "order_count",
+              "review_count",
+              "shared_address_count",
+              "shared_coordinate_count",
+              "ip_user_count",
+              "user_agent_count",
+              "refund_events",
+              "coupon_events"
+            ]
+          },
+          "metrics": {
+            "risk_threshold": -0.0246,
+            "training_users": 3
+          },
+          "modelName": "fraud",
+          "path": "fraud/20260625162442.joblib",
+          "trainedAt": "2026-06-25T16:24:45.507376+00:00",
+          "version": "20260625162442"
+        },
+        "20260625162457": {
+          "active": false,
+          "featureSchema": {
+            "features": [
+              "account_age_days",
+              "order_count",
+              "review_count",
+              "shared_address_count",
+              "shared_coordinate_count",
+              "ip_user_count",
+              "user_agent_count",
+              "refund_events",
+              "coupon_events"
+            ]
+          },
+          "metrics": {
+            "risk_threshold": -0.0246,
+            "training_users": 3
+          },
+          "modelName": "fraud",
+          "path": "fraud/20260625162457.joblib",
+          "trainedAt": "2026-06-25T16:25:01.083678+00:00",
+          "version": "20260625162457"
+        },
+        "20260625162511": {
+          "active": true,
+          "featureSchema": {
+            "features": [
+              "account_age_days",
+              "order_count",
+              "review_count",
+              "shared_address_count",
+              "shared_coordinate_count",
+              "ip_user_count",
+              "user_agent_count",
+              "refund_events",
+              "coupon_events"
+            ]
+          },
+          "metrics": {
+            "risk_threshold": -0.0246,
+            "training_users": 3
+          },
+          "modelName": "fraud",
+          "path": "fraud/20260625162511.joblib",
+          "trainedAt": "2026-06-25T16:25:12.873406+00:00",
+          "version": "20260625162511"
+        }
+      }
+    },
+    "nlp": {
+      "activeVersion": "20260625162511",
+      "versions": {
+        "20260625160300": {
+          "active": false,
+          "featureSchema": {
+            "optional": [
+              "contextType"
+            ],
+            "required": [
+              "text"
+            ]
+          },
+          "metrics": {
+            "category_labels": 7,
+            "intent_labels": 8,
+            "training_messages": 9
+          },
+          "modelName": "nlp",
+          "path": "nlp/20260625160300.joblib",
+          "trainedAt": "2026-06-25T16:03:01.604872+00:00",
+          "version": "20260625160300"
+        },
+        "20260625162442": {
+          "active": false,
+          "featureSchema": {
+            "optional": [
+              "contextType"
+            ],
+            "required": [
+              "text"
+            ]
+          },
+          "metrics": {
+            "category_labels": 7,
+            "intent_labels": 8,
+            "training_messages": 9
+          },
+          "modelName": "nlp",
+          "path": "nlp/20260625162442.joblib",
+          "trainedAt": "2026-06-25T16:24:45.570689+00:00",
+          "version": "20260625162442"
+        },
+        "20260625162457": {
+          "active": false,
+          "featureSchema": {
+            "optional": [
+              "contextType"
+            ],
+            "required": [
+              "text"
+            ]
+          },
+          "metrics": {
+            "category_labels": 7,
+            "intent_labels": 8,
+            "training_messages": 9
+          },
+          "modelName": "nlp",
+          "path": "nlp/20260625162457.joblib",
+          "trainedAt": "2026-06-25T16:25:01.270924+00:00",
+          "version": "20260625162457"
+        },
+        "20260625162511": {
+          "active": true,
+          "featureSchema": {
+            "optional": [
+              "contextType"
+            ],
+            "required": [
+              "text"
+            ]
+          },
+          "metrics": {
+            "category_labels": 7,
+            "intent_labels": 8,
+            "training_messages": 9
+          },
+          "modelName": "nlp",
+          "path": "nlp/20260625162511.joblib",
+          "trainedAt": "2026-06-25T16:25:12.928139+00:00",
+          "version": "20260625162511"
+        }
+      }
+    },
+    "recommender": {
+      "activeVersion": "20260625162511",
+      "versions": {
+        "20260625160300": {
+          "active": false,
+          "featureSchema": {
+            "optional": [
+              "cartItems",
+              "candidateItems",
+              "limit"
+            ],
+            "required": [
+              "restaurantId"
+            ]
+          },
+          "metrics": {
+            "cooccurrence_pairs": 5,
+            "coverage": 1.0,
+            "menu_items": 5
+          },
+          "modelName": "recommender",
+          "path": "recommender/20260625160300.joblib",
+          "trainedAt": "2026-06-25T16:03:00.462789+00:00",
+          "version": "20260625160300"
+        },
+        "20260625162442": {
+          "active": false,
+          "featureSchema": {
+            "optional": [
+              "cartItems",
+              "candidateItems",
+              "limit"
+            ],
+            "required": [
+              "restaurantId"
+            ]
+          },
+          "metrics": {
+            "cooccurrence_pairs": 5,
+            "coverage": 1.0,
+            "menu_items": 5
+          },
+          "modelName": "recommender",
+          "path": "recommender/20260625162442.joblib",
+          "trainedAt": "2026-06-25T16:24:42.653555+00:00",
+          "version": "20260625162442"
+        },
+        "20260625162457": {
+          "active": false,
+          "featureSchema": {
+            "optional": [
+              "cartItems",
+              "candidateItems",
+              "limit"
+            ],
+            "required": [
+              "restaurantId"
+            ]
+          },
+          "metrics": {
+            "cooccurrence_pairs": 5,
+            "coverage": 1.0,
+            "menu_items": 5
+          },
+          "modelName": "recommender",
+          "path": "recommender/20260625162457.joblib",
+          "trainedAt": "2026-06-25T16:24:57.466757+00:00",
+          "version": "20260625162457"
+        },
+        "20260625162511": {
+          "active": true,
+          "featureSchema": {
+            "optional": [
+              "cartItems",
+              "candidateItems",
+              "limit"
+            ],
+            "required": [
+              "restaurantId"
+            ]
+          },
+          "metrics": {
+            "cooccurrence_pairs": 5,
+            "coverage": 1.0,
+            "menu_items": 5
+          },
+          "modelName": "recommender",
+          "path": "recommender/20260625162511.joblib",
+          "trainedAt": "2026-06-25T16:25:11.657109+00:00",
+          "version": "20260625162511"
+        }
+      }
+    },
+    "search_rank": {
+      "activeVersion": "20260625162511",
+      "versions": {
+        "20260625160300": {
+          "active": false,
+          "featureSchema": {
+            "optional": [
+              "candidateItems",
+              "userId",
+              "limit"
+            ],
+            "required": [
+              "query"
+            ]
+          },
+          "metrics": {
+            "indexed_items": 5,
+            "query_terms": 0
+          },
+          "modelName": "search_rank",
+          "path": "search_rank/20260625160300.joblib",
+          "trainedAt": "2026-06-25T16:03:00.486910+00:00",
+          "version": "20260625160300"
+        },
+        "20260625162442": {
+          "active": false,
+          "featureSchema": {
+            "optional": [
+              "candidateItems",
+              "userId",
+              "limit"
+            ],
+            "required": [
+              "query"
+            ]
+          },
+          "metrics": {
+            "indexed_items": 5,
+            "query_terms": 0
+          },
+          "modelName": "search_rank",
+          "path": "search_rank/20260625162442.joblib",
+          "trainedAt": "2026-06-25T16:24:42.764469+00:00",
+          "version": "20260625162442"
+        },
+        "20260625162457": {
+          "active": false,
+          "featureSchema": {
+            "optional": [
+              "candidateItems",
+              "userId",
+              "limit"
+            ],
+            "required": [
+              "query"
+            ]
+          },
+          "metrics": {
+            "indexed_items": 5,
+            "query_terms": 0
+          },
+          "modelName": "search_rank",
+          "path": "search_rank/20260625162457.joblib",
+          "trainedAt": "2026-06-25T16:24:57.562476+00:00",
+          "version": "20260625162457"
+        },
+        "20260625162511": {
+          "active": true,
+          "featureSchema": {
+            "optional": [
+              "candidateItems",
+              "userId",
+              "limit"
+            ],
+            "required": [
+              "query"
+            ]
+          },
+          "metrics": {
+            "indexed_items": 5,
+            "query_terms": 0
+          },
+          "modelName": "search_rank",
+          "path": "search_rank/20260625162511.joblib",
+          "trainedAt": "2026-06-25T16:25:11.807917+00:00",
+          "version": "20260625162511"
+        }
+      }
+    }
+  },
+  "updatedAt": "2026-06-25T16:25:12.928139+00:00"
+}
