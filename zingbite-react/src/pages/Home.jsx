@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ArrowRight, Flame, Search, ShieldCheck, Star, Truck, UtensilsCrossed, Zap,
-  MapPin, Clock, Award, Users, Dumbbell, Code2, Film, Sparkles, Smartphone, AlertTriangle
+  MapPin, Clock, Award, Users, Sparkles, Smartphone, AlertTriangle,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { trackEvent } from '../utils/analytics';
 import { getPromoBackground, getRestaurantPageSize } from '../utils/homeConfig';
@@ -20,7 +21,15 @@ const CATEGORIES = [
   { name: 'Pizza', image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=600&auto=format&fit=crop' },
   { name: 'Chinese', image: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?q=80&w=600&auto=format&fit=crop' },
   { name: 'Indian', image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Desserts', image: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=600&auto=format&fit=crop' }
+  { name: 'Desserts', image: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Healthy', image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Pasta', image: 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Sandwich', image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Sushi', image: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Cafe', image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Breakfast', image: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Mexican', image: 'https://images.unsplash.com/photo-1613514785940-daed07799d9b?q=80&w=600&auto=format&fit=crop' },
+  { name: 'Thai', image: 'https://images.unsplash.com/photo-1559314809-0d155014e29e?q=80&w=600&auto=format&fit=crop' }
 ];
 
 const getDeliveryMinutes = (value) => {
@@ -153,9 +162,14 @@ const Home = () => {
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [parallaxOffset, setParallaxOffset] = useState(0);
   const heroRef = useRef(null);
+  const categoryRailRef = useRef(null);
+  const restaurantRailRef = useRef(null);
+  const restaurantSectionRailRefs = useRef({});
   const lastLoggedSearchQueryRef = useRef('');
-
+  const [vibeIsPaused, setVibeIsPaused] = useState(false);
+  const [vibeDirection, setVibeDirection] = useState('forward');
   const [sduiConfig, setSduiConfig] = useState(null);
+
   useEffect(() => {
     const fetchSdui = async () => {
       try {
@@ -310,6 +324,28 @@ const Home = () => {
   const visibleRestaurants = filteredAndSortedRestaurants.slice(0, visibleRestaurantCount);
   const hasMoreRestaurants = visibleRestaurantCount < filteredAndSortedRestaurants.length;
   const remainingRestaurants = filteredAndSortedRestaurants.length - visibleRestaurantCount;
+
+  const scrollRestaurantRail = (direction, railKey = 'main') => {
+    const rail = railKey === 'main'
+      ? restaurantRailRef.current
+      : restaurantSectionRailRefs.current[railKey];
+    if (!rail) return;
+    const distance = Math.max(300, Math.round(rail.clientWidth * 0.82));
+    rail.scrollBy({
+      left: direction === 'left' ? -distance : distance,
+      behavior: 'smooth'
+    });
+  };
+
+  const scrollCategoryRail = (direction) => {
+    const rail = categoryRailRef.current;
+    if (!rail) return;
+    const distance = Math.max(220, Math.round(rail.clientWidth * 0.78));
+    rail.scrollBy({
+      left: direction === 'left' ? -distance : distance,
+      behavior: 'smooth'
+    });
+  };
 
   const sortedSections = useMemo(() => {
     const config = sduiConfig || DEFAULT_SDUI_CONFIG;
@@ -495,125 +531,367 @@ const Home = () => {
         <div className="section-title-row page-enter" style={{ marginBottom: '16px' }}>
           <h2 style={{ fontSize: '1.4rem' }}>{props.title || 'In the Mood for...'}</h2>
         </div>
-        <div className="cuisine-filters page-enter" style={{ animationDelay: '0.1s', marginBottom: '24px' }}>
-          {CATEGORIES.map((c, idx) => (
-            <button
-              key={c.name}
-              type="button"
-              className={`category-card ${selectedCuisine === c.name ? 'active' : ''}`}
-              onClick={() => setSelectedCuisine(c.name)}
-              style={{
-                animation: `premiumFadeIn 0.4s var(--ease-premium) ${idx * 0.06}s both`,
-                padding: 0
-              }}
-            >
-              <img src={c.image} alt={c.name} className="category-card-img" loading="lazy" />
-              <div className="category-card-overlay">
-                <h3 className="category-card-name">{c.name}</h3>
-              </div>
-            </button>
-          ))}
+        <div className="category-rail-shell page-enter" style={{ animationDelay: '0.1s', marginBottom: '24px' }}>
+          <button
+            type="button"
+            className="category-rail-btn left"
+            onClick={() => scrollCategoryRail('left')}
+            aria-label="Scroll food categories left"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div ref={categoryRailRef} className="cuisine-filters" aria-label="Food category filters">
+            {CATEGORIES.map((c, idx) => (
+              <button
+                key={c.name}
+                type="button"
+                className={`category-card ${selectedCuisine === c.name ? 'active' : ''}`}
+                onClick={() => setSelectedCuisine(c.name)}
+                style={{
+                  animation: `premiumFadeIn 0.4s var(--ease-premium) ${idx * 0.06}s both`,
+                  padding: 0
+                }}
+              >
+                <img src={c.image} alt={c.name} className="category-card-img" loading="lazy" />
+                <div className="category-card-overlay">
+                  <h3 className="category-card-name">{c.name}</h3>
+                </div>
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="category-rail-btn right"
+            onClick={() => scrollCategoryRail('right')}
+            aria-label="Scroll food categories right"
+          >
+            <ChevronRight size={20} />
+          </button>
         </div>
       </div>
     );
   };
-
   const renderFoodMoods = (props) => {
-    const moods = props.moods || [];
-    const getIconComponent = (name) => {
-      switch (name) {
-        case 'Dumbbell': return <Dumbbell size={18} />;
-        case 'Code2': return <Code2 size={18} />;
-        case 'Film': return <Film size={18} />;
-        case 'Flame': return <Flame size={18} />;
-        default: return <Sparkles size={18} />;
-      }
+    const baseMoods = props.moods || [];
+    const moods = [...baseMoods];
+    if (!moods.some(m => m.tag === 'Cheat Day')) {
+      moods.push({ iconName: 'Flame', tag: 'Cheat Day', cuisine: 'burger' });
+    }
+    if (!moods.some(m => m.tag === 'Sweet Tooth')) {
+      moods.push({ iconName: 'Sparkles', tag: 'Sweet Tooth', cuisine: 'dessert' });
+    }
+    const loopedMoods = [...moods, ...moods];
+
+    const getMoodTheme = (tag) => {
+      const themes = {
+        'Gym Fuel': { color: '#17a86b', glow: 'rgba(23,168,107,0.34)', bg: 'rgba(23,168,107,0.09)' },
+        'Late Night Coding': { color: '#3d5afe', glow: 'rgba(61,90,254,0.34)', bg: 'rgba(61,90,254,0.08)' },
+        'Movie Night': { color: '#b44dff', glow: 'rgba(180,77,255,0.34)', bg: 'rgba(180,77,255,0.08)' },
+        'Spicy Craving': { color: '#ff4f1f', glow: 'rgba(255,79,31,0.36)', bg: 'rgba(255,79,31,0.09)' },
+        'Cheat Day': { color: '#f59e0b', glow: 'rgba(245,158,11,0.34)', bg: 'rgba(245,158,11,0.09)' },
+        'Sweet Tooth': { color: '#e94fa3', glow: 'rgba(233,79,163,0.34)', bg: 'rgba(233,79,163,0.09)' }
+      };
+      return themes[tag] || { color: '#ff4f5a', glow: 'rgba(255,79,90,0.34)', bg: 'rgba(255,79,90,0.09)' };
+    };
+
+    const getMoodDetails = (mood) => {
+      const details = {
+        'Gym Fuel': {
+          title: 'Green Power Bowl',
+          cuisineLabel: 'Healthy',
+          subtitle: 'Clean bowls, wraps, grilled bites',
+          signal: 'Protein-ready',
+          rating: '4.8',
+          eta: '22 min',
+          serve: 'Bowl',
+          image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=600&auto=format&fit=crop'
+        },
+        'Late Night Coding': {
+          title: 'Red Lantern Noodle',
+          cuisineLabel: 'Chinese',
+          subtitle: 'Noodles, rolls, quick comfort',
+          signal: 'Wok fired combo',
+          rating: '4.7',
+          eta: '24 min',
+          serve: 'Table',
+          image: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?q=80&w=600&auto=format&fit=crop'
+        },
+        'Movie Night': {
+          title: 'Cinema Slice Box',
+          cuisineLabel: 'Pizza',
+          subtitle: 'Pizza, sides, shareable snacks',
+          signal: 'Watch-party',
+          rating: '4.9',
+          eta: '28 min',
+          serve: 'Share',
+          image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=600&auto=format&fit=crop'
+        },
+        'Spicy Craving': {
+          title: 'Fire Pot Biryani',
+          cuisineLabel: 'Biryani',
+          subtitle: 'Biryani, curries, chilli heat',
+          signal: 'Hot pick',
+          rating: '4.8',
+          eta: '30 min',
+          serve: 'Spice',
+          image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=600&auto=format&fit=crop'
+        },
+        'Cheat Day': {
+          title: 'Loaded Smash Stack',
+          cuisineLabel: 'Burger',
+          subtitle: 'Burgers, loaded fries, cheesy bites',
+          signal: 'Big appetite',
+          rating: '4.6',
+          eta: '21 min',
+          serve: 'Combo',
+          image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=600&auto=format&fit=crop'
+        },
+        'Sweet Tooth': {
+          title: 'Velvet Dessert Cup',
+          cuisineLabel: 'Dessert',
+          subtitle: 'Cakes, shakes, creamy desserts',
+          signal: 'Dessert run',
+          rating: '4.9',
+          eta: '18 min',
+          serve: 'Sweet',
+          image: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=600&auto=format&fit=crop'
+        }
+      };
+      const cuisineImage = CATEGORIES.find(c => c.name.toLowerCase() === mood.cuisine?.toLowerCase())?.image;
+      return {
+        title: mood.title || details[mood.tag]?.title || mood.tag || 'ZingBite Pick',
+        cuisineLabel: mood.cuisineLabel || details[mood.tag]?.cuisineLabel || mood.cuisine || 'Fresh',
+        subtitle: mood.subtitle || details[mood.tag]?.subtitle || 'Fresh picks matched to your craving',
+        signal: mood.signal || details[mood.tag]?.signal || 'Live pick',
+        rating: mood.rating || details[mood.tag]?.rating || '4.7',
+        eta: mood.eta || details[mood.tag]?.eta || '25 min',
+        serve: mood.serve || details[mood.tag]?.serve || 'Table',
+        image: mood.image || details[mood.tag]?.image || cuisineImage || RESTAURANT_FALLBACK_IMAGE
+      };
     };
 
     return (
-      <div style={{ maxWidth: '1400px', width: '92%', margin: '32px auto 0' }}>
-        <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>
-          {props.title || "What's your vibe today?"}
-        </h3>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          {moods.map((mood, idx) => (
+      <section
+        className={`vibe-section page-enter ${vibeIsPaused ? 'paused' : ''} ${vibeDirection === 'reverse' ? 'reverse' : ''}`}
+        onMouseEnter={() => setVibeIsPaused(true)}
+        onMouseLeave={() => setVibeIsPaused(false)}
+        onFocusCapture={() => setVibeIsPaused(true)}
+        onBlurCapture={() => setVibeIsPaused(false)}
+      >
+        <div className="vibe-header">
+          <div>
+            <span className="vibe-eyebrow">
+              <Sparkles size={14} />
+              Live craving board
+            </span>
+            <h3 className="vibe-title">
+              {props.title || "What's your vibe today?"}
+            </h3>
+          </div>
+          <div className="vibe-controls">
+            <span className="vibe-live-pill">
+              <span className="vibe-live-dot" />
+              Live
+            </span>
             <button
-              key={idx}
               type="button"
-              onClick={() => {
-                setSelectedCuisine(mood.cuisine);
-                setSearchQuery('');
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 20px',
-                borderRadius: '30px',
-                border: '1px solid rgba(247,55,79,0.12)',
-                background: selectedCuisine.toLowerCase() === mood.cuisine.toLowerCase() ? 'var(--brand-red)' : '#fff',
-                color: selectedCuisine.toLowerCase() === mood.cuisine.toLowerCase() ? '#fff' : 'var(--text-primary)',
-                fontFamily: "'Outfit', sans-serif",
-                fontSize: '0.88rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
-              }}
-              className="hover-scale"
+              onClick={() => setVibeDirection('reverse')}
+              className="vibe-nav-btn"
+              aria-label="Move carousel right"
             >
-              {getIconComponent(mood.iconName)}
-              {mood.tag}
+              <ChevronLeft size={18} />
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => setVibeDirection('forward')}
+              className="vibe-nav-btn"
+              aria-label="Move carousel left"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
         </div>
-      </div>
+
+        <div className="vibe-carousel-wrapper">
+          <div
+            className="vibe-carousel no-scrollbar"
+            aria-label="Food moods"
+          >
+            {loopedMoods.map((mood, loopIdx) => {
+              const idx = loopIdx % moods.length;
+              const isClone = loopIdx >= moods.length;
+              const theme = getMoodTheme(mood.tag);
+              const moodCuisine = mood.cuisine || 'All';
+              const isActive = selectedCuisine.toLowerCase() === moodCuisine.toLowerCase();
+              const details = getMoodDetails(mood);
+              return (
+                <button
+                  key={`${mood.tag}-${loopIdx}`}
+                  type="button"
+                  tabIndex={isClone ? -1 : 0}
+                  onClick={() => {
+                    setSelectedCuisine(isActive ? 'All' : moodCuisine);
+                    setSearchQuery('');
+                  }}
+                  className={`vibe-card ${isActive ? 'active' : ''}`}
+                  aria-pressed={isActive}
+                  aria-hidden={isClone ? 'true' : undefined}
+                  aria-label={`${mood.tag} vibe${isActive ? ', selected' : ''}`}
+                  style={{
+                    '--vibe-neon-color': theme.color,
+                    '--vibe-neon-glow': theme.glow,
+                    '--vibe-neon-bg': theme.bg,
+                    animationDelay: `${idx * 0.05}s`
+                  }}
+                >
+                  <span className="vibe-card-sheen" />
+                  <span className="vibe-card-aura" />
+                  <span className="vibe-card-pattern" />
+                  <span className="vibe-card-topline">
+                    <span className="vibe-craving-pill">
+                      <Flame size={15} />
+                      {details.signal}
+                    </span>
+                  </span>
+                  <div className="vibe-plate-stage" aria-hidden="true">
+                    <span className="vibe-plate-shadow" />
+                    <span
+                      className="vibe-food-art"
+                      style={{ backgroundImage: `url(${details.image})` }}
+                    />
+                  </div>
+                  <div className="vibe-copy">
+                    <span className="vibe-cuisine-label">{details.cuisineLabel}</span>
+                    <span className="vibe-subtitle">{details.subtitle}</span>
+                  </div>
+                  <div className="vibe-card-stats">
+                    <span><Star size={15} /> {details.rating}</span>
+                    <span><Clock size={15} /> {details.eta}</span>
+                    <span><UtensilsCrossed size={15} /> {isActive ? 'Selected' : details.serve}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
     );
   };
 
+
   const renderTrendingCombos = (props) => {
     const maxCombos = props.maxCombos || 3;
-    const mockCombos = [
-      { id: 101, name: "Coding Fuel Bundle", items: ["Spicy Noodles", "Spring Rolls", "Thums Up"], price: 249, searchQuery: 'noodles' },
-      { id: 102, name: "Fitness Booster Combo", items: ["Grilled Chicken Salad", "Protein Shake"], price: 349, searchQuery: 'salad' },
-      { id: 103, name: "Weekend Movie Feast", items: ["Large Pepperoni Pizza", "Garlic Bread", "Coke"], price: 499, searchQuery: 'pizza' }
-    ].slice(0, maxCombos);
+    const defaultCombos = [
+      {
+        id: 101,
+        name: 'Coding Fuel Bundle',
+        items: ['Spicy Noodles', 'Spring Rolls', 'Thums Up'],
+        price: 249,
+        searchQuery: 'noodles',
+        badge: 'Late-night pick',
+        match: '96% match',
+        rating: '4.8',
+        eta: '24 min',
+        accent: '#ff4f5a',
+        image: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?q=80&w=900&auto=format&fit=crop'
+      },
+      {
+        id: 102,
+        name: 'Fitness Booster Combo',
+        items: ['Grilled Chicken Salad', 'Protein Shake'],
+        price: 349,
+        searchQuery: 'salad',
+        badge: 'Clean energy',
+        match: '93% match',
+        rating: '4.7',
+        eta: '22 min',
+        accent: '#17a86b',
+        image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop'
+      },
+      {
+        id: 103,
+        name: 'Weekend Movie Feast',
+        items: ['Large Pepperoni Pizza', 'Garlic Bread', 'Coke'],
+        price: 499,
+        searchQuery: 'pizza',
+        badge: 'Shareable',
+        match: '98% match',
+        rating: '4.9',
+        eta: '28 min',
+        accent: '#f59e0b',
+        image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=900&auto=format&fit=crop'
+      }
+    ];
+    const comboSource = Array.isArray(props.combos) && props.combos.length > 0 ? props.combos : defaultCombos;
+    const combos = comboSource.slice(0, maxCombos).map((combo, index) => ({
+      ...defaultCombos[index % defaultCombos.length],
+      ...combo,
+      id: combo.id || defaultCombos[index % defaultCombos.length].id,
+      items: combo.items || defaultCombos[index % defaultCombos.length].items,
+      searchQuery: combo.searchQuery || defaultCombos[index % defaultCombos.length].searchQuery
+    }));
 
     return (
-      <div style={{ maxWidth: '1400px', width: '92%', margin: '32px auto 0' }}>
-        <div style={{ marginBottom: '16px' }}>
-          <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-            {props.title || "Popular AI Combos"}
-          </h3>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            {props.subtitle || "Perfect food pairings calculated by our AI engine"}
+      <section className="ai-combos-section page-enter">
+        <div className="ai-combos-header">
+          <div>
+            <span className="ai-combos-eyebrow">
+              <Sparkles size={14} />
+              Taste engine
+            </span>
+            <h3 className="ai-combos-title">
+              {props.title || 'Popular AI Combos'}
+            </h3>
+            <p className="ai-combos-subtitle">
+              {props.subtitle || 'Perfect food pairings calculated by our AI engine'}
+            </p>
+          </div>
+          <span className="ai-combos-live">
+            <Zap size={14} />
+            Live picks
           </span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-          {mockCombos.map(combo => (
-            <div key={combo.id} style={{
-              background: '#fff', border: '1px solid rgba(247,55,79,0.08)',
-              borderRadius: '20px', padding: '24px', boxShadow: '0 8px 24px rgba(0,0,0,0.03)',
-              display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
-            }} className="hover-scale">
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <h4 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.1rem', fontWeight: 800, margin: '0 0 8px', color: 'var(--text-primary)' }}>
+        <div className="ai-combos-grid">
+          {combos.map((combo, idx) => (
+            <article
+              key={combo.id}
+              className="ai-combo-card"
+              style={{
+                '--combo-accent': combo.accent,
+                animationDelay: `${idx * 0.08}s`
+              }}
+            >
+              <div className="ai-combo-visual">
+                <img src={combo.image} alt="" loading="lazy" aria-hidden="true" />
+                <span className="ai-combo-badge">
+                  <Sparkles size={13} />
+                  {combo.badge}
+                </span>
+                <span className="ai-combo-match">{combo.match}</span>
+              </div>
+              <div className="ai-combo-body">
+                <div className="ai-combo-copy">
+                  <h4>
                     {combo.name}
                   </h4>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--brand-red)', fontWeight: 800, background: 'rgba(247,55,79,0.06)', padding: '2px 8px', borderRadius: '10px' }}>
-                    AI Recommended
-                  </span>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '12px 0' }}>
+                <div className="ai-combo-items">
                   {combo.items.map((it, i) => (
-                    <span key={i} style={{ fontSize: '0.75rem', background: 'var(--bg-light)', padding: '4px 10px', borderRadius: '12px', color: 'var(--text-secondary)' }}>
+                    <span key={`${combo.id}-${i}`}>
                       {it}
                     </span>
                   ))}
                 </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-light)', paddingTop: '12px' }}>
+                <div className="ai-combo-meta">
+                  <span><Star size={14} fill="currentColor" /> {combo.rating}</span>
+                  <span><Clock size={14} /> {combo.eta}</span>
+                  <span><UtensilsCrossed size={14} /> Combo</span>
+                </div>
+                <div className="ai-combo-footer">
+                  <div className="ai-combo-price">
+                    <span>Combo price</span>
+                    <strong>Rs.{combo.price}</strong>
+                  </div>
                 <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>₹{combo.price}</span>
                 <button
                   type="button"
@@ -623,20 +901,78 @@ const Home = () => {
                     document.getElementById('restaurants')?.scrollIntoView({ behavior: 'smooth' });
                     trackEvent('COMBO_SEARCH', { combo: combo.name, query: combo.searchQuery });
                   }}
-                  style={{
-                    background: 'var(--brand-red)', color: '#fff', border: 'none',
-                    padding: '8px 16px', borderRadius: '20px', fontWeight: 700, fontSize: '0.8rem',
-                    cursor: 'pointer', transition: 'all 0.3s'
-                  }}
-                  className="hover-scale"
+                  className="ai-combo-action"
                 >
-                  Find Dishes
+                  Explore <ArrowRight size={15} />
                 </button>
               </div>
-            </div>
+              </div>
+            </article>
           ))}
         </div>
-      </div>
+      </section>
+    );
+  };
+
+  const renderRestaurantRailSection = ({ railKey, title, subtitle, items, badge }) => {
+    const restaurantsToShow = Array.isArray(items) ? items : [];
+    const BadgeIcon = badge?.icon || Flame;
+
+    return (
+      <section className="restaurant-showcase-section page-enter">
+        <div className="section-title-row restaurant-section-title">
+          <div>
+            <h2>{title}</h2>
+            {subtitle && <p>{subtitle}</p>}
+          </div>
+          <span className="section-count">
+            {restaurantsToShow.length} {restaurantsToShow.length === 1 ? 'restaurant' : 'restaurants'}
+          </span>
+        </div>
+
+        <div className="restaurant-rail-shell restaurant-section-shell">
+          <button
+            type="button"
+            className="restaurant-rail-btn left"
+            onClick={() => scrollRestaurantRail('left', railKey)}
+            aria-label={`Scroll ${title} left`}
+          >
+            <ChevronLeft size={22} />
+          </button>
+          <section
+            ref={(node) => { restaurantSectionRailRefs.current[railKey] = node; }}
+            className="restaurant-grid restaurant-section-rail"
+            aria-label={`${title} restaurant list`}
+          >
+            {restaurantsToShow.length > 0 ? (
+              restaurantsToShow.map((restaurant, idx) => (
+                <div key={`${railKey}-${restaurant.restaurantId}`} className="restaurant-section-card-wrap">
+                  {badge && (
+                    <div className={`restaurant-section-badge ${badge.tone || ''}`}>
+                      <BadgeIcon size={12} fill="currentColor" />
+                      {badge.label}
+                    </div>
+                  )}
+                  <RestaurantCard restaurant={restaurant} index={idx} />
+                </div>
+              ))
+            ) : (
+              <div className="home-status-card">
+                <strong>No restaurants to show yet</strong>
+                <span>Check back shortly for new recommendations.</span>
+              </div>
+            )}
+          </section>
+          <button
+            type="button"
+            className="restaurant-rail-btn right"
+            onClick={() => scrollRestaurantRail('right', railKey)}
+            aria-label={`Scroll ${title} right`}
+          >
+            <ChevronRight size={22} />
+          </button>
+        </div>
+      </section>
     );
   };
 
@@ -646,23 +982,13 @@ const Home = () => {
       .filter(r => formatRating(r.rating) === 'New' || r.restaurantId > 5)
       .slice(0, limit);
 
-    return (
-      <div style={{ maxWidth: '1400px', width: '92%', margin: '32px auto 0' }}>
-        <div style={{ marginBottom: '16px' }}>
-          <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-            {props.title || "Fresh on the Block"}
-          </h3>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            {props.subtitle || "Discover newly onboarded dining spots in your neighborhood"}
-          </span>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-          {newRestaurants.map((r, idx) => (
-            <RestaurantCard key={`new-${r.restaurantId}`} restaurant={r} index={idx} />
-          ))}
-        </div>
-      </div>
-    );
+    return renderRestaurantRailSection({
+      railKey: 'fresh',
+      title: props.title || 'Fresh on the Block',
+      subtitle: props.subtitle || 'Discover newly onboarded dining spots in your neighborhood',
+      items: newRestaurants,
+      badge: { label: 'NEW', tone: 'new', icon: Sparkles }
+    });
   };
 
   const renderFeaturedRestaurants = (props) => {
@@ -671,23 +997,13 @@ const Home = () => {
       .filter(r => Number(r.rating) >= minRating)
       .slice(0, 4);
 
-    return (
-      <div style={{ maxWidth: '1400px', width: '92%', margin: '32px auto 0' }}>
-        <div style={{ marginBottom: '16px' }}>
-          <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-            {props.title || "Top Curated Picks"}
-          </h3>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            {props.subtitle || "Highest-rated culinary spots in your area"}
-          </span>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-          {featured.map((r, idx) => (
-            <RestaurantCard key={`feat-${r.restaurantId}`} restaurant={r} index={idx} />
-          ))}
-        </div>
-      </div>
-    );
+    return renderRestaurantRailSection({
+      railKey: 'featured',
+      title: props.title || 'Top Curated Picks',
+      subtitle: props.subtitle || 'Highest-rated culinary spots in your area',
+      items: featured,
+      badge: { label: 'TOP PICK', tone: 'top', icon: Award }
+    });
   };
 
   const renderNeighborhoodTrends = (props) => {
@@ -695,28 +1011,12 @@ const Home = () => {
       .sort((a, b) => (b.totalOrders || 0) - (a.totalOrders || 0))
       .slice(0, 4);
 
-    return (
-      <div style={{ maxWidth: '1400px', width: '92%', margin: '32px auto 0' }}>
-        <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>
-          {props.title || "Trending Near You"}
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-          {trending.map((r, idx) => (
-            <div key={`trend-${r.restaurantId}`} style={{ position: 'relative' }}>
-              <div style={{
-                position: 'absolute', top: '12px', left: '12px', zIndex: 4,
-                background: 'rgba(26,26,26,0.95)', color: '#fff', fontSize: '0.75rem',
-                fontWeight: 800, padding: '4px 10px', borderRadius: '10px',
-                display: 'flex', alignItems: 'center', gap: '4px'
-              }}>
-                <Flame size={12} fill="var(--brand-red)" color="var(--brand-red)" /> POPULAR
-              </div>
-              <RestaurantCard restaurant={r} index={idx} />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return renderRestaurantRailSection({
+      railKey: 'trending',
+      title: props.title || 'Trending Near You',
+      items: trending,
+      badge: { label: 'POPULAR', tone: 'popular', icon: Flame }
+    });
   };
 
   const renderRestaurantGrid = (props) => {
@@ -768,41 +1068,68 @@ const Home = () => {
           )}
         </div>
 
-        <section className="restaurant-grid">
-          {loading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} style={{ height: '300px', borderRadius: 'var(--radius-lg)' }} className="skeleton-premium" />
-            ))
-          ) : error ? (
-            <div className="home-status-card">
-              <strong>Restaurants are taking a little longer to load.</strong>
-              <span>{error}</span>
-              <br />
-              <button type="button" className="retry-btn" onClick={retryRestaurants}>Retry</button>
-            </div>
-          ) : filteredAndSortedRestaurants.length > 0 ? (
-            visibleRestaurants.map((r, idx) => (
-              <RestaurantCard key={r.restaurantId} restaurant={r} index={idx} />
-            ))
-          ) : (
-            <div className="home-status-card">
-              <strong>No restaurants found</strong>
-              <span>Try a different search term, cuisine, or sort option.</span>
-            </div>
-          )}
-        </section>
-
-        {hasMoreRestaurants && (
-          <div className="load-more-wrap">
-            <button
-              type="button"
-              className="load-more-btn"
-              onClick={() => setVisibleRestaurantCount(count => count + restaurantPageSize)}
-            >
-              Load more restaurants ({remainingRestaurants} left) <ArrowRight className="load-more-icon" size={16} />
-            </button>
-          </div>
-        )}
+        <div className="restaurant-rail-shell">
+          <button
+            type="button"
+            className="restaurant-rail-btn left"
+            onClick={() => scrollRestaurantRail('left')}
+            aria-label="Scroll restaurants left"
+          >
+            <ChevronLeft size={22} />
+          </button>
+          <section ref={restaurantRailRef} className="restaurant-grid" aria-label="Scrollable restaurant list">
+            {loading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="rest-card-skeleton">
+                  <div className="skeleton-image-placeholder shimmer-bg" />
+                  <div className="skeleton-details-placeholder">
+                    <div className="skeleton-line short shimmer-bg" />
+                    <div className="skeleton-line shimmer-bg" />
+                    <div className="skeleton-line shimmer-bg" />
+                  </div>
+                </div>
+              ))
+            ) : error ? (
+              <div className="home-status-card">
+                <strong>Restaurants are taking a little longer to load.</strong>
+                <span>{error}</span>
+                <br />
+                <button type="button" className="retry-btn" onClick={retryRestaurants}>Retry</button>
+              </div>
+            ) : filteredAndSortedRestaurants.length > 0 ? (
+              <>
+                {visibleRestaurants.map((r, idx) => (
+                  <RestaurantCard key={r.restaurantId} restaurant={r} index={idx} />
+                ))}
+                {hasMoreRestaurants && (
+                  <Link
+                    to="/restaurants"
+                    className="restaurant-load-card"
+                    aria-label={`Load more restaurants, ${remainingRestaurants} left`}
+                  >
+                    <span className="restaurant-load-kicker">More nearby picks</span>
+                    <strong>Load more</strong>
+                    <span>{remainingRestaurants} restaurants left</span>
+                    <ArrowRight className="restaurant-load-icon" size={22} />
+                  </Link>
+                )}
+              </>
+            ) : (
+              <div className="home-status-card">
+                <strong>No restaurants found</strong>
+                <span>Try a different search term, cuisine, or sort option.</span>
+              </div>
+            )}
+          </section>
+          <button
+            type="button"
+            className="restaurant-rail-btn right"
+            onClick={() => scrollRestaurantRail('right')}
+            aria-label="Scroll restaurants right"
+          >
+            <ChevronRight size={22} />
+          </button>
+        </div>
       </div>
     );
   };
@@ -1249,45 +1576,182 @@ const Home = () => {
           color: var(--text-muted);
           font-size: 0.85rem;
         }
+        .restaurant-showcase-section {
+          margin-top: 32px;
+        }
+        .restaurant-section-title {
+          align-items: flex-end;
+          margin-bottom: 12px;
+        }
+        .restaurant-section-title > div {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .restaurant-section-title p {
+          margin: 0;
+          color: var(--text-muted);
+          font-size: 0.9rem;
+          line-height: 1.4;
+        }
+        .restaurant-section-shell {
+          margin-bottom: 34px;
+        }
+        .restaurant-section-rail {
+          padding-bottom: 24px;
+        }
+        .restaurant-section-card-wrap {
+          position: relative;
+          flex: 0 0 clamp(300px, 29vw, 360px);
+          scroll-snap-align: start;
+        }
+        .restaurant-section-card-wrap .rest-card {
+          width: 100%;
+          height: 100%;
+          flex: 1 1 auto;
+          scroll-snap-align: none;
+        }
+        .restaurant-section-card-wrap .rest-card-offer {
+          display: none;
+        }
+        .restaurant-section-badge {
+          position: absolute;
+          top: 12px;
+          left: 12px;
+          z-index: 6;
+          min-height: 28px;
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 0 10px;
+          border-radius: 999px;
+          color: #fff;
+          background: rgba(26,26,26,0.92);
+          border: 1px solid rgba(255,255,255,0.12);
+          box-shadow: 0 10px 20px rgba(0,0,0,0.18);
+          backdrop-filter: blur(10px);
+          font-size: 0.72rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+        .restaurant-section-badge.new {
+          background: rgba(23,168,107,0.92);
+        }
+        .restaurant-section-badge.top {
+          background: rgba(245,158,11,0.94);
+        }
+        .restaurant-section-badge.popular {
+          background: rgba(247,55,79,0.94);
+        }
 
-        /* ===== RESTAURANT GRID ===== */
-        .restaurant-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 20px;
+        /* ===== RESTAURANT RAIL ===== */
+        .restaurant-rail-shell {
+          position: relative;
           max-width: 1400px;
           width: 92%;
           margin: 0 auto 48px;
         }
+        .restaurant-grid {
+          display: flex;
+          gap: 20px;
+          width: 100%;
+          margin: 0;
+          overflow-x: auto;
+          overflow-y: visible;
+          padding: 6px 54px 30px;
+          scroll-snap-type: x proximity;
+          scroll-padding-left: 54px;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          overscroll-behavior-x: contain;
+          -webkit-overflow-scrolling: touch;
+        }
+        .restaurant-grid::-webkit-scrollbar {
+          display: none;
+        }
+        .restaurant-grid > .home-status-card {
+          flex: 1 0 100%;
+        }
+        .restaurant-rail-btn {
+          position: absolute;
+          top: 50%;
+          z-index: 5;
+          width: 44px;
+          height: 44px;
+          border: 1px solid rgba(247,55,79,0.12);
+          border-radius: 50%;
+          background: rgba(255,255,255,0.94);
+          color: var(--text-primary);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 16px 34px rgba(28,28,28,0.14);
+          transform: translateY(-50%);
+          transition: transform 0.25s var(--ease-premium), background 0.25s var(--ease-premium), color 0.25s var(--ease-premium), border-color 0.25s var(--ease-premium);
+        }
+        [data-theme="dark"] .restaurant-rail-btn {
+          background: rgba(30,30,35,0.94);
+          border-color: rgba(255,255,255,0.1);
+          color: #fff;
+        }
+        .restaurant-rail-btn.left {
+          left: 10px;
+        }
+        .restaurant-rail-btn.right {
+          right: 10px;
+        }
+        .restaurant-rail-btn:hover {
+          background: var(--brand-red);
+          border-color: var(--brand-red);
+          color: #fff;
+          transform: translateY(-50%) scale(1.07);
+        }
+        .restaurant-rail-btn:focus-visible {
+          outline: 3px solid rgba(247,55,79,0.25);
+          outline-offset: 3px;
+        }
         .rest-card {
-          border-radius: var(--radius-lg);
+          flex: 0 0 clamp(300px, 29vw, 360px);
+          scroll-snap-align: start;
+          border-radius: 20px;
           overflow: hidden;
-          background: rgba(255,255,255,0.96);
-          border: 1px solid rgba(247,55,79,0.08);
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.94));
+          border: 1px solid var(--card-border);
           text-decoration: none;
           color: inherit;
-          transition: all 0.4s var(--ease-premium);
+          transition: transform 0.5s var(--ease-premium), box-shadow 0.5s var(--ease-premium), border-color 0.5s var(--ease-premium);
           position: relative;
           display: flex;
           flex-direction: column;
           opacity: 0;
           transform: translateY(20px);
+          box-shadow: 0 14px 34px rgba(28,28,28,0.08);
+          transform-style: preserve-3d;
+          perspective: 1000px;
+        }
+        [data-theme="dark"] .rest-card {
+          background: linear-gradient(180deg, rgba(30,30,35,0.98), rgba(24,24,28,0.94));
+          border-color: rgba(255,255,255,0.08);
+          box-shadow: 0 18px 42px rgba(0,0,0,0.28);
         }
         .rest-card.visible {
           opacity: 1;
           transform: translateY(0);
         }
         .rest-card:hover {
-          transform: translateY(-8px) scale(1.01);
-          box-shadow: 0 24px 48px rgba(28,28,28,0.12);
-          border-color: rgba(247,55,79,0.2);
+          transform: translateY(-7px) scale(1.01);
+          box-shadow: 0 18px 40px rgba(247, 55, 79, 0.1), 0 28px 56px rgba(0, 0, 0, 0.12);
+          border-color: rgba(247, 55, 79, 0.25);
         }
         .rest-card-img-wrap {
           position: relative;
           width: 100%;
-          padding-top: 60%;
+          padding-top: 64%;
           overflow: hidden;
-          border-radius: var(--radius-lg);
+          border-radius: 0;
         }
         .rest-card-img {
           position: absolute;
@@ -1295,80 +1759,1018 @@ const Home = () => {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: transform 0.6s var(--ease-premium);
+          transition: transform 0.8s var(--ease-premium);
         }
         .rest-card:hover .rest-card-img {
-          transform: scale(1.08);
+          transform: scale(1.08) translateY(-2px);
         }
         .rest-card-img-overlay {
           position: absolute;
           bottom: 0;
           left: 0;
           right: 0;
-          height: 50%;
-          background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%);
+          height: 78%;
+          background:
+            linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.44) 58%, transparent 100%),
+            linear-gradient(135deg, rgba(247,55,79,0.22), transparent 36%);
           pointer-events: none;
           z-index: 1;
         }
+        .closed-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(0,0,0,0.65);
+          backdrop-filter: blur(3px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 3;
+          color: #fff;
+          font-weight: 800;
+          font-size: 1.25rem;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
         .rest-card-offer {
           position: absolute;
-          bottom: 10px;
+          top: 12px;
           left: 12px;
           z-index: 2;
-          background: linear-gradient(135deg, #171a29 0%, #2d3143 100%);
+          background: rgba(247, 55, 79, 0.9);
+          backdrop-filter: blur(8px);
           color: #fff;
           padding: 4px 10px;
-          font-size: 0.8rem;
-          font-weight: 700;
-          border-radius: 6px;
+          font-size: 0.72rem;
+          font-weight: 800;
+          border-radius: 20px;
           letter-spacing: 0.5px;
           text-transform: uppercase;
+          display: flex;
+          align-items: center;
+          box-shadow: 0 4px 12px rgba(247, 55, 79, 0.25);
         }
         .rest-card-rating {
           position: absolute;
           top: 12px;
           right: 12px;
           z-index: 2;
-          background: rgba(255,255,255,0.95);
-          backdrop-filter: blur(4px);
-          padding: 4px 8px;
-          border-radius: 6px;
+          padding: 4px 10px;
+          border-radius: 20px;
           display: flex;
           align-items: center;
-          gap: 3px;
-          font-weight: 700;
-          font-size: 0.85rem;
-          color: var(--text-primary);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          gap: 4px;
+          font-weight: 800;
+          font-size: 0.8rem;
+          color: #fff;
+          backdrop-filter: blur(8px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
-        .rest-card-rating .star {
-          color: #FFB800;
+        .rest-card-rating.excellent {
+          background: rgba(46, 125, 50, 0.85);
+          border: 1px solid rgba(46, 125, 50, 0.5);
         }
-        .rest-card-details {
-          padding: 12px 4px 8px;
+        .rest-card-rating.good {
+          background: rgba(239, 108, 0, 0.85);
+          border: 1px solid rgba(239, 108, 0, 0.5);
+        }
+        .rest-card-rating.average {
+          background: rgba(198, 40, 40, 0.85);
+          border: 1px solid rgba(198, 40, 40, 0.5);
+        }
+        .rest-card-overlay-info {
+          position: absolute;
+          bottom: 12px;
+          left: 16px;
+          right: 16px;
+          z-index: 2;
+          color: #fff;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
         }
         .rest-card-name {
           font-family: 'Outfit', sans-serif;
-          font-size: 1.15rem;
-          font-weight: 700;
-          margin: 0 0 4px;
+          font-size: 1.22rem;
+          font-weight: 800;
+          margin: 0;
+          color: #fff;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.5);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          color: var(--text-primary);
         }
-        .rest-card-meta {
+        .rest-card-cuisine {
+          font-size: 0.82rem;
+          color: rgba(255, 255, 255, 0.8);
+          text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .rest-card-details {
+          padding: 14px 16px 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 11px;
+          background: transparent;
+        }
+        .rest-card-meta-row {
           display: flex;
           align-items: center;
-          gap: 6px;
+          flex-wrap: wrap;
+          gap: 7px;
+          font-size: 0.8rem;
           color: var(--text-secondary);
-          font-size: 0.85rem;
+          font-weight: 600;
         }
-        .rest-card-meta .dot {
-          width: 3px;
-          height: 3px;
-          background: var(--text-muted);
+        .rest-card-meta-pill {
+          min-height: 30px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 0 10px;
+          border-radius: 999px;
+          background: rgba(247,55,79,0.06);
+          border: 1px solid rgba(247,55,79,0.08);
+          color: var(--text-secondary);
+          white-space: nowrap;
+        }
+        .rest-card-meta-pill svg {
+          color: var(--brand-red);
+        }
+        .rest-card-price {
+          color: var(--text-primary);
+          font-weight: 800;
+        }
+        .rest-card-status-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          border-top: 1px solid var(--border-light);
+          padding-top: 10px;
+        }
+        .rest-card-status {
+          font-size: 0.72rem;
+          font-weight: 800;
+          padding: 3px 8px;
+          border-radius: 20px;
+          text-transform: uppercase;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          white-space: nowrap;
+        }
+        .rest-card-status.open {
+          background: rgba(96,178,70,0.12);
+          color: var(--success);
+        }
+        .rest-card-status.closed {
+          background: rgba(226,55,68,0.12);
+          color: var(--danger);
+        }
+        .rest-card-status-dot {
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
+          background: currentColor;
+          display: inline-block;
+        }
+        .rest-card-menu-cue {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 5px;
+          color: var(--brand-red);
+          font-size: 0.76rem;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+        .rest-card-menu-cue svg {
+          transition: transform 0.25s var(--ease-premium);
+        }
+        .rest-card:hover .rest-card-menu-cue svg {
+          transform: translateX(3px);
+        }
+        .restaurant-load-card {
+          flex: 0 0 244px;
+          min-height: 322px;
+          scroll-snap-align: start;
+          border: 1px solid rgba(247,55,79,0.2);
+          border-radius: 24px;
+          background:
+            radial-gradient(circle at 82% 18%, rgba(23,168,107,0.16), transparent 30%),
+            linear-gradient(145deg, rgba(247,55,79,0.1), rgba(255,255,255,0.96));
+          color: var(--text-primary);
+          box-shadow: var(--card-shadow);
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: center;
+          gap: 10px;
+          text-align: left;
+          text-decoration: none;
+          cursor: pointer;
+          transition: transform 0.3s var(--ease-premium), border-color 0.3s var(--ease-premium), box-shadow 0.3s var(--ease-premium);
+        }
+        [data-theme="dark"] .restaurant-load-card {
+          background:
+            radial-gradient(circle at 82% 18%, rgba(23,168,107,0.18), transparent 30%),
+            linear-gradient(145deg, rgba(247,55,79,0.16), rgba(30,30,35,0.96));
+          border-color: rgba(255,255,255,0.1);
+        }
+        .restaurant-load-card:hover {
+          border-color: rgba(247,55,79,0.38);
+          box-shadow: 0 22px 44px rgba(247,55,79,0.14);
+          transform: translateY(-6px);
+        }
+        .restaurant-load-card:focus-visible {
+          outline: 3px solid rgba(247,55,79,0.24);
+          outline-offset: 3px;
+        }
+        .restaurant-load-kicker {
+          color: var(--brand-red);
+          font-size: 0.78rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0;
+        }
+        .restaurant-load-card strong {
+          font-family: 'Outfit', sans-serif;
+          font-size: 1.45rem;
+          line-height: 1.05;
+        }
+        .restaurant-load-card span:not(.restaurant-load-kicker) {
+          color: var(--text-secondary);
+          font-size: 0.9rem;
+          font-weight: 700;
+        }
+        .restaurant-load-icon {
+          margin-top: 8px;
+          color: var(--brand-red);
+          transition: transform 0.25s var(--ease-premium);
+        }
+        .restaurant-load-card:hover .restaurant-load-icon {
+          transform: translateX(5px);
+        }
+
+        /* ===== SKELETON PREVIEW ===== */
+        .rest-card-skeleton {
+          flex: 0 0 clamp(286px, 28vw, 342px);
+          scroll-snap-align: start;
+          border-radius: 24px;
+          overflow: hidden;
+          background: var(--surface-card);
+          border: 1px solid var(--card-border);
+          display: flex;
+          flex-direction: column;
+          height: 320px;
+          box-shadow: var(--card-shadow);
+        }
+        .skeleton-image-placeholder {
+          width: 100%;
+          height: 68%;
+          background: var(--border-light);
+        }
+        .skeleton-details-placeholder {
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          flex: 1;
+        }
+        .skeleton-line {
+          height: 12px;
+          background: var(--border-light);
+          border-radius: 6px;
+          width: 100%;
+        }
+        .skeleton-line.short {
+          width: 60%;
+          height: 16px;
+        }
+        .shimmer-bg {
+          background: linear-gradient(90deg, 
+            var(--border-light) 25%, 
+            var(--border-medium) 37%, 
+            var(--border-light) 63%
+          );
+          background-size: 400% 100%;
+          animation: shimmer 1.4s ease infinite;
+        }
+
+        /* ===== AI COMBOS ===== */
+        .ai-combos-section {
+          max-width: 1400px;
+          width: 92%;
+          margin: 40px auto 0;
+        }
+        .ai-combos-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 18px;
+          margin-bottom: 18px;
+        }
+        .ai-combos-eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          margin-bottom: 7px;
+          color: var(--brand-red);
+          font-size: 0.78rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0;
+        }
+        .ai-combos-title {
+          font-family: 'Outfit', sans-serif;
+          font-size: clamp(1.25rem, 2vw, 1.65rem);
+          font-weight: 900;
+          line-height: 1.12;
+          color: var(--text-primary);
+          margin: 0;
+        }
+        .ai-combos-subtitle {
+          margin: 6px 0 0;
+          color: var(--text-secondary);
+          font-size: 0.92rem;
+          line-height: 1.5;
+          max-width: 560px;
+        }
+        .ai-combos-live {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          min-height: 36px;
+          padding: 0 13px;
+          border-radius: 999px;
+          color: #15875a;
+          background: rgba(23,168,107,0.1);
+          border: 1px solid rgba(23,168,107,0.18);
+          font-size: 0.78rem;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+        .ai-combos-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 20px;
+        }
+        .ai-combo-card {
+          --combo-accent: var(--brand-red);
+          position: relative;
+          overflow: hidden;
+          min-height: 414px;
+          border-radius: 18px;
+          background: var(--surface-card);
+          border: 1px solid rgba(247,55,79,0.1);
+          box-shadow: 0 16px 42px rgba(28,28,28,0.08);
+          display: flex;
+          flex-direction: column;
+          animation: premiumFadeIn 0.5s var(--ease-premium) both;
+          transition: transform 0.28s var(--ease-premium), box-shadow 0.28s var(--ease-premium), border-color 0.28s var(--ease-premium);
+        }
+        .ai-combo-card::before {
+          content: '';
+          position: absolute;
+          inset: 0 0 auto;
+          height: 4px;
+          background: var(--combo-accent);
+          z-index: 3;
+        }
+        .ai-combo-card:hover {
+          transform: translateY(-7px);
+          border-color: color-mix(in srgb, var(--combo-accent) 42%, transparent);
+          box-shadow: 0 24px 54px rgba(28,28,28,0.12);
+        }
+        [data-theme="dark"] .ai-combo-card {
+          background: rgba(30,30,35,0.96);
+          border-color: rgba(255,255,255,0.08);
+          box-shadow: 0 22px 58px rgba(0,0,0,0.28);
+        }
+        .ai-combo-visual {
+          height: 172px;
+          position: relative;
+          overflow: hidden;
+          background: var(--bg-light);
+        }
+        .ai-combo-visual::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.54));
+          z-index: 1;
+        }
+        .ai-combo-visual img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          filter: saturate(1.08) contrast(1.04);
+          transform: scale(1.02);
+          transition: transform 0.5s var(--ease-premium), filter 0.5s var(--ease-premium);
+        }
+        .ai-combo-card:hover .ai-combo-visual img {
+          transform: scale(1.09);
+          filter: saturate(1.18) contrast(1.06);
+        }
+        .ai-combo-badge,
+        .ai-combo-match {
+          position: absolute;
+          z-index: 2;
+          display: inline-flex;
+          align-items: center;
+          min-height: 32px;
+          border-radius: 999px;
+          font-size: 0.78rem;
+          font-weight: 900;
+          backdrop-filter: blur(14px);
+          box-shadow: 0 10px 26px rgba(0,0,0,0.18);
+        }
+        .ai-combo-badge {
+          left: 14px;
+          top: 14px;
+          gap: 6px;
+          padding: 0 11px;
+          color: #fff;
+          background: rgba(0,0,0,0.42);
+          border: 1px solid rgba(255,255,255,0.2);
+        }
+        .ai-combo-match {
+          right: 14px;
+          bottom: 14px;
+          padding: 0 12px;
+          color: #fff;
+          background: color-mix(in srgb, var(--combo-accent) 84%, rgba(0,0,0,0.22));
+          border: 1px solid rgba(255,255,255,0.22);
+        }
+        .ai-combo-body {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          padding: 18px;
+        }
+        .ai-combo-copy h4 {
+          font-family: 'Outfit', sans-serif;
+          font-size: 1.16rem;
+          font-weight: 900;
+          line-height: 1.15;
+          color: var(--text-primary);
+          margin: 0;
+          overflow-wrap: anywhere;
+        }
+        .ai-combo-items {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+        }
+        .ai-combo-items span {
+          min-height: 28px;
+          display: inline-flex;
+          align-items: center;
+          padding: 0 10px;
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--combo-accent) 10%, var(--bg-light));
+          color: var(--text-secondary);
+          border: 1px solid rgba(0,0,0,0.04);
+          font-size: 0.76rem;
+          font-weight: 800;
+        }
+        [data-theme="dark"] .ai-combo-items span {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(255,255,255,0.08);
+        }
+        .ai-combo-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: auto;
+        }
+        .ai-combo-meta span {
+          min-height: 32px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 0 10px;
+          border-radius: 999px;
+          color: var(--text-primary);
+          background: rgba(255,255,255,0.72);
+          border: 1px solid var(--border-light);
+          font-size: 0.78rem;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+        [data-theme="dark"] .ai-combo-meta span {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(255,255,255,0.08);
+        }
+        .ai-combo-meta svg {
+          color: var(--combo-accent);
+        }
+        .ai-combo-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding-top: 14px;
+          border-top: 1px solid var(--border-light);
+        }
+        .ai-combo-footer > span {
+          display: none !important;
+        }
+        .ai-combo-price {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .ai-combo-price span {
+          color: var(--text-muted);
+          font-size: 0.73rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0;
+        }
+        .ai-combo-price strong {
+          color: var(--text-primary);
+          font-size: 1.22rem;
+          font-weight: 900;
+          line-height: 1.1;
+        }
+        .ai-combo-action {
+          min-height: 38px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          padding: 0 15px;
+          border: none;
+          border-radius: 999px;
+          color: #fff;
+          background: var(--combo-accent);
+          box-shadow: 0 12px 24px color-mix(in srgb, var(--combo-accent) 28%, transparent);
+          font-size: 0.82rem;
+          font-weight: 900;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: transform 0.22s var(--ease-premium), box-shadow 0.22s var(--ease-premium);
+        }
+        .ai-combo-action:hover,
+        .ai-combo-action:focus-visible {
+          transform: translateY(-2px);
+          box-shadow: 0 16px 30px color-mix(in srgb, var(--combo-accent) 36%, transparent);
+          outline: none;
+        }
+        .ai-combo-action svg {
+          transition: transform 0.22s var(--ease-premium);
+        }
+        .ai-combo-action:hover svg,
+        .ai-combo-action:focus-visible svg {
+          transform: translateX(3px);
+        }
+        @media (max-width: 768px) {
+          .ai-combos-section { width: 100%; margin-top: 34px; }
+          .ai-combos-header { width: 92%; margin: 0 auto 16px; flex-direction: column; align-items: flex-start; }
+          .ai-combos-grid {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            padding: 2px 4% 18px;
+            scroll-snap-type: x proximity;
+            scrollbar-width: none;
+          }
+          .ai-combos-grid::-webkit-scrollbar { display: none; }
+          .ai-combo-card {
+            flex: 0 0 min(84vw, 340px);
+            min-height: 404px;
+            scroll-snap-align: start;
+          }
+          .ai-combo-visual { height: 164px; }
+          .ai-combo-footer { align-items: flex-start; flex-direction: column; }
+          .ai-combo-action { width: 100%; }
+        }
+
+        /* ===== VIBE CAROUSEL ===== */
+        .vibe-section {
+          max-width: 1400px;
+          width: 92%;
+          margin: 40px auto 0;
+          padding: 22px;
+          position: relative;
+          overflow: hidden;
+          border-radius: 24px;
+          border: 1px solid rgba(247,55,79,0.1);
+          background:
+            linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(247,55,79,0.04) 56%, rgba(23,168,107,0.04) 100%);
+          box-shadow: 0 18px 50px rgba(28,28,28,0.06);
+        }
+        [data-theme="dark"] .vibe-section {
+          border-color: rgba(255,255,255,0.08);
+          background:
+            linear-gradient(135deg, rgba(26,26,30,0.96) 0%, rgba(247,55,79,0.08) 55%, rgba(23,168,107,0.06) 100%);
+          box-shadow: 0 22px 60px rgba(0,0,0,0.24);
+        }
+        .vibe-section::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 18px;
+          right: 18px;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(247,55,79,0.28), rgba(23,168,107,0.22), transparent);
+        }
+        .vibe-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 16px;
+          margin-bottom: 18px;
+          position: relative;
+          z-index: 2;
+        }
+        .vibe-eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 6px;
+          color: var(--brand-red);
+          font-size: 0.78rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0;
+        }
+        .vibe-title {
+          font-family: 'Outfit', sans-serif;
+          font-size: clamp(1.25rem, 2vw, 1.65rem);
+          font-weight: 800;
+          line-height: 1.15;
+          margin: 0;
+          color: var(--text-primary);
+        }
+        .vibe-controls {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+        .vibe-live-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          height: 36px;
+          padding: 0 12px;
+          border-radius: 999px;
+          background: rgba(23,168,107,0.1);
+          color: #15875a;
+          border: 1px solid rgba(23,168,107,0.18);
+          font-size: 0.78rem;
+          font-weight: 800;
+        }
+        [data-theme="dark"] .vibe-live-pill {
+          color: #55d69c;
+          background: rgba(23,168,107,0.14);
+          border-color: rgba(85,214,156,0.2);
+        }
+        .vibe-live-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: currentColor;
+          box-shadow: 0 0 0 0 rgba(23,168,107,0.34);
+          animation: vibePulse 1.8s ease-out infinite;
+        }
+        .vibe-carousel-wrapper {
+          position: relative;
+          width: 100%;
+          overflow: hidden;
+          margin-bottom: 10px;
+          z-index: 1;
+        }
+        .vibe-carousel-wrapper::before,
+        .vibe-carousel-wrapper::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 48px;
+          z-index: 3;
+          pointer-events: none;
+        }
+        .vibe-carousel-wrapper::before {
+          left: 0;
+          background: linear-gradient(90deg, rgba(255,255,255,0.95), transparent);
+        }
+        .vibe-carousel-wrapper::after {
+          right: 0;
+          background: linear-gradient(270deg, rgba(255,255,255,0.95), transparent);
+        }
+        [data-theme="dark"] .vibe-carousel-wrapper::before {
+          background: linear-gradient(90deg, rgba(26,26,30,0.94), transparent);
+        }
+        [data-theme="dark"] .vibe-carousel-wrapper::after {
+          background: linear-gradient(270deg, rgba(26,26,30,0.94), transparent);
+        }
+        .vibe-carousel {
+          display: flex;
+          gap: 16px;
+          width: max-content;
+          overflow: visible;
+          padding: 8px 0 18px;
+          animation: vibeMarquee 36s linear infinite;
+          will-change: transform;
+          transform: translate3d(0, 0, 0);
+          backface-visibility: hidden;
+        }
+        .vibe-section.paused .vibe-carousel {
+          animation-play-state: paused;
+        }
+        .vibe-section.reverse .vibe-carousel {
+          animation-direction: reverse;
+        }
+        .vibe-carousel::-webkit-scrollbar {
+          display: none;
+        }
+        .vibe-card {
+          flex: 0 0 360px;
+          min-height: 374px;
+          border-radius: 10px;
+          background:
+            radial-gradient(circle at 22% 14%, rgba(255,118,45,0.18), transparent 24%),
+            radial-gradient(circle at 78% 42%, rgba(255,79,31,0.14), transparent 28%),
+            linear-gradient(145deg, #8c1514 0%, #3a0708 48%, #060303 100%);
+          border: 1px solid rgba(255,98,58,0.34);
+          color: #fff8ee;
+          cursor: pointer;
+          transition: transform 0.36s var(--ease-premium), border-color 0.36s var(--ease-premium), box-shadow 0.36s var(--ease-premium), background 0.36s var(--ease-premium);
+          padding: 24px 24px 22px;
+          outline: none;
+          position: relative;
+          overflow: hidden;
+          text-align: left;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 0;
+          box-shadow:
+            0 30px 70px rgba(87,25,18,0.34),
+            0 12px 26px rgba(0,0,0,0.2);
+          isolation: isolate;
+        }
+        [data-theme="dark"] .vibe-card {
+          border-color: rgba(255,98,58,0.4);
+          box-shadow:
+            0 34px 78px rgba(0,0,0,0.42),
+            0 0 42px rgba(247,55,79,0.13);
+        }
+        .vibe-card::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.08), transparent 24%),
+            linear-gradient(0deg, rgba(0,0,0,0.7), transparent 46%);
+          opacity: 0.92;
+          transition: opacity 0.36s var(--ease-premium);
+          pointer-events: none;
+          z-index: 1;
+        }
+        .vibe-card-sheen {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(118deg, transparent 0%, rgba(255,236,210,0.18) 45%, transparent 58%);
+          transform: translateX(-120%);
+          transition: transform 0.7s ease;
+          pointer-events: none;
+          z-index: 5;
+        }
+        .vibe-card-aura {
+          position: absolute;
+          inset: -30px;
+          background:
+            radial-gradient(circle at 50% 48%, var(--vibe-neon-glow), transparent 34%),
+            radial-gradient(circle at 18% 10%, rgba(255,115,41,0.24), transparent 28%);
+          opacity: 0.58;
+          pointer-events: none;
+          z-index: 0;
+        }
+        .vibe-card-pattern {
+          position: absolute;
+          left: 46px;
+          right: 22px;
+          top: 74px;
+          height: 152px;
+          border: 1px solid rgba(255,255,255,0.05);
+          border-radius: 50% 50% 38% 38%;
+          background:
+            repeating-linear-gradient(104deg, rgba(255,255,255,0.045) 0 1px, transparent 1px 16px);
+          opacity: 0.78;
+          transform: rotate(-3deg);
+          pointer-events: none;
+          z-index: 1;
+        }
+        .vibe-card-topline {
+          display: flex;
+          justify-content: flex-end;
+          align-items: flex-start;
+          gap: 16px;
+          position: relative;
+          z-index: 4;
+        }
+        .vibe-craving-pill {
+          min-height: 46px;
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          max-width: 190px;
+          padding: 0 17px;
+          border-radius: 999px;
+          color: #fff2de;
+          background: rgba(76,20,18,0.72);
+          border: 1px solid rgba(255,146,87,0.34);
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05), 0 12px 26px rgba(0,0,0,0.22);
+          font-size: 0.9rem;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+        .vibe-craving-pill svg {
+          color: #ff935f;
+        }
+        .vibe-plate-stage {
+          position: absolute;
+          left: 50%;
+          top: 45%;
+          width: 220px;
+          height: 220px;
+          transform: translate(-35%, -48%);
+          pointer-events: none;
+          z-index: 2;
+        }
+        .vibe-plate-shadow {
+          position: absolute;
+          inset: 10px 0 0 14px;
+          border-radius: 50%;
+          background:
+            radial-gradient(circle at 50% 48%, rgba(16,10,10,0.94) 0 42%, rgba(10,7,7,0.98) 43% 70%, rgba(0,0,0,0.72) 71%);
+          box-shadow:
+            -18px 22px 32px rgba(0,0,0,0.34),
+            inset -24px -20px 34px rgba(0,0,0,0.55),
+            inset 24px 16px 26px rgba(255,255,255,0.03);
+        }
+        .vibe-food-art {
+          position: absolute;
+          inset: 36px;
+          border-radius: 50%;
+          background-size: cover;
+          background-position: center;
+          opacity: 0.95;
+          filter: saturate(1.22) contrast(1.08);
+          transform: rotate(-6deg) scale(1);
+          transition: opacity 0.36s var(--ease-premium), transform 0.36s var(--ease-premium), filter 0.36s var(--ease-premium);
+          box-shadow:
+            0 0 0 10px rgba(255,171,75,0.08),
+            0 0 26px rgba(255,144,48,0.32);
+          z-index: 2;
+        }
+        .vibe-food-art::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          background: radial-gradient(circle at 28% 22%, rgba(255,255,255,0.22), transparent 24%);
+          pointer-events: none;
+        }
+        .vibe-copy {
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          min-height: 136px;
+          max-width: 245px;
+          position: relative;
+          z-index: 4;
+        }
+        .vibe-cuisine-label {
+          color: #ff8b36;
+          font-family: 'Outfit', sans-serif;
+          font-size: 0.9rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0;
+          line-height: 1;
+          margin-bottom: 8px;
+        }
+        .vibe-subtitle {
+          color: #fff9ed;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: 1.42rem;
+          font-weight: 900;
+          line-height: 1.04;
+          text-shadow: 0 8px 24px rgba(0,0,0,0.42);
+          max-width: 230px;
+          overflow-wrap: anywhere;
+        }
+        .vibe-card-stats {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          position: relative;
+          z-index: 4;
+        }
+        .vibe-card-stats span {
+          min-height: 36px;
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          padding: 0 12px;
+          border-radius: 999px;
+          color: #fff7e8;
+          background: rgba(0,0,0,0.38);
+          border: 1px solid rgba(255,255,255,0.1);
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+          font-family: 'Outfit', sans-serif;
+          font-size: 0.85rem;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+        .vibe-card-stats svg {
+          color: #fff2da;
+          filter: drop-shadow(0 4px 8px rgba(0,0,0,0.24));
+        }
+        .vibe-card:hover,
+        .vibe-card.active {
+          border-color: rgba(255,133,73,0.72);
+          box-shadow:
+            0 34px 78px rgba(102,25,14,0.4),
+            0 0 44px var(--vibe-neon-glow);
+          transform: translateY(-7px);
+        }
+        .vibe-card:hover .vibe-card-sheen,
+        .vibe-card.active .vibe-card-sheen {
+          transform: translateX(120%);
+        }
+        .vibe-card:hover .vibe-food-art,
+        .vibe-card.active .vibe-food-art {
+          filter: saturate(1.34) contrast(1.1);
+          transform: rotate(-3deg) scale(1.08);
+        }
+        .vibe-card:focus-visible {
+          box-shadow:
+            0 0 0 4px rgba(255,126,72,0.2),
+            0 34px 78px rgba(102,25,14,0.4),
+            0 0 44px var(--vibe-neon-glow);
+          border-color: rgba(255,133,73,0.86);
+        }
+        .vibe-nav-btn {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.86);
+          border: 1px solid var(--border-light);
+          color: var(--text-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.3s var(--ease-premium);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        [data-theme="dark"] .vibe-nav-btn {
+          background: rgba(30,30,35,0.9);
+          border-color: rgba(255,255,255,0.08);
+          color: #fff;
+        }
+        .vibe-nav-btn:hover {
+          background: var(--brand-red);
+          color: #fff;
+          border-color: var(--brand-red);
+          transform: scale(1.08);
+        }
+        .vibe-nav-btn:focus-visible {
+          outline: 3px solid rgba(247,55,79,0.24);
+          outline-offset: 2px;
+        }
+        @keyframes vibePulse {
+          0% { box-shadow: 0 0 0 0 rgba(23,168,107,0.36); }
+          70% { box-shadow: 0 0 0 8px rgba(23,168,107,0); }
+          100% { box-shadow: 0 0 0 0 rgba(23,168,107,0); }
+        }
+        @keyframes vibeMarquee {
+          from { transform: translate3d(0, 0, 0); }
+          to { transform: translate3d(calc(-50% - 8px), 0, 0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .vibe-carousel,
+          .vibe-live-dot {
+            animation: none;
+          }
+          .vibe-card,
+          .vibe-plate-stage,
+          .vibe-card-sheen,
+          .vibe-food-art {
+            transition: none;
+          }
         }
 
         /* ===== CONTROL BAR ===== */
@@ -1465,6 +2867,12 @@ const Home = () => {
         }
 
         /* ===== REDESIGNED CUISINE CATEGORIES ===== */
+        .category-rail-shell {
+          position: relative;
+          max-width: 1400px;
+          width: 92%;
+          margin: 0 auto 32px;
+        }
         .cuisine-filters {
           display: flex;
           justify-content: center;
@@ -1476,8 +2884,50 @@ const Home = () => {
           padding: 8px 4px 16px;
           scrollbar-width: none; /* Hide scrollbar Firefox */
         }
+        .category-rail-shell .cuisine-filters {
+          width: 100%;
+          max-width: none;
+          margin: 0;
+          justify-content: flex-start;
+          padding: 8px 58px 16px;
+          scroll-padding-left: 58px;
+          scroll-snap-type: x proximity;
+          overscroll-behavior-x: contain;
+          -webkit-overflow-scrolling: touch;
+        }
         .cuisine-filters::-webkit-scrollbar {
           display: none; /* Hide scrollbar Chrome/Safari */
+        }
+        .category-rail-btn {
+          position: absolute;
+          top: 50%;
+          z-index: 3;
+          width: 42px;
+          height: 42px;
+          border-radius: 999px;
+          border: 1px solid rgba(247,55,79,0.18);
+          background: rgba(255,255,255,0.94);
+          color: var(--brand-red);
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          box-shadow: 0 14px 34px rgba(28,28,28,0.14);
+          backdrop-filter: blur(14px);
+          transform: translateY(-50%);
+          transition: transform 0.22s var(--ease-premium), box-shadow 0.22s var(--ease-premium), background 0.22s var(--ease-premium);
+        }
+        .category-rail-btn:hover,
+        .category-rail-btn:focus-visible {
+          background: #fff;
+          box-shadow: 0 18px 40px rgba(247,55,79,0.22);
+          transform: translateY(-50%) scale(1.06);
+          outline: none;
+        }
+        .category-rail-btn.left {
+          left: 8px;
+        }
+        .category-rail-btn.right {
+          right: 8px;
         }
         .category-card {
           width: 130px;
@@ -1491,6 +2941,7 @@ const Home = () => {
           transition: all 0.4s var(--ease-premium);
           flex-shrink: 0;
           outline: none;
+          scroll-snap-align: start;
         }
         .category-card-img {
           position: absolute;
@@ -1549,12 +3000,40 @@ const Home = () => {
           .hero-actions, .hero-chips { justify-content: center; }
           .stats-bar { flex-direction: column; gap: 16px; margin-top: -24px; padding: 20px; }
           .stat-item { justify-content: center; }
-          .restaurant-grid { grid-template-columns: 1fr; gap: 16px; margin-bottom: 32px; }
+          .restaurant-showcase-section { margin-top: 28px; }
+          .restaurant-section-title { align-items: flex-start; flex-direction: column; gap: 8px; }
+          .restaurant-rail-shell { width: 100%; margin-bottom: 32px; }
+          .restaurant-grid { gap: 16px; padding: 6px 52px 28px; scroll-padding-left: 52px; }
+          .restaurant-rail-btn { width: 38px; height: 38px; box-shadow: 0 12px 24px rgba(28,28,28,0.16); }
+          .restaurant-rail-btn.left { left: 8px; }
+          .restaurant-rail-btn.right { right: 8px; }
+          .rest-card,
+          .rest-card-skeleton { flex-basis: min(78vw, 330px); }
+          .rest-card-status-row { align-items: flex-start; flex-direction: column; }
+          .rest-card-menu-cue { justify-content: flex-start; }
+          .restaurant-load-card { flex-basis: min(70vw, 250px); min-height: 300px; }
           .control-bar { flex-direction: column; align-items: stretch; gap: 12px; }
           .search-container { max-width: 100%; }
           .sort-box { justify-content: space-between; }
           .sort-box select { flex: 1; max-width: 200px; }
-          .cuisine-filters { justify-content: flex-start; padding-bottom: 8px; }
+          .category-rail-shell { width: 100%; margin-bottom: 24px; }
+          .category-rail-shell .cuisine-filters { padding: 8px 50px 12px; scroll-padding-left: 50px; }
+          .category-rail-btn { width: 38px; height: 38px; box-shadow: 0 12px 24px rgba(28,28,28,0.16); }
+          .category-rail-btn.left { left: 8px; }
+          .category-rail-btn.right { right: 8px; }
+          .category-card { width: 118px; height: 118px; border-radius: 18px; }
+          .vibe-section { padding: 18px 14px; margin-top: 28px; border-radius: 20px; }
+          .vibe-header { flex-direction: column; align-items: stretch; gap: 12px; }
+          .vibe-controls { justify-content: space-between; }
+          .vibe-carousel-wrapper::before,
+          .vibe-carousel-wrapper::after { width: 24px; }
+          .vibe-card { flex-basis: min(84vw, 330px); width: min(84vw, 330px); min-height: 344px; padding: 20px 18px; }
+          .vibe-craving-pill { min-height: 40px; max-width: 170px; padding: 0 13px; font-size: 0.8rem; }
+          .vibe-plate-stage { width: 188px; height: 188px; top: 43%; transform: translate(-33%, -48%); }
+          .vibe-copy { min-height: 126px; max-width: 224px; }
+          .vibe-subtitle { font-size: 1.2rem; }
+          .vibe-card-stats { gap: 6px; flex-wrap: wrap; }
+          .vibe-card-stats span { min-height: 32px; padding: 0 10px; font-size: 0.78rem; }
         }
       `}</style>
 
@@ -1590,6 +3069,16 @@ function RestaurantCard({ restaurant: r, index }) {
     return () => observer.disconnect();
   }, [index]);
 
+  const mockPrice = r.restaurantId % 3 === 0 ? '₹300 for two' : r.restaurantId % 2 === 0 ? '₹200 for two' : '₹150 for two';
+  const mockDistance = (1.2 + (r.restaurantId % 4) * 0.8).toFixed(1) + ' km';
+
+  const ratingText = formatRating(r.rating);
+  const ratingVal = parseFloat(ratingText);
+  const ratingClass = isNaN(ratingVal) ? 'excellent' : ratingVal >= 4.0 ? 'excellent' : ratingVal >= 3.0 ? 'good' : 'average';
+
+  // Determine if this is a "popular" pick based on rating
+  const isPopular = ratingText === 'New' || ratingVal >= 4.3;
+
   return (
     <Link
       ref={ref}
@@ -1608,34 +3097,44 @@ function RestaurantCard({ restaurant: r, index }) {
         />
         <div className="rest-card-img-overlay" />
         {r.isOpen === false && (
-          <div className="closed-overlay" style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 3,
-            color: '#fff',
-            fontWeight: 800,
-            fontSize: '1.2rem',
-            textTransform: 'uppercase',
-            letterSpacing: '1px'
-          }}>
+          <div className="closed-overlay">
             Closed
           </div>
         )}
-        <div className="rest-card-offer">Free Delivery</div>
-        <div className="rest-card-rating">
-          <span className="star"><Star size={14} fill="#FFB800" color="#FFB800" /></span> {formatRating(r.rating)}
+        {isPopular && (
+          <div className="rest-card-offer">
+            <Flame size={12} fill="#fff" style={{ marginRight: '4px' }} /> POPULAR
+          </div>
+        )}
+        <div className={`rest-card-rating ${ratingClass}`}>
+          <Star size={12} fill="#fff" color="#fff" />
+          <span>{ratingText}</span>
+        </div>
+        <div className="rest-card-overlay-info">
+          <h3 className="rest-card-name">{r.restaurantName}</h3>
+          <div className="rest-card-cuisine">{r.cusineType}</div>
         </div>
       </div>
       <div className="rest-card-details" style={{ opacity: r.isOpen === false ? 0.6 : 1 }}>
-        <h3 className="rest-card-name">{r.restaurantName}</h3>
-        <div className="rest-card-meta">
-          <span>{r.cusineType}</span>
-          <span className="dot" />
-          <span>{formatDeliveryTime(r.deliveryTime)}</span>
+        <div className="rest-card-meta-row">
+          <span className="rest-card-meta-pill">
+            <Clock size={12} />
+            <span>{formatDeliveryTime(r.deliveryTime)}</span>
+          </span>
+          <span className="rest-card-meta-pill rest-card-price">{mockPrice}</span>
+          <span className="rest-card-meta-pill rest-card-distance">
+            <MapPin size={11} />
+            {mockDistance}
+          </span>
+        </div>
+        <div className="rest-card-status-row">
+          <span className={`rest-card-status ${r.isOpen !== false ? 'open' : 'closed'}`}>
+            <span className="rest-card-status-dot"></span>
+            {r.isOpen !== false ? 'Open Now' : 'Closed'}
+          </span>
+          <span className="rest-card-menu-cue">
+            View menu <ArrowRight size={13} />
+          </span>
         </div>
       </div>
     </Link>

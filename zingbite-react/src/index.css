@@ -1526,3 +1526,177 @@ select option {
     display: none !important;
   }
 }
+
+/* ===== PREMIUM NEON BORDER ROTATING TRAIL EFFECT ===== */
+@property --neon-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes neonBorderSpin {
+  0% {
+    --neon-angle: 0deg;
+  }
+  100% {
+    --neon-angle: 360deg;
+  }
+}
+
+/* Card selectors to apply position relative for the absolute overlay */
+body .rest-card,
+body .menu-dish-card,
+body .delivery-card,
+body .order-card,
+body .request-card,
+body .form-card,
+body .analytics-card,
+body .panel-card,
+body .job-card,
+body .email-card,
+body .team-card,
+body .blog-card,
+body .profile-sidebar,
+body .profile-content-area,
+body .info-main-content,
+body .info-sidebar,
+body .cart-items-box,
+body .summary-card,
+body .checkout-address-card,
+body .checkout-payment-card {
+  position: relative !important;
+}
+
+/* Base style for the neon border overlay */
+body .rest-card::before,
+body .menu-dish-card::before,
+body .delivery-card::before,
+body .order-card::before,
+body .request-card::before,
+body .form-card::before,
+body .analytics-card::before,
+body .panel-card::before,
+body .job-card::before,
+body .email-card::before,
+body .team-card::before,
+body .blog-card::before,
+body .profile-sidebar::before,
+body .profile-content-area::before,
+body .info-main-content::before,
+body .info-sidebar::before,
+body .cart-items-box::before,
+body .summary-card::before,
+body .checkout-address-card::before,
+body .checkout-payment-card::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: inherit !important;
+  padding: 2px !important;
+  background: conic-gradient(from var(--neon-angle), transparent 50%, var(--brand-red) 85%, #fff 100%) !important;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+  -webkit-mask-composite: xor !important;
+  mask-composite: exclude !important;
+  pointer-events: none !important;
+  opacity: 0;
+  z-index: 10 !important;
+  transition: opacity 0.3s ease !important;
+}
+
+/* Dark mode specific drop shadow glow enhancement */
+[data-theme="dark"] .rest-card::before,
+[data-theme="dark"] .menu-dish-card::before,
+[data-theme="dark"] .delivery-card::before,
+[data-theme="dark"] .order-card::before,
+[data-theme="dark"] .request-card::before,
+[data-theme="dark"] .form-card::before,
+[data-theme="dark"] .analytics-card::before,
+[data-theme="dark"] .panel-card::before,
+[data-theme="dark"] .job-card::before,
+[data-theme="dark"] .email-card::before,
+[data-theme="dark"] .team-card::before,
+[data-theme="dark"] .blog-card::before,
+[data-theme="dark"] .profile-sidebar::before,
+[data-theme="dark"] .profile-content-area::before,
+[data-theme="dark"] .info-main-content::before,
+[data-theme="dark"] .info-sidebar::before,
+[data-theme="dark"] .cart-items-box::before,
+[data-theme="dark"] .summary-card::before,
+[data-theme="dark"] .checkout-address-card::before,
+[data-theme="dark"] .checkout-payment-card::before {
+  filter: drop-shadow(0 0 5px var(--brand-red)) !important;
+}
+
+/* Trigger animation on card hover */
+body .rest-card:hover::before,
+body .menu-dish-card:hover::before,
+body .delivery-card:hover::before,
+body .order-card:hover::before,
+body .request-card:hover::before,
+body .form-card:hover::before,
+body .analytics-card:hover::before,
+body .panel-card:hover::before,
+body .job-card:hover::before,
+body .email-card:hover::before,
+body .team-card:hover::before,
+body .blog-card:hover::before,
+body .profile-sidebar:hover::before,
+body .profile-content-area:hover::before,
+body .info-main-content:hover::before,
+body .info-sidebar:hover::before,
+body .cart-items-box:hover::before,
+body .summary-card:hover::before,
+body .checkout-address-card:hover::before,
+body .checkout-payment-card:hover::before {
+  opacity: 1 !important;
+  animation: neonBorderSpin 1.5s linear infinite !important;
+}
+
+/* ===== COLOR-CODED NEON TRAILS FOR DISH CARDS ===== */
+body .menu-dish-card.veg-trail::before {
+  background: conic-gradient(from var(--neon-angle), transparent 50%, #39ff14 85%, #fff 100%) !important;
+}
+body .menu-dish-card.nonveg-trail::before {
+  background: conic-gradient(from var(--neon-angle), transparent 50%, #ff073a 85%, #fff 100%) !important;
+}
+body .menu-dish-card.other-trail::before {
+  background: conic-gradient(from var(--neon-angle), transparent 50%, #ffd700 85%, #fff 100%) !important;
+}
+body .menu-dish-card.combo-trail::before {
+  background: conic-gradient(from var(--neon-angle), transparent 40%, #39ff14 60%, #ffd700 80%, #ff073a 95%, #fff 100%) !important;
+}
+
+/* Glitter keyframes for non-veg trail */
+@keyframes glitterRed {
+  0%, 100% {
+    filter: drop-shadow(0 0 3px #ff073a) !important;
+    opacity: 0.92 !important;
+  }
+  50% {
+    filter: drop-shadow(0 0 8px #ff073a) !important;
+    opacity: 1 !important;
+  }
+}
+
+/* Custom animation trigger for glittering red trail */
+body .menu-dish-card.nonveg-trail:hover::before {
+  opacity: 1 !important;
+  animation: neonBorderSpin 1.5s linear infinite !important, glitterRed 0.15s ease-in-out infinite !important;
+}
+
+/* Dark mode specific glows for color-coded trails */
+[data-theme="dark"] .menu-dish-card.veg-trail::before {
+  filter: drop-shadow(0 0 5px #39ff14) !important;
+}
+[data-theme="dark"] .menu-dish-card.nonveg-trail::before {
+  filter: drop-shadow(0 0 5px #ff073a) !important;
+}
+[data-theme="dark"] .menu-dish-card.other-trail::before {
+  filter: drop-shadow(0 0 5px #ffd700) !important;
+}
+[data-theme="dark"] .menu-dish-card.combo-trail::before {
+  filter: drop-shadow(0 0 6px #ffd700) !important;
+}
+
+

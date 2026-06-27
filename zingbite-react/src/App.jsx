@@ -17,6 +17,7 @@ import { trackPageView } from './utils/analytics';
 
 const Home = React.lazy(() => import('./pages/Home'));
 const Menu = React.lazy(() => import('./pages/Menu'));
+const Restaurants = React.lazy(() => import('./pages/Restaurants'));
 const Cart = React.lazy(() => import('./pages/Cart'));
 const Checkout = React.lazy(() => import('./pages/Checkout'));
 const Login = React.lazy(() => import('./pages/Login'));
@@ -158,6 +159,7 @@ function App() {
                             <Routes>
                               <Route path="/" element={<Home />} />
                               <Route path="/home" element={<Home />} />
+                              <Route path="/restaurants" element={<Restaurants />} />
                               <Route path="/menu" element={<Menu />} />
                               <Route path="/login" element={<Login />} />
                               <Route path="/register" element={<Register />} />

@@ -357,6 +357,27 @@ const Menu = () => {
     return !nonVegKeywords.some(keyword => nameLower.includes(keyword) || descLower.includes(keyword));
   };
 
+  const isDrinkItem = (item) => {
+    const drinkKeywords = ['drink', 'beverage', 'coke', 'pepsi', 'sprite', 'water', 'soda', 'juice', 'shake', 'smoothie', 'mojito', 'lassi', 'chaas', 'mocktail', 'cocktail', 'coffee', 'tea', 'thums up', 'cold drink'];
+    const nameLower = (item.menuName || '').toLowerCase();
+    const descLower = (item.description || '').toLowerCase();
+    return drinkKeywords.some(keyword => nameLower.includes(keyword) || descLower.includes(keyword));
+  };
+
+  const isOtherItem = (item) => {
+    const otherKeywords = ['dessert', 'sweet', 'cake', 'jamun', 'ice cream', 'pudding', 'brownie', 'waffle', 'fries', 'chips', 'papad', 'salad', 'bread', 'naan', 'roti'];
+    const nameLower = (item.menuName || '').toLowerCase();
+    const descLower = (item.description || '').toLowerCase();
+    return otherKeywords.some(keyword => nameLower.includes(keyword) || descLower.includes(keyword));
+  };
+
+  const getTrailClass = (item) => {
+    if (item.itemType === 'COMBO') return 'combo-trail';
+    if (isDrinkItem(item) || isOtherItem(item)) return 'other-trail';
+    return isVegDish(item) ? 'veg-trail' : 'nonveg-trail';
+  };
+
+
   const hasItems = menuList.length > 0;
   const dynRestaurant = hasItems && menuList[0].restaurant ? menuList[0].restaurant : null;
   const restName = dynRestaurant ? dynRestaurant.restaurantName : restaurantNameParam;
@@ -437,7 +458,7 @@ const Menu = () => {
     const qty = getCartQuantity(item.menuId);
     const isVeg = isVegDish(item);
     return (
-      <div key={item.menuId} className={`menu-dish-card animate-card ${isCombo ? 'combo-dish-card' : ''}`} style={{ animationDelay: `${idx * 0.05}s` }}>
+      <div key={item.menuId} className={`menu-dish-card animate-card ${isCombo ? 'combo-dish-card' : ''} ${getTrailClass(item)}`} style={{ animationDelay: `${idx * 0.05}s` }}>
         <div className="dish-card-info">
           <div>
             <div className="dish-card-header-tags">
@@ -1142,7 +1163,7 @@ const Menu = () => {
                     const qty = getCartQuantity(item.menuId);
                     const isVeg = isVegDish(item);
                     return (
-                      <div key={`rec-${item.menuId}`} className="menu-dish-card" style={{ animationDelay: `${idx * 0.05}s`, borderLeft: '4px solid var(--brand-red)' }}>
+                      <div key={`rec-${item.menuId}`} className={`menu-dish-card ${getTrailClass(item)}`} style={{ animationDelay: `${idx * 0.05}s`, borderLeft: '4px solid var(--brand-red)' }}>
                         <div className="dish-card-info">
                           <div>
                             <div className="dish-card-header-tags">
