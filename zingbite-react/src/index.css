@@ -17,6 +17,7 @@
   --bg-main: #ffffff;
   --bg-surface: #f8f9fa;
   --bg-surface-hover: #f1f3f5;
+  --bg-card: #ffffff;
   --text-primary: #1c1c1c;
   --text-secondary: #696969;
   --text-muted: #9e9e9e;
@@ -26,6 +27,7 @@
   --danger: #e23744;
   
   --surface-card: rgba(255, 255, 255, 0.94);
+  --surface-overlay: rgba(255, 255, 255, 0.96);
   --card-border: rgba(247, 55, 79, 0.1);
   --card-shadow: 0 14px 40px rgba(28, 28, 28, 0.07);
   --surface-tab-bar: rgba(255, 255, 255, 0.9);
@@ -57,6 +59,7 @@
   --bg-main: #000000;
   --bg-surface: #0a0a0c;
   --bg-surface-hover: #121215;
+  --bg-card: #101014;
   --text-primary: #f1f1f1;
   --text-secondary: #a0a0b0;
   --text-muted: #6b6b7d;
@@ -66,6 +69,7 @@
   --danger: #ff4757;
   
   --surface-card: rgba(10, 10, 12, 0.94);
+  --surface-overlay: rgba(10, 10, 12, 0.97);
   --card-border: rgba(255, 77, 106, 0.15);
   --card-shadow: 0 14px 40px rgba(0, 0, 0, 0.85);
   --surface-tab-bar: rgba(10, 10, 12, 0.9);
@@ -98,6 +102,12 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+}
+
+[data-theme="dark"] body {
+  background:
+    linear-gradient(180deg, rgba(255, 77, 106, 0.035) 0%, var(--bg-main) 340px),
+    var(--bg-main);
 }
 
 main {
@@ -1103,6 +1113,29 @@ body .checkout-address-card:hover,
 body .checkout-payment-card:hover {
   transform: perspective(900px) rotateX(1deg) translateY(-4px);
   box-shadow: 0 24px 58px rgba(28, 28, 28, 0.11) !important;
+}
+
+[data-theme="dark"] body .rest-card:hover,
+[data-theme="dark"] body .menu-dish-card:hover,
+[data-theme="dark"] body .delivery-card:hover,
+[data-theme="dark"] body .order-card:hover,
+[data-theme="dark"] body .request-card:hover,
+[data-theme="dark"] body .form-card:hover,
+[data-theme="dark"] body .analytics-card:hover,
+[data-theme="dark"] body .panel-card:hover,
+[data-theme="dark"] body .job-card:hover,
+[data-theme="dark"] body .email-card:hover,
+[data-theme="dark"] body .team-card:hover,
+[data-theme="dark"] body .blog-card:hover,
+[data-theme="dark"] body .profile-sidebar:hover,
+[data-theme="dark"] body .profile-content-area:hover,
+[data-theme="dark"] body .info-main-content:hover,
+[data-theme="dark"] body .info-sidebar:hover,
+[data-theme="dark"] body .cart-items-box:hover,
+[data-theme="dark"] body .summary-card:hover,
+[data-theme="dark"] body .checkout-address-card:hover,
+[data-theme="dark"] body .checkout-payment-card:hover {
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.82) !important;
 }
 
 body .admin-table-wrapper,

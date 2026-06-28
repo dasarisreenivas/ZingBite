@@ -1,12 +1,17 @@
 package com.app.zingbiteutils;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.hibernate.Session;
 import java.util.List;
 import com.app.zingbitemodels.User;
 
 public class ScratchDBTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScratchDBTest.class);
+
     public static void main(String[] args) {
-        System.out.println("--- Scratch User Password Hashing Migration ---");
+        LOGGER.info("--- Scratch User Password Hashing Migration ---");
         try (Session session = DBUtils.openSession()) {
             org.hibernate.Transaction tx = session.beginTransaction();
             List<User> users = session.createQuery("from User", User.class).list();
@@ -21,24 +26,24 @@ public class ScratchDBTest {
                     u.setPassword(hashed);
                     session.merge(u);
                     migrated++;
-                    System.out.println("Migrated user: " + u.getEmail());
+                    LOGGER.info("Migrated user: " + u.getEmail());
                 }
             }
             tx.commit();
-            System.out.println("Total users migrated: " + migrated);
+            LOGGER.info("Total users migrated: " + migrated);
 
             // Query specifically for the admin user to check status
             User admin = session.createQuery("from User where email = 'admin@zingbite.com'", User.class).uniqueResult();
             if (admin != null) {
-                System.out.println("Admin details: ID=" + admin.getUserID()
+                LOGGER.info("Admin details: ID=" + admin.getUserID()
                     + ", Email=" + admin.getEmail()
                     + ", Credential format=" + credentialFormat(admin.getPassword())
                     + ", Role=" + admin.getRole());
             } else {
-                System.out.println("Admin user admin@zingbite.com not found!");
+                LOGGER.info("Admin user admin@zingbite.com not found!");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
     }
 

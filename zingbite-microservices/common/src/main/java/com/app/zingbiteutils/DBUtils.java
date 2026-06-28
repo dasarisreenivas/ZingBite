@@ -1,5 +1,8 @@
 package com.app.zingbiteutils;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Properties;
@@ -33,6 +36,8 @@ import com.app.zingbitemodels.MlPredictionLog;
 import com.app.zingbitemodels.MlTrainingRun;
 
 	public class DBUtils {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DBUtils.class);
 
 	private static SessionFactory sf;
 
@@ -72,10 +77,10 @@ import com.app.zingbitemodels.MlTrainingRun;
 									.addAnnotatedClass(MlPredictionLog.class)
 									.addAnnotatedClass(MlTrainingRun.class);
 			sf = config.buildSessionFactory();
-			System.out.println("session factory created successfully");
+			LOGGER.info("session factory created successfully");
 
 		} catch (Exception e) {
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 	}
 
@@ -110,12 +115,12 @@ import com.app.zingbitemodels.MlTrainingRun;
 						System.setProperty(key, props.getProperty(key));
 					}
 				}
-				System.out.println("[DBUtils] Loaded " + props.size() + " config entries from " + envFile.getAbsolutePath());
+				LOGGER.info("[DBUtils] Loaded " + props.size() + " config entries from " + envFile.getAbsolutePath());
 			} catch (Exception e) {
-				System.err.println("[DBUtils] Could not load .env file: " + e.getMessage());
+				LOGGER.warn("[DBUtils] Could not load .env file: " + e.getMessage());
 			}
 		} else {
-			System.out.println("[DBUtils] No .env file found, using system env vars / defaults");
+			LOGGER.info("[DBUtils] No .env file found, using system env vars / defaults");
 		}
 	}
 

@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
@@ -31,6 +34,8 @@ import com.google.gson.JsonParser;
 @Component
 public class ChatWebSocketEndpoint {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatWebSocketEndpoint.class);
+
     // Keep track of active session sets grouped by room key "type:targetId"
     private static final Map<String, Set<jakarta.websocket.Session>> roomSessions = new ConcurrentHashMap<>();
     private static final Gson gson = new Gson();
@@ -43,21 +48,21 @@ public class ChatWebSocketEndpoint {
         @PathParam("userId") int userId
     ) throws IOException {
 
-        System.out.println("[WebSocket] Connection attempt: type=" + type + ", targetId=" + targetId + ", userId=" + userId);
+        LOGGER.info("[WebSocket] Connection attempt: type=" + type + ", targetId=" + targetId + ", userId=" + userId);
 
         // 1. HTTP Session and Authorization Validation
         String senderName = "User";
 
         jakarta.servlet.http.HttpSession httpSession = (jakarta.servlet.http.HttpSession) session.getUserProperties().get("httpSession");
         if (httpSession == null) {
-            System.out.println("[WebSocket] Connection rejected: No active HTTP session for userId=" + userId);
+            LOGGER.info("[WebSocket] Connection rejected: No active HTTP session for userId=" + userId);
             session.close(new CloseReason(CloseCodes.VIOLATED_POLICY, "Unauthorized: Active HTTP session is required."));
             return;
         }
 
         User loggedInUser = (User) httpSession.getAttribute("loggedInUser");
         if (loggedInUser == null || loggedInUser.getUserID() != userId) {
-            System.out.println("[WebSocket] Connection rejected: Session user does not match path userId=" + userId);
+            LOGGER.info("[WebSocket] Connection rejected: Session user does not match path userId=" + userId);
             session.close(new CloseReason(CloseCodes.VIOLATED_POLICY, "Unauthorized: Session user mismatch."));
             return;
         }
@@ -78,8 +83,8 @@ public class ChatWebSocketEndpoint {
                 return;
             }
         } catch (Exception e) {
-            System.err.println("[WebSocket] Authorization check error: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.warn("[WebSocket] Authorization check error: " + e.getMessage());
+            LOGGER.error("Unexpected error", e);
             session.close(new CloseReason(CloseCodes.UNEXPECTED_CONDITION, "Authorization check failed."));
             return;
         }
@@ -93,7 +98,7 @@ public class ChatWebSocketEndpoint {
         session.getUserProperties().put("type", type);
         session.getUserProperties().put("targetId", targetId);
 
-        System.out.println("[WebSocket] User '" + senderName + "' (ID: " + userId + ") joined room: " + roomKey);
+        LOGGER.info("[WebSocket] User '" + senderName + "' (ID: " + userId + ") joined room: " + roomKey);
     }
 
     @OnMessage
@@ -145,7 +150,7 @@ public class ChatWebSocketEndpoint {
                 tx.commit();
             } catch (Exception e) {
                 if (tx != null && tx.isActive()) tx.rollback();
-                System.err.println("[WebSocket] Failed to persist message: " + e.getMessage());
+                LOGGER.warn("[WebSocket] Failed to persist message: " + e.getMessage());
                 throw e;
             }
 
@@ -162,8 +167,8 @@ public class ChatWebSocketEndpoint {
             }
 
         } catch (Exception e) {
-            System.err.println("[WebSocket] Error processing message: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.warn("[WebSocket] Error processing message: " + e.getMessage());
+            LOGGER.error("Unexpected error", e);
         }
     }
 
@@ -182,13 +187,13 @@ public class ChatWebSocketEndpoint {
                     roomSessions.remove(roomKey);
                 }
             }
-            System.out.println("[WebSocket] User ID " + userId + " left room: " + roomKey + " (" + reason.getReasonPhrase() + ")");
+            LOGGER.info("[WebSocket] User ID " + userId + " left room: " + roomKey + " (" + reason.getReasonPhrase() + ")");
         }
     }
 
     @OnError
     public void onError(jakarta.websocket.Session session, Throwable throwable) {
-        System.err.println("[WebSocket] Error on session: " + throwable.getMessage());
-        throwable.printStackTrace();
+        LOGGER.warn("[WebSocket] Error on session: " + throwable.getMessage());
+        LOGGER.error("Unexpected error", throwable);
     }
 }

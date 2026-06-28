@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.text.SimpleDateFormat;
@@ -22,6 +25,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet("/api/contact")
 public class ContactServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ContactServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     @Override
@@ -62,7 +67,7 @@ public class ContactServlet extends HttpServlet {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to save contact message\"}");
         }

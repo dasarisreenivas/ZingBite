@@ -1,5 +1,8 @@
 package com.app.zingbiteutils;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -19,6 +22,8 @@ import com.google.gson.JsonObject;
 import jakarta.persistence.LockModeType;
 
 public class PaymentService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PaymentService.class);
 
     private static PaymentService instance;
     private ScheduledExecutorService scheduler;
@@ -49,7 +54,7 @@ public class PaymentService {
             return "FAILED";
         }
         if (isPaymentTestMode()) {
-            System.out.println("[PaymentService] Test mode enabled, skipping gateway verification for order ZB-" + orderId);
+            LOGGER.info("[PaymentService] Test mode enabled, skipping gateway verification for order ZB-" + orderId);
             return transactionId.toLowerCase().contains("fail") ? "FAILED" : "COMPLETED";
         }
         try (Session session = DBUtils.openSession()) {
@@ -74,7 +79,7 @@ public class PaymentService {
             com.razorpay.Payment gatewayPayment = RazorpayUtils.fetchPayment(transactionId);
             validateGatewayPayment(payment, gatewayPayment);
             String gatewayStatus = gatewayPayment.get("status");
-            System.out.println("[PaymentService] Razorpay status for " + transactionId + ": " + gatewayStatus);
+            LOGGER.info("[PaymentService] Razorpay status for " + transactionId + ": " + gatewayStatus);
             if ("captured".equals(gatewayStatus)) {
                 return "COMPLETED";
             }
@@ -97,7 +102,7 @@ public class PaymentService {
     public String verifyRazorpaySignatureAndFetchStatus(String razorpayOrderId, String razorpayPaymentId,
             String razorpaySignature, int orderId) throws Exception {
         if (isPaymentTestMode()) {
-            System.out.println("[PaymentService] Test mode enabled, skipping Razorpay signature and status verification for ZB-" + orderId);
+            LOGGER.info("[PaymentService] Test mode enabled, skipping Razorpay signature and status verification for ZB-" + orderId);
             return (razorpayPaymentId != null && razorpayPaymentId.toLowerCase().contains("fail")) ? "FAILED" : "COMPLETED";
         }
         Payment storedPayment;
@@ -113,7 +118,7 @@ public class PaymentService {
         if (!RazorpayUtils.verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
             throw new SecurityException("Invalid Razorpay signature for ZB-" + orderId);
         }
-        System.out.println("[PaymentService] Razorpay signature VALID for order ZB-" + orderId);
+        LOGGER.info("[PaymentService] Razorpay signature VALID for order ZB-" + orderId);
         com.razorpay.Payment gatewayPayment = RazorpayUtils.fetchPayment(razorpayPaymentId);
         validateGatewayPayment(storedPayment, gatewayPayment);
         String gatewayStatus = gatewayPayment.get("status");
@@ -161,13 +166,13 @@ public class PaymentService {
             // 1. Fetch Order
             order = session.find(Orders.class, orderId, LockModeType.PESSIMISTIC_WRITE);
             if (order == null) {
-                System.out.println("[PaymentService] Order ZB-" + orderId + " not found.");
+                LOGGER.info("[PaymentService] Order ZB-" + orderId + " not found.");
                 return false;
             }
 
             // Idempotency: If already paid and active, return success instantly
             if (order.getOrderStatus() != OrderStatus.PENDING_PAYMENT) {
-                System.out.println("[PaymentService] Order ZB-" + orderId + " is already in state: " + order.getOrderStatus());
+                LOGGER.info("[PaymentService] Order ZB-" + orderId + " is already in state: " + order.getOrderStatus());
                 return order.getOrderStatus() == OrderStatus.PLACED || order.getOrderStatus() == OrderStatus.ACCEPTED;
             }
 
@@ -216,14 +221,14 @@ public class PaymentService {
             user = session.get(User.class, order.getUserId());
 
             tx.commit();
-            System.out.println("[PaymentService] Successfully captured order ZB-" + orderId + " with txn: " + transactionId);
+            LOGGER.info("[PaymentService] Successfully captured order ZB-" + orderId + " with txn: " + transactionId);
 
         } catch (Exception e) {
             if (tx != null && tx.isActive()) {
                 tx.rollback();
             }
-            System.err.println("[PaymentService] Failed to capture order ZB-" + orderId + ":");
-            e.printStackTrace();
+            LOGGER.warn("[PaymentService] Failed to capture order ZB-" + orderId + ":");
+            LOGGER.error("Unexpected error", e);
             return false;
         }
 
@@ -244,7 +249,7 @@ public class PaymentService {
                     EmailTemplates.orderPlaced(fUser.getUserName(), fOrderId, fTotal, fTime)
                 );
             } catch (Exception ex) {
-                System.err.println("[PaymentService] Async Email dispatch failed: " + ex.getMessage());
+                LOGGER.warn("[PaymentService] Async Email dispatch failed: " + ex.getMessage());
             }
 
             // Trigger Real-Time SSE Broadcaster & Log Status
@@ -266,7 +271,7 @@ public class PaymentService {
                 }
                 OrderEventBroker.getInstance().broadcastTopicUpdate("topic:new_orders", sseMsg.toString());
             } catch (Exception ex) {
-                System.err.println("[PaymentService] Real-time SSE dispatch failed: " + ex.getMessage());
+                LOGGER.warn("[PaymentService] Real-time SSE dispatch failed: " + ex.getMessage());
             }
         }
 
@@ -291,7 +296,7 @@ public class PaymentService {
                     "ZingBite Order Confirmation - ZB-" + orderId,
                     EmailTemplates.orderPlaced(user.getUserName(), orderId, order.getTotalAmount(), order.getOrderTime()));
         } catch (Exception emailError) {
-            System.err.println("[PaymentService] COD email dispatch failed: " + emailError.getMessage());
+            LOGGER.warn("[PaymentService] COD email dispatch failed: " + emailError.getMessage());
         }
 
         try {
@@ -305,7 +310,7 @@ public class PaymentService {
             }
             OrderEventBroker.getInstance().broadcastTopicUpdate("topic:new_orders", event.toString());
         } catch (Exception eventError) {
-            System.err.println("[PaymentService] COD event dispatch failed: " + eventError.getMessage());
+            LOGGER.warn("[PaymentService] COD event dispatch failed: " + eventError.getMessage());
         }
     }
 
@@ -359,7 +364,7 @@ public class PaymentService {
             session.merge(oh);
 
             tx.commit();
-            System.out.println("[PaymentService] Successfully cancelled order ZB-" + orderId + " due to: " + reason);
+            LOGGER.info("[PaymentService] Successfully cancelled order ZB-" + orderId + " due to: " + reason);
 
                 // Tickle customer UI to update status & Log status change
                 try {
@@ -379,7 +384,7 @@ public class PaymentService {
             if (tx != null && tx.isActive()) {
                 tx.rollback();
             }
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
             return false;
         }
     }
@@ -402,12 +407,12 @@ public class PaymentService {
             try {
                 reconcileStalePayments();
             } catch (Exception e) {
-                System.err.println("[PaymentReconciler] Scheduler loop encountered an error:");
-                e.printStackTrace();
+                LOGGER.warn("[PaymentReconciler] Scheduler loop encountered an error:");
+                LOGGER.error("Unexpected error", e);
             }
         }, 15, 45, TimeUnit.SECONDS); // Runs every 45 seconds after initial 15-second delay
 
-        System.out.println("[PaymentService] Background Payment Reconciliation Scheduler activated successfully!");
+        LOGGER.info("[PaymentService] Background Payment Reconciliation Scheduler activated successfully!");
     }
 
     public synchronized void stopReconciliationScheduler() {
@@ -420,7 +425,7 @@ public class PaymentService {
             } catch (InterruptedException e) {
                 scheduler.shutdownNow();
             }
-            System.out.println("[PaymentService] Background Payment Reconciliation Scheduler stopped cleanly.");
+            LOGGER.info("[PaymentService] Background Payment Reconciliation Scheduler stopped cleanly.");
         }
     }
 
@@ -438,7 +443,7 @@ public class PaymentService {
             query.setParameter("cutoff", cutoff);
             staleOrders = query.list();
         } catch (Exception e) {
-            System.err.println("[PaymentReconciler] Failed to query stale orders: " + e.getMessage());
+            LOGGER.warn("[PaymentReconciler] Failed to query stale orders: " + e.getMessage());
             return;
         }
 
@@ -446,11 +451,11 @@ public class PaymentService {
             return;
         }
 
-        System.out.println("[PaymentReconciler] Found " + staleOrders.size() + " stale pending orders. Starting auto-resolution...");
+        LOGGER.info("[PaymentReconciler] Found " + staleOrders.size() + " stale pending orders. Starting auto-resolution...");
 
         for (Orders order : staleOrders) {
             int orderId = order.getOrderId();
-            System.out.println("[PaymentReconciler] Reconciling ZB-" + orderId + " created at " + order.getStatusUpdatedAt());
+            LOGGER.info("[PaymentReconciler] Reconciling ZB-" + orderId + " created at " + order.getStatusUpdatedAt());
 
             // Check if there is an associated transaction ID in Payment
             String transactionId = null;
@@ -469,22 +474,22 @@ public class PaymentService {
                 try {
                     String gatewayStatus = verifyPaymentOnGateway(transactionId, orderId);
                     if ("COMPLETED".equals(gatewayStatus)) {
-                        System.out.println("[PaymentReconciler] ZB-" + orderId + " was PAID on gateway. Completing...");
+                        LOGGER.info("[PaymentReconciler] ZB-" + orderId + " was PAID on gateway. Completing...");
                         processOrderCapture(orderId, transactionId, order.getPaymentMethod());
                     } else if ("FAILED".equals(gatewayStatus)) {
-                        System.out.println("[PaymentReconciler] ZB-" + orderId + " failed on gateway. Cancelling...");
+                        LOGGER.info("[PaymentReconciler] ZB-" + orderId + " failed on gateway. Cancelling...");
                         processOrderCancellation(orderId, "Gateway returned failure status");
                     } else {
-                        System.out.println("[PaymentReconciler] ZB-" + orderId
+                        LOGGER.info("[PaymentReconciler] ZB-" + orderId
                                 + " remains pending on the gateway. It will be retried.");
                     }
                 } catch (Exception e) {
                     // Gateway error / timeout -> leave for next retry
-                    System.err.println("[PaymentReconciler] Gateway check failed for ZB-" + orderId + ": " + e.getMessage());
+                    LOGGER.warn("[PaymentReconciler] Gateway check failed for ZB-" + orderId + ": " + e.getMessage());
                 }
             } else {
                 // No transaction token provided, user abandoned the payment gateway checkout
-                System.out.println("[PaymentReconciler] ZB-" + orderId + " has no transaction ID. Auto-cancelling abandoned order...");
+                LOGGER.info("[PaymentReconciler] ZB-" + orderId + " has no transaction ID. Auto-cancelling abandoned order...");
                 processOrderCancellation(orderId, "Checkout session abandoned by client");
             }
         }

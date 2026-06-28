@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.Date;
@@ -25,6 +28,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet("/api/chat")
 public class ChatServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatServlet.class);
+
     private static final long serialVersionUID = 1L;
     private static final Gson gson = new Gson();
 
@@ -110,7 +115,7 @@ public class ChatServlet extends HttpServlet {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             resp.getWriter().write("{\"error\":\"Invalid chat target.\"}");
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to fetch chat history.\"}");
         }
@@ -186,7 +191,7 @@ public class ChatServlet extends HttpServlet {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             resp.getWriter().write("{\"error\":\"Invalid chat request.\"}");
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to send message.\"}");
         }
@@ -228,7 +233,7 @@ public class ChatServlet extends HttpServlet {
 
             resp.getWriter().write("{\"success\":true}");
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to mark message as read.\"}");
         }

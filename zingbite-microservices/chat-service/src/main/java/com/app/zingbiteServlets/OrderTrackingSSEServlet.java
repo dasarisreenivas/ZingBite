@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
@@ -23,6 +26,8 @@ import java.util.List;
 
 @WebServlet(urlPatterns = "/api/order/stream", asyncSupported = true)
 public class OrderTrackingSSEServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(OrderTrackingSSEServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     @Override
@@ -164,7 +169,7 @@ public class OrderTrackingSSEServlet extends HttpServlet {
                 listener.onUpdate(initPayload.toString());
             }
         } catch (Exception ex) {
-            ex.printStackTrace();
+            LOGGER.error("Unexpected servlet error", ex);
         }
 
         // Remove listener when connection ends

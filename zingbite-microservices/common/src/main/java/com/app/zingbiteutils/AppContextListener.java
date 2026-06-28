@@ -1,5 +1,8 @@
 package com.app.zingbiteutils;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import com.mysql.cj.jdbc.AbandonedConnectionCleanupThread;
@@ -9,111 +12,113 @@ import java.util.Enumeration;
 
 public class AppContextListener implements ServletContextListener {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(AppContextListener.class);
+
     @Override
     public void contextInitialized(ServletContextEvent sce) {
-        System.out.println("[AppContextListener] Web application initialization started.");
-        System.out.println("[AppContextListener] Pre-initializing Hibernate SessionFactory...");
+        LOGGER.info("[AppContextListener] Web application initialization started.");
+        LOGGER.info("[AppContextListener] Pre-initializing Hibernate SessionFactory...");
         try {
             var sf = DBUtils.getSessionFactory();
             if (sf == null) {
-                System.err.println("[AppContextListener] FATAL: SessionFactory is null. Skipping dependent startup tasks.");
+                LOGGER.warn("[AppContextListener] FATAL: SessionFactory is null. Skipping dependent startup tasks.");
                 return;
             }
-            System.out.println("[AppContextListener] SessionFactory pre-initialized successfully!");
+            LOGGER.info("[AppContextListener] SessionFactory pre-initialized successfully!");
 
             // Run database index initialization
-            System.out.println("[AppContextListener] Running database index initialization...");
+            LOGGER.info("[AppContextListener] Running database index initialization...");
             try {
                 DatabaseIndexInitializer.initialize();
-                System.out.println("[AppContextListener] Database index initialization completed.");
+                LOGGER.info("[AppContextListener] Database index initialization completed.");
             } catch (Exception e) {
-                System.err.println("[AppContextListener] Database index initialization failed: " + e.getMessage());
-                e.printStackTrace();
+                LOGGER.warn("[AppContextListener] Database index initialization failed: " + e.getMessage());
+                LOGGER.error("Unexpected error", e);
             }
 
             // Pre-initialize RecommendationEngine asynchronously to warm the cache
             new Thread(() -> {
                 try {
                     Thread.sleep(5000);
-                    System.out.println("[AppContextListener] Warming up RecommendationEngine similarity matrix...");
+                    LOGGER.info("[AppContextListener] Warming up RecommendationEngine similarity matrix...");
                     RecommendationEngine.initialize();
-                    System.out.println("[AppContextListener] RecommendationEngine similarity matrix warmed up!");
+                    LOGGER.info("[AppContextListener] RecommendationEngine similarity matrix warmed up!");
                 } catch (Exception e) {
-                    System.err.println("[AppContextListener] Failed to warm up RecommendationEngine similarity matrix: " + e.getMessage());
-                    e.printStackTrace();
+                    LOGGER.warn("[AppContextListener] Failed to warm up RecommendationEngine similarity matrix: " + e.getMessage());
+                    LOGGER.error("Unexpected error", e);
                 }
             }, "RecommendationEngine-Warmup").start();
 
             // Start background payment reconciliation scheduler
-            System.out.println("[AppContextListener] Starting background PaymentReconciliation scheduler...");
+            LOGGER.info("[AppContextListener] Starting background PaymentReconciliation scheduler...");
             PaymentService.getInstance().startReconciliationScheduler();
 
         } catch (Exception e) {
-            System.err.println("[AppContextListener] Failed to pre-initialize SessionFactory: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.warn("[AppContextListener] Failed to pre-initialize SessionFactory: " + e.getMessage());
+            LOGGER.error("Unexpected error", e);
         }
     }
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
-        System.out.println("[AppContextListener] Web application shutdown started.");
+        LOGGER.info("[AppContextListener] Web application shutdown started.");
 
         // 1. Close Hibernate SessionFactory (closes HikariCP pool and stops housekeeper thread)
-        System.out.println("[AppContextListener] Closing Hibernate SessionFactory...");
+        LOGGER.info("[AppContextListener] Closing Hibernate SessionFactory...");
         try {
             DBUtils.closeFactory();
-            System.out.println("[AppContextListener] SessionFactory closed successfully.");
+            LOGGER.info("[AppContextListener] SessionFactory closed successfully.");
         } catch (Exception e) {
-            System.err.println("[AppContextListener] Error closing SessionFactory: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.warn("[AppContextListener] Error closing SessionFactory: " + e.getMessage());
+            LOGGER.error("Unexpected error", e);
         }
 
         // 2. Deregister JDBC drivers to prevent Tomcat memory leaks
-        System.out.println("[AppContextListener] Deregistering JDBC drivers...");
+        LOGGER.info("[AppContextListener] Deregistering JDBC drivers...");
         Enumeration<Driver> drivers = DriverManager.getDrivers();
         while (drivers.hasMoreElements()) {
             Driver driver = drivers.nextElement();
             try {
                 DriverManager.deregisterDriver(driver);
-                System.out.println("[AppContextListener] Deregistered driver: " + driver.getClass().getName());
+                LOGGER.info("[AppContextListener] Deregistered driver: " + driver.getClass().getName());
             } catch (Exception e) {
-                System.err.println("[AppContextListener] Error deregistering driver " + driver.getClass().getName() + ": " + e.getMessage());
+                LOGGER.warn("[AppContextListener] Error deregistering driver " + driver.getClass().getName() + ": " + e.getMessage());
             }
         }
 
         // 3. Shutdown the MySQL AbandonedConnectionCleanupThread
-        System.out.println("[AppContextListener] Shutting down AbandonedConnectionCleanupThread...");
+        LOGGER.info("[AppContextListener] Shutting down AbandonedConnectionCleanupThread...");
         try {
             AbandonedConnectionCleanupThread.checkedShutdown();
-            System.out.println("[AppContextListener] AbandonedConnectionCleanupThread shutdown completed.");
+            LOGGER.info("[AppContextListener] AbandonedConnectionCleanupThread shutdown completed.");
         } catch (Exception e) {
-            System.err.println("[AppContextListener] Error shutting down AbandonedConnectionCleanupThread: " + e.getMessage());
+            LOGGER.warn("[AppContextListener] Error shutting down AbandonedConnectionCleanupThread: " + e.getMessage());
         }
 
         // 4. Shutdown EmailService executor pool
-        System.out.println("[AppContextListener] Shutting down EmailService executor...");
+        LOGGER.info("[AppContextListener] Shutting down EmailService executor...");
         try {
             EmailService.shutdown();
         } catch (Exception e) {
-            System.err.println("[AppContextListener] Error shutting down EmailService: " + e.getMessage());
+            LOGGER.warn("[AppContextListener] Error shutting down EmailService: " + e.getMessage());
         }
 
         // 5. Shutdown PaymentReconciliation scheduler
-        System.out.println("[AppContextListener] Shutting down background PaymentReconciliation scheduler...");
+        LOGGER.info("[AppContextListener] Shutting down background PaymentReconciliation scheduler...");
         try {
             PaymentService.getInstance().stopReconciliationScheduler();
         } catch (Exception e) {
-            System.err.println("[AppContextListener] Error shutting down PaymentService scheduler: " + e.getMessage());
+            LOGGER.warn("[AppContextListener] Error shutting down PaymentService scheduler: " + e.getMessage());
         }
 
         // 6. Shutdown AnalyticsQueueManager batch telemetry thread
-        System.out.println("[AppContextListener] Shutting down AnalyticsQueueManager telemetry processor...");
+        LOGGER.info("[AppContextListener] Shutting down AnalyticsQueueManager telemetry processor...");
         try {
             AnalyticsQueueManager.getInstance().shutdown();
         } catch (Exception e) {
-            System.err.println("[AppContextListener] Error shutting down AnalyticsQueueManager: " + e.getMessage());
+            LOGGER.warn("[AppContextListener] Error shutting down AnalyticsQueueManager: " + e.getMessage());
         }
 
-        System.out.println("[AppContextListener] Web application shutdown completed.");
+        LOGGER.info("[AppContextListener] Web application shutdown completed.");
     }
 }

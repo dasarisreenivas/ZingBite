@@ -1,21 +1,32 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useContext, useEffect, useRef, useState, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ArrowRight, Flame, Search, ShieldCheck, Star, Truck, UtensilsCrossed, Zap,
   MapPin, Clock, Award, Users, Sparkles, Smartphone, AlertTriangle,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, BadgePercent, Heart, Check, Minus, Plus, ShoppingBag,
 } from 'lucide-react';
 import { trackEvent } from '../utils/analytics';
 import { getPromoBackground, getRestaurantPageSize } from '../utils/homeConfig';
+import {
+  formatDeliveryTime,
+  formatRating,
+  formatRestaurantPrice,
+  getDeliveryMinutes,
+  getHomeCustomerCoordinates,
+  getRestaurantDistanceLabel
+} from '../utils/restaurantMeta';
+import { AuthContext } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import ScrollReveal from '../components/ScrollReveal';
+import { CategoryCartOverlays, CategoryMenuSheet } from '../components/home/CategoryMenuSheet';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?q=80&w=2200&auto=format&fit=crop';
 const RESTAURANT_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop';
+const CATEGORY_DISH_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1200&auto=format&fit=crop';
 const RESTAURANT_PAGE_SIZE = 8;
 
 const CATEGORIES = [
-  { name: 'All', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=600&auto=format&fit=crop' },
   { name: 'Biryani', image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=600&auto=format&fit=crop' },
   { name: 'Burger', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=600&auto=format&fit=crop' },
   { name: 'Pizza', image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=600&auto=format&fit=crop' },
@@ -31,22 +42,6 @@ const CATEGORIES = [
   { name: 'Mexican', image: 'https://images.unsplash.com/photo-1613514785940-daed07799d9b?q=80&w=600&auto=format&fit=crop' },
   { name: 'Thai', image: 'https://images.unsplash.com/photo-1559314809-0d155014e29e?q=80&w=600&auto=format&fit=crop' }
 ];
-
-const getDeliveryMinutes = (value) => {
-  const match = String(value ?? '').match(/\d+/);
-  return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
-};
-
-const formatDeliveryTime = (value) => {
-  const text = String(value ?? '').trim();
-  if (!text) return '30-40 min';
-  return /\b(min|mins|minutes)\b/i.test(text) ? text : `${text} min`;
-};
-
-const formatRating = (value) => {
-  const rating = Number(value);
-  return Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : 'New';
-};
 
 // Particles background component
 function Particles() {
@@ -137,16 +132,19 @@ const DEFAULT_SDUI_CONFIG = {
   ]
 };
 
-let homeCache = {
-  restaurants: null,
-  suggestion: null,
-  resultCount: 0,
-  isSearch: false,
-  timestamp: 0,
-  key: ''
-};
-
 const Home = () => {
+  const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+  const {
+    cart,
+    addToCart,
+    updateQuantity,
+    conflictPopup,
+    clearAndAdd,
+    setConflictPopup,
+    cartError,
+    setCartError
+  } = useCart();
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -156,9 +154,9 @@ const Home = () => {
   const [sortBy, setSortBy] = useState('default');
   const [visibleRestaurantCount, setVisibleRestaurantCount] = useState(RESTAURANT_PAGE_SIZE);
   const [suggestion, setSuggestion] = useState(null);
-  const [resultCount, setResultCount] = useState(0);
   const [isSearch, setIsSearch] = useState(false);
   const [coords, setCoords] = useState(null);
+  const [homeCustomerCoords, setHomeCustomerCoords] = useState(null);
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [parallaxOffset, setParallaxOffset] = useState(0);
   const heroRef = useRef(null);
@@ -166,9 +164,23 @@ const Home = () => {
   const restaurantRailRef = useRef(null);
   const restaurantSectionRailRefs = useRef({});
   const lastLoggedSearchQueryRef = useRef('');
+  const homeCacheRef = useRef({
+    restaurants: null,
+    suggestion: null,
+    isSearch: false,
+    customerCoords: null,
+    timestamp: 0,
+    key: ''
+  });
   const [vibeIsPaused, setVibeIsPaused] = useState(false);
   const [vibeDirection, setVibeDirection] = useState('forward');
   const [sduiConfig, setSduiConfig] = useState(null);
+  const [comboQuantities, setComboQuantities] = useState({});
+  const [favoriteComboIds, setFavoriteComboIds] = useState(() => new Set());
+  const [categorySheet, setCategorySheet] = useState({ open: false, category: null });
+  const [categoryMenuItems, setCategoryMenuItems] = useState([]);
+  const [categoryMenuLoading, setCategoryMenuLoading] = useState(false);
+  const [categoryMenuError, setCategoryMenuError] = useState('');
 
   useEffect(() => {
     const fetchSdui = async () => {
@@ -213,16 +225,17 @@ const Home = () => {
     img.onload = () => setHeroLoaded(true);
   }, []);
 
-  const fetchRestaurants = async () => {
+  const fetchRestaurants = useCallback(async () => {
     const cacheKey = JSON.stringify({ q: debouncedSearchQuery.trim(), lat: coords?.lat, lng: coords?.lng });
+    const homeCache = homeCacheRef.current;
     const hasCache = homeCache.restaurants !== null && homeCache.key === cacheKey;
     const isStale = hasCache && (Date.now() - homeCache.timestamp > 15000);
 
     if (hasCache) {
       setRestaurants(homeCache.restaurants);
       setSuggestion(homeCache.suggestion);
-      setResultCount(homeCache.resultCount);
       setIsSearch(homeCache.isSearch);
+      setHomeCustomerCoords(homeCache.customerCoords);
       setLoading(false);
       setError('');
       if (!isStale) return;
@@ -239,29 +252,29 @@ const Home = () => {
       const url = queryString ? `/api/home?${queryString}` : '/api/home';
       const response = await axios.get(url);
 
-      let resData, sugData, countData, searchData;
+      let resData, sugData, searchData, customerCoordsData;
       if (response.data && typeof response.data === 'object' && !Array.isArray(response.data)) {
         resData = response.data.restaurants || [];
         sugData = response.data.suggestion || null;
-        countData = response.data.resultCount || 0;
         searchData = response.data.isSearch || false;
+        customerCoordsData = getHomeCustomerCoordinates(response.data, coords);
       } else {
         resData = Array.isArray(response.data) ? response.data : [];
         sugData = null;
-        countData = response.data ? response.data.length : 0;
         searchData = false;
+        customerCoordsData = getHomeCustomerCoordinates(null, coords);
       }
 
       setRestaurants(resData);
       setSuggestion(sugData);
-      setResultCount(countData);
       setIsSearch(searchData);
+      setHomeCustomerCoords(customerCoordsData);
 
-      homeCache = {
+      homeCacheRef.current = {
         restaurants: resData,
         suggestion: sugData,
-        resultCount: countData,
         isSearch: searchData,
+        customerCoords: customerCoordsData,
         timestamp: Date.now(),
         key: cacheKey
       };
@@ -272,9 +285,9 @@ const Home = () => {
     } finally {
       if (!hasCache) setLoading(false);
     }
-  };
+  }, [coords, debouncedSearchQuery]);
 
-  const retryRestaurants = () => fetchRestaurants();
+  const retryRestaurants = useCallback(() => fetchRestaurants(), [fetchRestaurants]);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -286,7 +299,7 @@ const Home = () => {
     }
   }, []);
 
-  useEffect(() => { fetchRestaurants(); }, [debouncedSearchQuery, coords]);
+  useEffect(() => { fetchRestaurants(); }, [fetchRestaurants]);
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearchQuery(searchQuery), 400);
@@ -301,6 +314,53 @@ const Home = () => {
     }
   }, [debouncedSearchQuery]);
 
+  useEffect(() => {
+    if (!categorySheet.open || !categorySheet.category) return undefined;
+
+    const controller = new AbortController();
+    setCategoryMenuLoading(true);
+    setCategoryMenuError('');
+    setCategoryMenuItems([]);
+
+    axios.get('/api/menu', {
+      params: { category: categorySheet.category },
+      signal: controller.signal
+    }).then((response) => {
+      const menuItems = response.data?.menuList || (Array.isArray(response.data) ? response.data : []);
+      setCategoryMenuItems(Array.isArray(menuItems) ? menuItems : []);
+    }).catch((err) => {
+      if (axios.isCancel(err) || err.name === 'CanceledError') return;
+      console.error(err);
+      setCategoryMenuError('We could not load dishes for this category right now.');
+    }).finally(() => {
+      if (!controller.signal.aborted) {
+        setCategoryMenuLoading(false);
+      }
+    });
+
+    return () => controller.abort();
+  }, [categorySheet.open, categorySheet.category]);
+
+  useEffect(() => {
+    if (!categorySheet.open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [categorySheet.open]);
+
+  useEffect(() => {
+    if (!categorySheet.open) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setCategorySheet(current => ({ ...current, open: false }));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [categorySheet.open]);
+
   const restaurantPageSize = useMemo(
     () => getRestaurantPageSize(sduiConfig || DEFAULT_SDUI_CONFIG, RESTAURANT_PAGE_SIZE),
     [sduiConfig]
@@ -310,18 +370,23 @@ const Home = () => {
     setVisibleRestaurantCount(restaurantPageSize);
   }, [debouncedSearchQuery, selectedCuisine, sortBy, coords, restaurantPageSize]);
 
-  const filteredAndSortedRestaurants = restaurants
-    .filter(r => {
-      const cuisine = r.cusineType ? r.cusineType.toLowerCase() : '';
-      const matchesCuisine = selectedCuisine === 'All' || cuisine.includes(selectedCuisine.toLowerCase());
-      return matchesCuisine;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'rating') return Number(b.rating || 0) - Number(a.rating || 0);
-      if (sortBy === 'time') return getDeliveryMinutes(a.deliveryTime) - getDeliveryMinutes(b.deliveryTime);
-      return 0;
-    });
-  const visibleRestaurants = filteredAndSortedRestaurants.slice(0, visibleRestaurantCount);
+  const filteredAndSortedRestaurants = useMemo(() => (
+    restaurants
+      .filter(r => {
+        const cuisine = r.cusineType ? r.cusineType.toLowerCase() : '';
+        const matchesCuisine = selectedCuisine === 'All' || cuisine.includes(selectedCuisine.toLowerCase());
+        return matchesCuisine;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'rating') return Number(b.rating || 0) - Number(a.rating || 0);
+        if (sortBy === 'time') return getDeliveryMinutes(a.deliveryTime) - getDeliveryMinutes(b.deliveryTime);
+        return 0;
+      })
+  ), [restaurants, selectedCuisine, sortBy]);
+  const visibleRestaurants = useMemo(
+    () => filteredAndSortedRestaurants.slice(0, visibleRestaurantCount),
+    [filteredAndSortedRestaurants, visibleRestaurantCount]
+  );
   const hasMoreRestaurants = visibleRestaurantCount < filteredAndSortedRestaurants.length;
   const remainingRestaurants = filteredAndSortedRestaurants.length - visibleRestaurantCount;
 
@@ -345,6 +410,56 @@ const Home = () => {
       left: direction === 'left' ? -distance : distance,
       behavior: 'smooth'
     });
+  };
+
+  const openCategoryMenu = (categoryName) => {
+    setCategorySheet({ open: true, category: categoryName });
+    trackEvent('CATEGORY_MENU_OPEN', { category: categoryName });
+  };
+
+  const closeCategoryMenu = () => {
+    setCategorySheet(current => ({ ...current, open: false }));
+  };
+
+  const getCategoryCartQuantity = (itemId) => {
+    if (!cart || !cart.items) return 0;
+    const itemsArray = Array.isArray(cart.items) ? cart.items : Object.values(cart.items);
+    const cartItem = itemsArray.find(item => Number(item.itemId) === Number(itemId));
+    return cartItem ? cartItem.quantity : 0;
+  };
+
+  const redirectToLoginFromCategory = () => {
+    closeCategoryMenu();
+    navigate('/login?redirect=/');
+  };
+
+  const showCategoryCartError = (message) => {
+    setCartError(message);
+    window.setTimeout(() => setCartError(null), 4000);
+  };
+
+  const handleCategoryAddClick = async (item) => {
+    if (!user) {
+      redirectToLoginFromCategory();
+      return;
+    }
+    if (item.restaurant && item.restaurant.isOpen === false) {
+      showCategoryCartError('Restaurant is currently closed');
+      return;
+    }
+    await addToCart(item.menuId, 1);
+  };
+
+  const handleCategoryUpdateQuantity = async (item, nextQuantity) => {
+    if (!user) {
+      redirectToLoginFromCategory();
+      return;
+    }
+    if (item.restaurant && item.restaurant.isOpen === false) {
+      showCategoryCartError('Restaurant is currently closed');
+      return;
+    }
+    await updateQuantity(item.menuId, nextQuantity);
   };
 
   const sortedSections = useMemo(() => {
@@ -545,8 +660,8 @@ const Home = () => {
               <button
                 key={c.name}
                 type="button"
-                className={`category-card ${selectedCuisine === c.name ? 'active' : ''}`}
-                onClick={() => setSelectedCuisine(c.name)}
+                className={`category-card ${categorySheet.open && categorySheet.category === c.name ? 'active' : ''}`}
+                onClick={() => openCategoryMenu(c.name)}
                 style={{
                   animation: `premiumFadeIn 0.4s var(--ease-premium) ${idx * 0.06}s both`,
                   padding: 0
@@ -781,55 +896,98 @@ const Home = () => {
 
   const renderTrendingCombos = (props) => {
     const maxCombos = props.maxCombos || 3;
-    const defaultCombos = [
-      {
-        id: 101,
-        name: 'Coding Fuel Bundle',
-        items: ['Spicy Noodles', 'Spring Rolls', 'Thums Up'],
-        price: 249,
-        searchQuery: 'noodles',
-        badge: 'Late-night pick',
-        match: '96% match',
-        rating: '4.8',
-        eta: '24 min',
-        accent: '#ff4f5a',
-        image: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?q=80&w=900&auto=format&fit=crop'
-      },
-      {
-        id: 102,
-        name: 'Fitness Booster Combo',
-        items: ['Grilled Chicken Salad', 'Protein Shake'],
-        price: 349,
-        searchQuery: 'salad',
-        badge: 'Clean energy',
-        match: '93% match',
-        rating: '4.7',
-        eta: '22 min',
-        accent: '#17a86b',
-        image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=900&auto=format&fit=crop'
-      },
-      {
-        id: 103,
-        name: 'Weekend Movie Feast',
-        items: ['Large Pepperoni Pizza', 'Garlic Bread', 'Coke'],
-        price: 499,
-        searchQuery: 'pizza',
-        badge: 'Shareable',
-        match: '98% match',
-        rating: '4.9',
-        eta: '28 min',
-        accent: '#f59e0b',
-        image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=900&auto=format&fit=crop'
-      }
-    ];
-    const comboSource = Array.isArray(props.combos) && props.combos.length > 0 ? props.combos : defaultCombos;
-    const combos = comboSource.slice(0, maxCombos).map((combo, index) => ({
-      ...defaultCombos[index % defaultCombos.length],
-      ...combo,
-      id: combo.id || defaultCombos[index % defaultCombos.length].id,
-      items: combo.items || defaultCombos[index % defaultCombos.length].items,
-      searchQuery: combo.searchQuery || defaultCombos[index % defaultCombos.length].searchQuery
-    }));
+    const readNumber = (value) => {
+      if (value === null || value === undefined || value === '') return null;
+      const direct = Number(value);
+      if (Number.isFinite(direct)) return direct;
+      const match = String(value).match(/\d+(\.\d+)?/);
+      return match ? Number(match[0]) : null;
+    };
+    const clampPercent = (value) => Math.max(0, Math.min(100, Math.round(value || 0)));
+    const normalizeComboItems = (items) => (Array.isArray(items) ? items : [])
+      .map((item, itemIndex) => {
+        if (typeof item === 'string') return { id: `item-${itemIndex}`, label: item };
+        const label = item?.label || item?.name || item?.title || '';
+        return label ? { id: item.id || `item-${itemIndex}`, label } : null;
+      })
+      .filter(Boolean);
+    const getEtaParts = (value) => {
+      const text = String(value || '').trim();
+      const valueMatch = text.match(/\d+\s*-\s*\d+|\d+/);
+      const unit = /\b(hour|hr)\b/i.test(text) ? 'hr' : 'min';
+      return {
+        value: valueMatch ? valueMatch[0].replace(/\s+/g, '') : text,
+        unit: text ? unit : ''
+      };
+    };
+    const comboSource = Array.isArray(props.combos) ? props.combos : [];
+    const combos = comboSource.slice(0, maxCombos).map((combo, index) => {
+      const merged = { ...combo };
+      const price = readNumber(merged.price);
+      const originalPrice = readNumber(merged.originalPrice ?? merged.mrp ?? merged.strikePrice ?? merged.compareAtPrice);
+      const computedDiscount = originalPrice && originalPrice > price
+        ? Math.round(((originalPrice - price) / originalPrice) * 100)
+        : null;
+      const discountPercent = readNumber(merged.discountPercent ?? merged.discount) || computedDiscount;
+      const claimedPercent = clampPercent(readNumber(merged.claimedPercent ?? merged.claimed ?? merged.match));
+      const remainingPacks = readNumber(merged.remainingPacks ?? merged.stockLeft ?? merged.leftCount ?? merged.remainingLabel);
+      const eta = getEtaParts(merged.eta ?? merged.deliveryTime);
+
+      return {
+        ...merged,
+        id: merged.id || `combo-${index}`,
+        price,
+        originalPrice,
+        discountLabel: merged.discountLabel || (discountPercent ? `Save ${Math.round(discountPercent)}%` : ''),
+        badge: merged.badge || '',
+        categoryLabel: merged.categoryLabel || merged.tag || '',
+        items: normalizeComboItems(merged.includedItems || merged.items),
+        searchQuery: merged.searchQuery || merged.name || '',
+        rating: merged.rating || '',
+        ratingLabel: merged.ratingLabel || '',
+        etaValue: eta.value,
+        etaUnit: eta.unit,
+        serves: readNumber(merged.serves ?? merged.servesCount ?? merged.serving),
+        includedTitle: merged.includedTitle || '',
+        remainingLabel: merged.remainingLabel || (
+          remainingPacks ? `Only ${Math.round(remainingPacks)} packs left today` : ''
+        ),
+        remainingShortLabel: merged.remainingShortLabel || (
+          remainingPacks ? `Only ${Math.round(remainingPacks)} left` : ''
+        ),
+        claimedPercent,
+        claimedLabel: merged.claimedLabel || (claimedPercent ? `${claimedPercent}% claimed` : ''),
+        claimedShortLabel: merged.claimedShortLabel || (claimedPercent ? `${claimedPercent}% claimed` : ''),
+        ctaText: merged.ctaText || props.ctaText || '',
+        accent: merged.accent || 'var(--brand-red)'
+      };
+    }).filter(combo => combo.name && combo.image && combo.price && combo.items.length > 0);
+    if (combos.length === 0) return null;
+    const getComboQuantity = (comboId) => comboQuantities[comboId] || 1;
+    const setComboQuantity = (comboId, nextQuantity) => {
+      setComboQuantities(current => ({
+        ...current,
+        [comboId]: Math.max(1, Math.min(9, nextQuantity))
+      }));
+    };
+    const toggleComboFavorite = (comboId) => {
+      setFavoriteComboIds(current => {
+        const next = new Set(current);
+        if (next.has(comboId)) {
+          next.delete(comboId);
+        } else {
+          next.add(comboId);
+        }
+        return next;
+      });
+    };
+    const exploreCombo = (combo) => {
+      const quantity = getComboQuantity(combo.id);
+      setSelectedCuisine('All');
+      setSearchQuery(combo.searchQuery);
+      document.getElementById('restaurants')?.scrollIntoView({ behavior: 'smooth' });
+      trackEvent('COMBO_SEARCH', { combo: combo.name, query: combo.searchQuery, quantity });
+    };
 
     return (
       <section className="ai-combos-section page-enter">
@@ -852,63 +1010,133 @@ const Home = () => {
           </span>
         </div>
         <div className="ai-combos-grid">
-          {combos.map((combo, idx) => (
-            <article
-              key={combo.id}
-              className="ai-combo-card"
-              style={{
-                '--combo-accent': combo.accent,
-                animationDelay: `${idx * 0.08}s`
-              }}
-            >
-              <div className="ai-combo-visual">
-                <img src={combo.image} alt="" loading="lazy" aria-hidden="true" />
-                <span className="ai-combo-badge">
-                  <Sparkles size={13} />
-                  {combo.badge}
-                </span>
-                <span className="ai-combo-match">{combo.match}</span>
-              </div>
-              <div className="ai-combo-body">
-                <div className="ai-combo-copy">
-                  <h4>
-                    {combo.name}
-                  </h4>
-                </div>
-                <div className="ai-combo-items">
-                  {combo.items.map((it, i) => (
-                    <span key={`${combo.id}-${i}`}>
-                      {it}
+          {combos.map((combo, idx) => {
+            const quantity = getComboQuantity(combo.id);
+            const isFavorite = favoriteComboIds.has(combo.id);
+            const comboBackgroundImage = `url("${String(combo.image).replace(/"/g, '\\"')}")`;
+
+            return (
+              <article
+                key={combo.id}
+                className="ai-combo-card"
+                style={{
+                  '--combo-accent': combo.accent,
+                  '--combo-claimed': `${combo.claimedPercent}%`,
+                  '--combo-image': comboBackgroundImage,
+                  animationDelay: `${idx * 0.08}s`
+                }}
+              >
+                <div className="ai-combo-visual">
+                  {combo.discountLabel && (
+                    <span className="ai-combo-discount">
+                      <BadgePercent size={13} />
+                      {combo.discountLabel}
                     </span>
-                  ))}
+                  )}
+                  <button
+                    type="button"
+                    className={`ai-combo-favorite ${isFavorite ? 'active' : ''}`}
+                    aria-label={`${isFavorite ? 'Remove' : 'Save'} ${combo.name}`}
+                    aria-pressed={isFavorite}
+                    onClick={() => toggleComboFavorite(combo.id)}
+                  >
+                    <Heart size={17} fill={isFavorite ? 'currentColor' : 'none'} />
+                  </button>
+                  {combo.badge && (
+                    <span className="ai-combo-badge">
+                      <Sparkles size={13} />
+                      {combo.badge}
+                    </span>
+                  )}
                 </div>
-                <div className="ai-combo-meta">
-                  <span><Star size={14} fill="currentColor" /> {combo.rating}</span>
-                  <span><Clock size={14} /> {combo.eta}</span>
-                  <span><UtensilsCrossed size={14} /> Combo</span>
-                </div>
-                <div className="ai-combo-footer">
-                  <div className="ai-combo-price">
-                    <span>Combo price</span>
-                    <strong>Rs.{combo.price}</strong>
+                <div className="ai-combo-body">
+                  <div className="ai-combo-heading-row">
+                    <div className="ai-combo-title-block">
+                      {combo.categoryLabel && <span>{combo.categoryLabel}</span>}
+                      <h4>{combo.name}</h4>
+                    </div>
+                    <div className="ai-combo-price">
+                      <strong>Rs. {combo.price}</strong>
+                      {combo.originalPrice && <span>Rs. {combo.originalPrice}</span>}
+                    </div>
                   </div>
-                <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>₹{combo.price}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedCuisine('All');
-                    setSearchQuery(combo.searchQuery);
-                    document.getElementById('restaurants')?.scrollIntoView({ behavior: 'smooth' });
-                    trackEvent('COMBO_SEARCH', { combo: combo.name, query: combo.searchQuery });
-                  }}
-                  className="ai-combo-action"
-                >
-                  Explore <ArrowRight size={15} />
-                </button>
-              </div>
-              </div>
-            </article>
-          ))}
+                  {(combo.rating || combo.etaValue || combo.serves) && (
+                    <div className="ai-combo-stat-grid">
+                      {combo.rating && (
+                        <span>
+                          <Star size={15} fill="none" />
+                          <strong>{combo.rating}</strong>
+                          {combo.ratingLabel && <small>{combo.ratingLabel}</small>}
+                        </span>
+                      )}
+                      {combo.etaValue && (
+                        <span>
+                          <Clock size={15} />
+                          <strong>{combo.etaValue}</strong>
+                          {combo.etaUnit && <small>{combo.etaUnit}</small>}
+                        </span>
+                      )}
+                      {combo.serves && (
+                        <span>
+                          <Users size={15} />
+                          <strong>Serves</strong>
+                          <small>{combo.serves}</small>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {combo.includedTitle && (
+                    <div className="ai-combo-pack-title">
+                      <Flame size={14} />
+                      {combo.includedTitle}
+                    </div>
+                  )}
+                  <ul className="ai-combo-pack-list">
+                    {combo.items.map(item => (
+                      <li key={`${combo.id}-${item.id}`}>
+                        <Check size={14} />
+                        <span>{item.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {(combo.remainingShortLabel || combo.claimedShortLabel) && (
+                    <div className="ai-combo-claim-row">
+                      {combo.remainingShortLabel && <span>{combo.remainingShortLabel}</span>}
+                      {combo.claimedShortLabel && <span>{combo.claimedShortLabel}</span>}
+                    </div>
+                  )}
+                  <div className="ai-combo-footer">
+                    <div className="ai-combo-stepper" aria-label={`${combo.name} quantity`}>
+                      <button
+                        type="button"
+                        aria-label={`Decrease ${combo.name} quantity`}
+                        onClick={() => setComboQuantity(combo.id, quantity - 1)}
+                      >
+                        <Minus size={15} />
+                      </button>
+                      <strong>{quantity}</strong>
+                      <button
+                        type="button"
+                        aria-label={`Increase ${combo.name} quantity`}
+                        onClick={() => setComboQuantity(combo.id, quantity + 1)}
+                      >
+                        <Plus size={15} />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => exploreCombo(combo)}
+                      className="ai-combo-action"
+                    >
+                      <ShoppingBag size={16} />
+                      <span>{combo.ctaText}</span>
+                      <ArrowRight size={15} />
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </section>
     );
@@ -953,7 +1181,7 @@ const Home = () => {
                       {badge.label}
                     </div>
                   )}
-                  <RestaurantCard restaurant={restaurant} index={idx} />
+                  <RestaurantCard restaurant={restaurant} index={idx} customerCoords={homeCustomerCoords} />
                 </div>
               ))
             ) : (
@@ -1099,7 +1327,7 @@ const Home = () => {
             ) : filteredAndSortedRestaurants.length > 0 ? (
               <>
                 {visibleRestaurants.map((r, idx) => (
-                  <RestaurantCard key={r.restaurantId} restaurant={r} index={idx} />
+                  <RestaurantCard key={r.restaurantId} restaurant={r} index={idx} customerCoords={homeCustomerCoords} />
                 ))}
                 {hasMoreRestaurants && (
                   <Link
@@ -2062,16 +2290,16 @@ const Home = () => {
 
         /* ===== AI COMBOS ===== */
         .ai-combos-section {
-          max-width: 1400px;
+          max-width: 1320px;
           width: 92%;
-          margin: 40px auto 0;
+          margin: 38px auto 0;
         }
         .ai-combos-header {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
           gap: 18px;
-          margin-bottom: 18px;
+          margin-bottom: 14px;
         }
         .ai-combos-eyebrow {
           display: inline-flex;
@@ -2097,14 +2325,14 @@ const Home = () => {
           color: var(--text-secondary);
           font-size: 0.92rem;
           line-height: 1.5;
-          max-width: 560px;
+          max-width: 520px;
         }
         .ai-combos-live {
           display: inline-flex;
           align-items: center;
           gap: 7px;
-          min-height: 36px;
-          padding: 0 13px;
+          min-height: 34px;
+          padding: 0 12px;
           border-radius: 999px;
           color: #15875a;
           background: rgba(23,168,107,0.1);
@@ -2115,219 +2343,410 @@ const Home = () => {
         }
         .ai-combos-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 20px;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          gap: 22px;
+          align-items: stretch;
         }
         .ai-combo-card {
           --combo-accent: var(--brand-red);
           position: relative;
           overflow: hidden;
-          min-height: 414px;
-          border-radius: 18px;
-          background: var(--surface-card);
-          border: 1px solid rgba(247,55,79,0.1);
-          box-shadow: 0 16px 42px rgba(28,28,28,0.08);
+          min-height: 456px;
+          padding: 14px;
+          border-radius: 8px;
+          background:
+            linear-gradient(180deg, rgba(9,7,6,0.22) 0%, rgba(13,9,7,0.58) 34%, rgba(18,11,9,0.9) 70%, rgba(14,9,8,0.98) 100%),
+            radial-gradient(circle at 50% 18%, rgba(255,209,102,0.14), transparent 36%),
+            var(--combo-image);
+          background-size: cover, cover, cover;
+          background-position: center, center, center;
+          border: 1px solid rgba(255,198,134,0.22);
+          box-shadow:
+            0 28px 70px rgba(28,16,10,0.22),
+            inset 0 1px 0 rgba(255,255,255,0.05);
           display: flex;
           flex-direction: column;
+          isolation: isolate;
           animation: premiumFadeIn 0.5s var(--ease-premium) both;
           transition: transform 0.28s var(--ease-premium), box-shadow 0.28s var(--ease-premium), border-color 0.28s var(--ease-premium);
         }
         .ai-combo-card::before {
           content: '';
           position: absolute;
-          inset: 0 0 auto;
-          height: 4px;
-          background: var(--combo-accent);
-          z-index: 3;
+          inset: 0;
+          background:
+            linear-gradient(90deg, rgba(0,0,0,0.48) 0%, transparent 32%, transparent 68%, rgba(0,0,0,0.44) 100%),
+            linear-gradient(180deg, rgba(0,0,0,0.12), transparent 28%, rgba(0,0,0,0.32) 100%);
+          pointer-events: none;
+          z-index: 1;
         }
-        .ai-combo-card:hover {
-          transform: translateY(-7px);
-          border-color: color-mix(in srgb, var(--combo-accent) 42%, transparent);
-          box-shadow: 0 24px 54px rgba(28,28,28,0.12);
-        }
-        [data-theme="dark"] .ai-combo-card {
-          background: rgba(30,30,35,0.96);
-          border-color: rgba(255,255,255,0.08);
-          box-shadow: 0 22px 58px rgba(0,0,0,0.28);
-        }
-        .ai-combo-visual {
-          height: 172px;
-          position: relative;
-          overflow: hidden;
-          background: var(--bg-light);
-        }
-        .ai-combo-visual::after {
+        .ai-combo-card::after {
           content: '';
           position: absolute;
           inset: 0;
-          background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.54));
-          z-index: 1;
+          z-index: 4;
+          pointer-events: none;
+          background: linear-gradient(112deg, transparent 0%, rgba(255,236,196,0.12) 42%, rgba(255,255,255,0.2) 50%, rgba(255,236,196,0.08) 58%, transparent 72%);
+          transform: translateX(-130%);
+          animation: aiComboShimmer 4.8s ease-in-out infinite;
+          mix-blend-mode: screen;
         }
-        .ai-combo-visual img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-          filter: saturate(1.08) contrast(1.04);
-          transform: scale(1.02);
-          transition: transform 0.5s var(--ease-premium), filter 0.5s var(--ease-premium);
+        .ai-combo-card:hover {
+          transform: translateY(-6px);
+          border-color: rgba(255,202,139,0.42);
+          box-shadow:
+            0 34px 82px rgba(28,16,10,0.3),
+            0 0 34px color-mix(in srgb, var(--combo-accent) 12%, transparent);
         }
-        .ai-combo-card:hover .ai-combo-visual img {
-          transform: scale(1.09);
-          filter: saturate(1.18) contrast(1.06);
+        [data-theme="dark"] .ai-combo-card {
+          border-color: rgba(255,198,134,0.26);
+          box-shadow:
+            0 34px 88px rgba(0,0,0,0.36),
+            inset 0 1px 0 rgba(255,255,255,0.05);
         }
-        .ai-combo-badge,
-        .ai-combo-match {
-          position: absolute;
+        .ai-combo-visual {
+          position: relative;
+          z-index: 2;
+          min-height: 38px;
+          flex: 0 0 auto;
+          display: flex;
+          align-items: flex-start;
+          flex-wrap: wrap;
+          gap: 8px;
+          padding-right: 50px;
+          margin-bottom: 14px;
+          overflow: visible;
+          background: transparent;
+        }
+        .ai-combo-discount,
+        .ai-combo-badge {
+          position: static;
           z-index: 2;
           display: inline-flex;
           align-items: center;
-          min-height: 32px;
+          min-height: 34px;
           border-radius: 999px;
-          font-size: 0.78rem;
+          font-size: 0.74rem;
           font-weight: 900;
           backdrop-filter: blur(14px);
           box-shadow: 0 10px 26px rgba(0,0,0,0.18);
         }
-        .ai-combo-badge {
-          left: 14px;
-          top: 14px;
-          gap: 6px;
-          padding: 0 11px;
-          color: #fff;
-          background: rgba(0,0,0,0.42);
-          border: 1px solid rgba(255,255,255,0.2);
+        .ai-combo-discount {
+          left: 0;
+          top: 0;
+          gap: 7px;
+          padding: 0 13px;
+          color: #fff7e8;
+          background: rgba(13,10,9,0.7);
+          border: 1px solid rgba(255,255,255,0.18);
         }
-        .ai-combo-match {
-          right: 14px;
-          bottom: 14px;
-          padding: 0 12px;
-          color: #fff;
-          background: color-mix(in srgb, var(--combo-accent) 84%, rgba(0,0,0,0.22));
+        .ai-combo-favorite {
+          position: absolute;
+          top: 0;
+          right: 0;
+          z-index: 2;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
           border: 1px solid rgba(255,255,255,0.22);
+          background: rgba(255,255,255,0.12);
+          color: #fff7e8;
+          backdrop-filter: blur(12px);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.22s var(--ease-premium), background 0.22s var(--ease-premium), color 0.22s var(--ease-premium);
+        }
+        .ai-combo-favorite:hover,
+        .ai-combo-favorite:focus-visible,
+        .ai-combo-favorite.active {
+          transform: translateY(-1px);
+          color: #ffd37e;
+          background: rgba(255,255,255,0.18);
+          outline: none;
+        }
+        .ai-combo-badge {
+          left: 0;
+          bottom: 0;
+          gap: 7px;
+          max-width: calc(100% - 54px);
+          padding: 0 13px;
+          color: #fff7e8;
+          background: rgba(13,10,9,0.68);
+          border: 1px solid rgba(255,255,255,0.18);
         }
         .ai-combo-body {
-          flex: 1;
+          position: relative;
+          z-index: 2;
+          flex: 0 0 auto;
           display: flex;
           flex-direction: column;
-          gap: 14px;
-          padding: 18px;
-        }
-        .ai-combo-copy h4 {
-          font-family: 'Outfit', sans-serif;
-          font-size: 1.16rem;
-          font-weight: 900;
-          line-height: 1.15;
-          color: var(--text-primary);
-          margin: 0;
-          overflow-wrap: anywhere;
-        }
-        .ai-combo-items {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 7px;
-        }
-        .ai-combo-items span {
-          min-height: 28px;
-          display: inline-flex;
-          align-items: center;
-          padding: 0 10px;
-          border-radius: 999px;
-          background: color-mix(in srgb, var(--combo-accent) 10%, var(--bg-light));
-          color: var(--text-secondary);
-          border: 1px solid rgba(0,0,0,0.04);
-          font-size: 0.76rem;
-          font-weight: 800;
-        }
-        [data-theme="dark"] .ai-combo-items span {
-          background: rgba(255,255,255,0.06);
-          border-color: rgba(255,255,255,0.08);
-        }
-        .ai-combo-meta {
-          display: flex;
-          flex-wrap: wrap;
           gap: 8px;
           margin-top: auto;
+          padding: 12px;
+          border-radius: 8px;
+          border: 1px solid rgba(255,226,185,0.14);
+          background:
+            linear-gradient(180deg, rgba(22,15,12,0.72), rgba(15,10,9,0.86));
+          backdrop-filter: blur(8px);
+          color: #fff9ed;
+          text-shadow: 0 1px 16px rgba(0,0,0,0.32);
         }
-        .ai-combo-meta span {
-          min-height: 32px;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 0 10px;
-          border-radius: 999px;
-          color: var(--text-primary);
-          background: rgba(255,255,255,0.72);
-          border: 1px solid var(--border-light);
-          font-size: 0.78rem;
+        .ai-combo-heading-row {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .ai-combo-title-block {
+          min-width: 0;
+        }
+        .ai-combo-title-block > span {
+          display: block;
+          margin-bottom: 3px;
+          color: #ffd166;
+          font-size: 0.7rem;
+          font-weight: 950;
+          text-transform: uppercase;
+          letter-spacing: 0;
+        }
+        .ai-combo-title-block h4 {
+          margin: 0;
+          color: #fffaf3;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: clamp(1.12rem, 1.8vw, 1.38rem);
           font-weight: 900;
+          line-height: 1.06;
+          overflow-wrap: anywhere;
+        }
+        .ai-combo-price {
+          flex: 0 0 auto;
+          min-width: 84px;
+          text-align: right;
+        }
+        .ai-combo-price strong {
+          display: block;
+          color: #ffd77c;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: clamp(1rem, 1.5vw, 1.18rem);
+          font-weight: 900;
+          line-height: 1;
           white-space: nowrap;
         }
-        [data-theme="dark"] .ai-combo-meta span {
-          background: rgba(255,255,255,0.06);
-          border-color: rgba(255,255,255,0.08);
+        .ai-combo-price span {
+          display: block;
+          margin-top: 4px;
+          color: rgba(255,250,243,0.44);
+          font-size: 0.72rem;
+          font-weight: 900;
+          text-decoration: line-through;
+          white-space: nowrap;
         }
-        .ai-combo-meta svg {
+        .ai-combo-stat-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 6px;
+        }
+        .ai-combo-stat-grid span {
+          min-height: 42px;
+          padding: 5px 7px;
+          border-radius: 6px;
+          border: 1px solid rgba(255,226,185,0.16);
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 3px;
+          text-align: center;
+        }
+        .ai-combo-stat-grid svg {
+          color: #ffc145;
+        }
+        .ai-combo-stat-grid strong {
+          color: #fffaf3;
+          font-size: 0.78rem;
+          font-weight: 950;
+          line-height: 1.05;
+        }
+        .ai-combo-stat-grid small {
+          color: rgba(255,250,243,0.68);
+          font-size: 0.64rem;
+          font-weight: 800;
+          line-height: 1.1;
+        }
+        .ai-combo-pack-title {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: #fffaf3;
+          font-size: 0.76rem;
+          font-weight: 900;
+        }
+        .ai-combo-pack-title svg {
           color: var(--combo-accent);
+        }
+        .ai-combo-pack-list {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 4px 10px;
+          margin: -2px 0 0;
+          padding: 0;
+          list-style: none;
+        }
+        .ai-combo-pack-list li {
+          display: flex;
+          align-items: flex-start;
+          gap: 7px;
+          min-width: 0;
+          color: rgba(255,250,243,0.84);
+          font-size: 0.72rem;
+          font-weight: 850;
+          line-height: 1.22;
+        }
+        .ai-combo-pack-list svg {
+          flex: 0 0 auto;
+          margin-top: 1px;
+          color: #8fd16c;
+        }
+        .ai-combo-pack-list span {
+          min-width: 0;
+          overflow-wrap: anywhere;
+        }
+        .ai-combo-claim-row {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
+          color: rgba(255,250,243,0.78);
+          font-size: 0.68rem;
+          font-weight: 900;
+          margin-top: -1px;
+        }
+        .ai-combo-claim-row span {
+          display: inline-flex;
+          align-items: center;
+          min-height: 23px;
+          padding: 0 7px;
+          border-radius: 999px;
+          background: rgba(0,0,0,0.22);
+          border: 1px solid rgba(255,226,185,0.16);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .ai-combo-claim-row span:first-child {
+          color: #ffd77c;
         }
         .ai-combo-footer {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 12px;
-          padding-top: 14px;
-          border-top: 1px solid var(--border-light);
+          gap: 9px;
+          padding-top: 2px;
+          margin-top: 0;
         }
-        .ai-combo-footer > span {
-          display: none !important;
+        .ai-combo-stepper {
+          flex: 0 0 auto;
+          height: 40px;
+          min-width: 100px;
+          padding: 0 5px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,226,185,0.16);
+          background: rgba(255,255,255,0.06);
+          display: inline-flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 7px;
         }
-        .ai-combo-price {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .ai-combo-price span {
-          color: var(--text-muted);
-          font-size: 0.73rem;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0;
-        }
-        .ai-combo-price strong {
-          color: var(--text-primary);
-          font-size: 1.22rem;
-          font-weight: 900;
-          line-height: 1.1;
-        }
-        .ai-combo-action {
-          min-height: 38px;
+        .ai-combo-stepper button {
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          border: 1px solid rgba(255,255,255,0.2);
+          background: rgba(255,255,255,0.08);
+          color: #fffaf3;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 7px;
-          padding: 0 15px;
+          cursor: pointer;
+          transition: transform 0.2s var(--ease-premium), background 0.2s var(--ease-premium);
+        }
+        .ai-combo-stepper button:hover,
+        .ai-combo-stepper button:focus-visible {
+          transform: translateY(-1px);
+          background: rgba(255,255,255,0.14);
+          outline: none;
+        }
+        .ai-combo-stepper strong {
+          color: #fffaf3;
+          font-size: 1rem;
+          font-weight: 950;
+          min-width: 18px;
+          text-align: center;
+        }
+        .ai-combo-action {
+          flex: 1 1 auto;
+          min-height: 40px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 9px;
+          padding: 0 17px;
+          position: relative;
+          overflow: hidden;
+          isolation: isolate;
           border: none;
           border-radius: 999px;
-          color: #fff;
-          background: var(--combo-accent);
-          box-shadow: 0 12px 24px color-mix(in srgb, var(--combo-accent) 28%, transparent);
-          font-size: 0.82rem;
-          font-weight: 900;
+          color: #1b1104;
+          background:
+            radial-gradient(circle at 18% 18%, rgba(255,238,174,0.36), transparent 22%),
+            linear-gradient(135deg, #e6b84e 0%, #c4871a 36%, #8d5a0b 64%, #d59a24 100%);
+          box-shadow:
+            0 14px 28px rgba(105,65,8,0.34),
+            inset 0 1px 0 rgba(255,235,178,0.45),
+            inset 0 -1px 0 rgba(129,79,12,0.2);
+          font-size: 0.86rem;
+          font-weight: 950;
           cursor: pointer;
           white-space: nowrap;
           transition: transform 0.22s var(--ease-premium), box-shadow 0.22s var(--ease-premium);
         }
+        .ai-combo-action::before {
+          content: '';
+          position: absolute;
+          inset: -55% -34%;
+          z-index: 0;
+          pointer-events: none;
+          opacity: 0;
+          background:
+            radial-gradient(circle, rgba(255,232,156,0.42) 0 1px, transparent 2px),
+            radial-gradient(circle, rgba(196,135,26,0.36) 0 1px, transparent 2px),
+            linear-gradient(112deg, transparent 0%, rgba(255,226,145,0.36) 44%, rgba(255,255,255,0.08) 52%, transparent 62%);
+          background-size: 22px 22px, 34px 34px, 100% 100%;
+          transform: translateX(-120%) rotate(8deg);
+          animation: aiGoldGlitter 3.8s ease-in-out infinite;
+          mix-blend-mode: overlay;
+        }
+        .ai-combo-action span,
+        .ai-combo-action svg {
+          position: relative;
+          z-index: 1;
+        }
         .ai-combo-action:hover,
         .ai-combo-action:focus-visible {
           transform: translateY(-2px);
-          box-shadow: 0 16px 30px color-mix(in srgb, var(--combo-accent) 36%, transparent);
+          box-shadow:
+            0 18px 34px rgba(112,70,10,0.42),
+            0 0 16px rgba(185,126,24,0.22),
+            inset 0 1px 0 rgba(255,238,180,0.5);
           outline: none;
         }
-        .ai-combo-action svg {
+        .ai-combo-action svg:last-child {
           transition: transform 0.22s var(--ease-premium);
         }
-        .ai-combo-action:hover svg,
-        .ai-combo-action:focus-visible svg {
+        .ai-combo-action:hover svg:last-child,
+        .ai-combo-action:focus-visible svg:last-child {
           transform: translateX(3px);
         }
         @media (max-width: 768px) {
@@ -2335,7 +2754,7 @@ const Home = () => {
           .ai-combos-header { width: 92%; margin: 0 auto 16px; flex-direction: column; align-items: flex-start; }
           .ai-combos-grid {
             display: flex;
-            gap: 16px;
+            gap: 14px;
             overflow-x: auto;
             padding: 2px 4% 18px;
             scroll-snap-type: x proximity;
@@ -2343,13 +2762,25 @@ const Home = () => {
           }
           .ai-combos-grid::-webkit-scrollbar { display: none; }
           .ai-combo-card {
-            flex: 0 0 min(84vw, 340px);
-            min-height: 404px;
+            flex: 0 0 min(88vw, 430px);
+            min-height: 456px;
+            padding: 14px;
             scroll-snap-align: start;
           }
-          .ai-combo-visual { height: 164px; }
-          .ai-combo-footer { align-items: flex-start; flex-direction: column; }
+          .ai-combo-visual { min-height: 38px; }
           .ai-combo-action { width: 100%; }
+        }
+        @media (max-width: 420px) {
+          .ai-combo-card {
+            flex-basis: 90vw;
+            min-height: 0;
+          }
+          .ai-combo-visual { min-height: 38px; }
+          .ai-combo-body { padding: 11px; }
+          .ai-combo-heading-row { flex-direction: column; gap: 8px; }
+          .ai-combo-price { text-align: left; }
+          .ai-combo-footer { flex-direction: column; align-items: stretch; }
+          .ai-combo-stepper { width: 100%; }
         }
 
         /* ===== VIBE CAROUSEL ===== */
@@ -2760,10 +3191,30 @@ const Home = () => {
           from { transform: translate3d(0, 0, 0); }
           to { transform: translate3d(calc(-50% - 8px), 0, 0); }
         }
+        @keyframes aiComboShimmer {
+          0%, 58% { transform: translateX(-130%); opacity: 0; }
+          66% { opacity: 0.9; }
+          88%, 100% { transform: translateX(130%); opacity: 0; }
+        }
+        @keyframes aiGoldGlitter {
+          0%, 46% { transform: translateX(-120%) rotate(8deg); opacity: 0; }
+          56% { opacity: 0.46; }
+          78%, 100% { transform: translateX(120%) rotate(8deg); opacity: 0; }
+        }
         @media (prefers-reduced-motion: reduce) {
+          .ai-combo-action::before,
+          .ai-combo-card::after,
+          .category-sheet-backdrop,
+          .category-menu-sheet,
+          .category-menu-item,
           .vibe-carousel,
           .vibe-live-dot {
             animation: none;
+          }
+          .category-menu-sheet,
+          .category-menu-item {
+            transform: none;
+            opacity: 1;
           }
           .vibe-card,
           .vibe-plate-stage,
@@ -2991,6 +3442,469 @@ const Home = () => {
         .category-card.active .category-card-overlay {
           background: linear-gradient(180deg, rgba(247,55,79,0.15) 0%, rgba(247,55,79,0.75) 100%);
         }
+        .category-sheet-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 2600;
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          padding: 24px 18px 0;
+          background: rgba(17,17,18,0.22);
+          animation: categorySheetBackdropIn 0.24s ease both;
+        }
+        .category-menu-sheet {
+          width: min(1120px, 100%);
+          max-height: min(82vh, 760px);
+          background: var(--bg-card);
+          border: 1px solid rgba(247,55,79,0.12);
+          border-radius: 24px 24px 0 0;
+          box-shadow: 0 -24px 70px rgba(28,28,28,0.24);
+          overflow: hidden;
+          transform-origin: bottom center;
+          animation: categorySheetSlideUp 0.34s var(--ease-premium) both;
+        }
+        [data-theme="dark"] .category-menu-sheet {
+          background: var(--bg-card);
+          border-color: var(--card-border);
+          box-shadow: 0 -28px 78px rgba(0,0,0,0.42);
+        }
+        .category-sheet-handle {
+          width: 48px;
+          height: 5px;
+          margin: 12px auto 8px;
+          border-radius: 999px;
+          background: rgba(117,117,117,0.28);
+        }
+        .category-sheet-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 18px;
+          padding: 4px 28px 18px;
+          border-bottom: 1px solid var(--border-light);
+        }
+        .category-sheet-kicker {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          min-height: 28px;
+          padding: 0 11px;
+          border-radius: 999px;
+          color: var(--brand-red);
+          background: rgba(247,55,79,0.08);
+          font-size: 0.72rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0;
+        }
+        .category-sheet-header h3 {
+          margin: 9px 0 4px;
+          color: var(--text-primary);
+          font-family: 'Outfit', sans-serif;
+          font-size: clamp(1.5rem, 3vw, 2.2rem);
+          font-weight: 900;
+          line-height: 1.05;
+        }
+        .category-sheet-header p {
+          margin: 0;
+          color: var(--text-secondary);
+          font-size: 0.9rem;
+          font-weight: 600;
+        }
+        .category-sheet-close {
+          width: 42px;
+          height: 42px;
+          border-radius: 50%;
+          border: 1px solid var(--border-light);
+          background: var(--bg-surface);
+          color: var(--text-primary);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.22s var(--ease-premium), background 0.22s var(--ease-premium), color 0.22s var(--ease-premium);
+        }
+        .category-sheet-close:hover,
+        .category-sheet-close:focus-visible {
+          transform: translateY(-1px);
+          color: var(--brand-red);
+          background: rgba(247,55,79,0.08);
+          outline: none;
+        }
+        .category-menu-content {
+          max-height: calc(min(82vh, 760px) - 126px);
+          overflow-y: auto;
+          padding: 22px 28px 30px;
+        }
+        .category-menu-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+          gap: 18px;
+        }
+        .category-menu-item {
+          min-height: 196px;
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 20px;
+          border-radius: 8px;
+          background: var(--bg-card);
+          border: 1px solid var(--card-border);
+          box-shadow: var(--shadow-md);
+          opacity: 0;
+          transform: translateY(16px);
+          position: relative;
+          overflow: visible;
+          animation: categoryItemIn 0.34s var(--ease-premium) both;
+        }
+        [data-theme="dark"] .category-menu-item {
+          background: var(--surface-card);
+          border-color: var(--card-border);
+          box-shadow: 0 14px 34px rgba(0,0,0,0.28);
+        }
+        .category-menu-item-copy {
+          flex: 1 1 auto;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+        }
+        .category-menu-item-tags {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+        .category-menu-item-tags span {
+          min-height: 28px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 0 10px;
+          border-radius: 6px;
+          font-size: 0.76rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0;
+        }
+        .category-menu-item-tags .dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          padding: 0;
+          min-height: 0;
+          border: none;
+          background: currentColor;
+        }
+        .category-menu-item-tags .veg {
+          color: #66d66d;
+          background: rgba(96,178,70,0.14);
+          border: 1px solid rgba(96,178,70,0.28);
+        }
+        .category-menu-item-tags .nonveg {
+          color: #ff6975;
+          background: rgba(226,55,68,0.13);
+          border: 1px solid rgba(226,55,68,0.28);
+        }
+        .category-menu-item h4 {
+          margin: 0 0 10px;
+          color: var(--text-primary);
+          font-family: 'Outfit', sans-serif;
+          font-size: 1.35rem;
+          font-weight: 900;
+          line-height: 1.18;
+          overflow-wrap: anywhere;
+        }
+        .category-menu-price {
+          display: flex;
+          align-items: baseline;
+          gap: 1px;
+          margin-bottom: 14px;
+          color: var(--brand-red);
+          font-size: 1.55rem;
+          font-weight: 900;
+          line-height: 1;
+        }
+        .category-menu-price span {
+          font-size: 1.12rem;
+          font-weight: 900;
+        }
+        .category-menu-item p {
+          margin: 0;
+          color: var(--text-secondary);
+          font-size: 1rem;
+          line-height: 1.45;
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+        }
+        .category-menu-source {
+          margin-top: auto;
+          padding-top: 14px;
+          color: var(--text-primary);
+          font-size: 0.92rem;
+          font-weight: 900;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .category-menu-item-media {
+          position: relative;
+          flex: 0 0 130px;
+          width: 130px;
+          height: 130px;
+          align-self: flex-start;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .category-menu-img-container {
+          width: 100%;
+          height: 100%;
+          border-radius: 16px;
+          overflow: hidden;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-light);
+          box-shadow: var(--shadow-sm);
+        }
+        .category-menu-img-container img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          object-fit: cover;
+          transition: transform 0.5s var(--ease-premium);
+        }
+        .category-menu-item:hover .category-menu-img-container img {
+          transform: scale(1.08);
+        }
+        .category-dish-action {
+          position: absolute;
+          bottom: -16px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 2;
+        }
+        .category-add-btn {
+          min-width: 90px;
+          min-height: 42px;
+          padding: 0 22px;
+          border-radius: 12px;
+          border: 1.5px solid var(--success);
+          background: var(--bg-card);
+          color: var(--success);
+          font-size: 0.9rem;
+          font-weight: 900;
+          cursor: pointer;
+          box-shadow: 0 8px 18px rgba(96,178,70,0.18);
+          transition: transform 0.22s var(--ease-premium), background 0.22s var(--ease-premium), color 0.22s var(--ease-premium), box-shadow 0.22s var(--ease-premium);
+        }
+        .category-add-btn:hover:not(:disabled),
+        .category-add-btn:focus-visible:not(:disabled) {
+          transform: scale(1.04);
+          background: var(--success);
+          color: #fff;
+          box-shadow: 0 10px 24px rgba(96,178,70,0.28);
+          outline: none;
+        }
+        .category-add-btn:disabled {
+          border-color: var(--border-medium);
+          color: var(--text-muted);
+          background: var(--bg-surface);
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+        .category-qty-stepper {
+          width: 96px;
+          height: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          overflow: hidden;
+          border-radius: 12px;
+          border: 1.5px solid var(--success);
+          background: var(--bg-card);
+          box-shadow: 0 8px 18px rgba(96,178,70,0.16);
+        }
+        .category-qty-stepper button {
+          width: 30px;
+          height: 100%;
+          border: none;
+          background: transparent;
+          color: var(--success);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+        }
+        .category-qty-stepper button:hover:not(:disabled),
+        .category-qty-stepper button:focus-visible:not(:disabled) {
+          background: rgba(96,178,70,0.08);
+          outline: none;
+        }
+        .category-qty-stepper button:disabled {
+          color: var(--text-muted);
+          cursor: not-allowed;
+        }
+        .category-qty-stepper span {
+          color: var(--text-primary);
+          font-size: 0.95rem;
+          font-weight: 900;
+        }
+        .category-menu-loading,
+        .category-menu-empty {
+          min-height: 260px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 9px;
+          color: var(--text-secondary);
+          text-align: center;
+          border: 1.5px dashed var(--border-medium);
+          border-radius: 18px;
+          background: var(--bg-surface);
+        }
+        .category-menu-loading svg {
+          color: var(--brand-red);
+          animation: spin 0.9s linear infinite;
+        }
+        .category-menu-empty svg {
+          color: var(--brand-red);
+        }
+        .category-menu-empty strong {
+          color: var(--text-primary);
+          font-size: 1rem;
+          font-weight: 900;
+        }
+        .category-menu-empty span,
+        .category-menu-loading span {
+          max-width: 320px;
+          font-size: 0.9rem;
+          font-weight: 600;
+        }
+        .category-cart-toast {
+          position: fixed;
+          left: 50%;
+          bottom: 22px;
+          z-index: 3100;
+          transform: translateX(-50%);
+          min-height: 48px;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          max-width: min(92vw, 460px);
+          padding: 0 18px;
+          border-radius: 999px;
+          color: #fff;
+          background: rgba(16,16,18,0.96);
+          border: 1px solid rgba(247,55,79,0.28);
+          box-shadow: 0 16px 34px rgba(0,0,0,0.28);
+          font-weight: 800;
+        }
+        .category-cart-toast svg {
+          color: var(--brand-red);
+          flex: 0 0 auto;
+        }
+        .category-conflict-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 3200;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(0,0,0,0.48);
+          backdrop-filter: blur(8px);
+        }
+        .category-conflict-modal {
+          width: min(92vw, 420px);
+          border-radius: 20px;
+          padding: 30px;
+          text-align: center;
+          background: var(--bg-card);
+          border: 1px solid var(--border-light);
+          box-shadow: 0 24px 60px rgba(0,0,0,0.28);
+        }
+        .category-conflict-icon {
+          width: 58px;
+          height: 58px;
+          margin: 0 auto 16px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          color: var(--brand-red);
+          background: rgba(247,55,79,0.08);
+        }
+        .category-conflict-modal h3 {
+          margin: 0 0 8px;
+          color: var(--text-primary);
+          font-family: 'Outfit', sans-serif;
+          font-size: 1.25rem;
+          font-weight: 900;
+        }
+        .category-conflict-modal p {
+          margin: 0;
+          color: var(--text-secondary);
+          font-size: 0.92rem;
+          line-height: 1.55;
+        }
+        .category-conflict-actions {
+          display: flex;
+          gap: 12px;
+          margin-top: 22px;
+        }
+        .category-conflict-actions button {
+          flex: 1;
+          min-height: 44px;
+          border-radius: 12px;
+          font-family: inherit;
+          font-size: 0.9rem;
+          font-weight: 900;
+          cursor: pointer;
+          transition: transform 0.22s var(--ease-premium), box-shadow 0.22s var(--ease-premium), border-color 0.22s var(--ease-premium);
+        }
+        .category-conflict-secondary {
+          color: var(--text-primary);
+          background: transparent;
+          border: 1.5px solid var(--border-medium);
+        }
+        .category-conflict-primary {
+          color: #fff;
+          background: var(--brand-red);
+          border: 1.5px solid var(--brand-red);
+          box-shadow: 0 10px 22px rgba(247,55,79,0.22);
+        }
+        .category-conflict-actions button:hover,
+        .category-conflict-actions button:focus-visible {
+          transform: translateY(-1px);
+          outline: none;
+        }
+        @keyframes categorySheetBackdropIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes categorySheetSlideUp {
+          from { transform: translateY(100%); opacity: 0.82; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes categoryItemIn {
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .category-sheet-backdrop,
+          .category-menu-sheet,
+          .category-menu-item {
+            animation: none;
+          }
+          .category-menu-sheet,
+          .category-menu-item {
+            transform: none;
+            opacity: 1;
+          }
+        }
 
         @media (max-width: 768px) {
           .home-hero { padding: 40px 16px 32px; min-height: 70vh; }
@@ -3022,6 +3936,18 @@ const Home = () => {
           .category-rail-btn.left { left: 8px; }
           .category-rail-btn.right { right: 8px; }
           .category-card { width: 118px; height: 118px; border-radius: 18px; }
+          .category-sheet-backdrop { padding: 12px 0 0; }
+          .category-menu-sheet { width: 100%; max-height: 86vh; border-radius: 22px 22px 0 0; }
+          .category-sheet-header { padding: 4px 18px 16px; }
+          .category-menu-content { max-height: calc(86vh - 122px); padding: 18px 16px 24px; }
+          .category-menu-grid { grid-template-columns: 1fr; gap: 12px; }
+          .category-menu-item { min-height: 178px; padding: 16px; gap: 12px; border-radius: 8px; }
+          .category-menu-item h4 { font-size: 1.18rem; }
+          .category-menu-price { font-size: 1.38rem; margin-bottom: 10px; }
+          .category-menu-item p { font-size: 0.9rem; }
+          .category-menu-source { font-size: 0.84rem; }
+          .category-menu-item-media { flex-basis: 112px; width: 112px; height: 112px; }
+          .category-add-btn { min-width: 82px; min-height: 38px; padding: 0 18px; }
           .vibe-section { padding: 18px 14px; margin-top: 28px; border-radius: 20px; }
           .vibe-header { flex-direction: column; align-items: stretch; gap: 12px; }
           .vibe-controls { justify-content: space-between; }
@@ -3035,6 +3961,16 @@ const Home = () => {
           .vibe-card-stats { gap: 6px; flex-wrap: wrap; }
           .vibe-card-stats span { min-height: 32px; padding: 0 10px; font-size: 0.78rem; }
         }
+        @media (max-width: 460px) {
+          .category-sheet-header { gap: 12px; }
+          .category-sheet-close { width: 38px; height: 38px; }
+          .category-menu-item { min-height: 168px; padding: 14px; gap: 10px; }
+          .category-menu-item-tags span { min-height: 24px; padding: 0 8px; font-size: 0.68rem; }
+          .category-menu-item-media { flex-basis: 96px; width: 96px; height: 96px; }
+          .category-menu-img-container { border-radius: 14px; }
+          .category-add-btn { min-width: 74px; min-height: 34px; padding: 0 14px; font-size: 0.78rem; }
+          .category-qty-stepper { width: 82px; height: 34px; }
+        }
       `}</style>
 
       <div>
@@ -3044,12 +3980,29 @@ const Home = () => {
           </div>
         ))}
       </div>
+      <CategoryMenuSheet
+        categorySheet={categorySheet}
+        categoryMenuItems={categoryMenuItems}
+        categoryMenuLoading={categoryMenuLoading}
+        categoryMenuError={categoryMenuError}
+        fallbackImage={CATEGORY_DISH_FALLBACK_IMAGE}
+        closeCategoryMenu={closeCategoryMenu}
+        getCategoryCartQuantity={getCategoryCartQuantity}
+        handleCategoryAddClick={handleCategoryAddClick}
+        handleCategoryUpdateQuantity={handleCategoryUpdateQuantity}
+      />
+      <CategoryCartOverlays
+        cartError={cartError}
+        conflictPopup={conflictPopup}
+        setConflictPopup={setConflictPopup}
+        clearAndAdd={clearAndAdd}
+      />
     </>
   );
 };
 
 // Individual restaurant card with IntersectionObserver reveal
-function RestaurantCard({ restaurant: r, index }) {
+function RestaurantCard({ restaurant: r, index, customerCoords }) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
 
@@ -3069,8 +4022,8 @@ function RestaurantCard({ restaurant: r, index }) {
     return () => observer.disconnect();
   }, [index]);
 
-  const mockPrice = r.restaurantId % 3 === 0 ? '₹300 for two' : r.restaurantId % 2 === 0 ? '₹200 for two' : '₹150 for two';
-  const mockDistance = (1.2 + (r.restaurantId % 4) * 0.8).toFixed(1) + ' km';
+  const priceLabel = formatRestaurantPrice(r);
+  const distanceLabel = getRestaurantDistanceLabel(r, customerCoords);
 
   const ratingText = formatRating(r.rating);
   const ratingVal = parseFloat(ratingText);
@@ -3121,11 +4074,13 @@ function RestaurantCard({ restaurant: r, index }) {
             <Clock size={12} />
             <span>{formatDeliveryTime(r.deliveryTime)}</span>
           </span>
-          <span className="rest-card-meta-pill rest-card-price">{mockPrice}</span>
-          <span className="rest-card-meta-pill rest-card-distance">
-            <MapPin size={11} />
-            {mockDistance}
-          </span>
+          {priceLabel && <span className="rest-card-meta-pill rest-card-price">{priceLabel}</span>}
+          {distanceLabel && (
+            <span className="rest-card-meta-pill rest-card-distance">
+              <MapPin size={11} />
+              {distanceLabel}
+            </span>
+          )}
         </div>
         <div className="rest-card-status-row">
           <span className={`rest-card-status ${r.isOpen !== false ? 'open' : 'closed'}`}>

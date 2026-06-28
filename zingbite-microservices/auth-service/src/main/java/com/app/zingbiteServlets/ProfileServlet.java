@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.text.SimpleDateFormat;
@@ -45,6 +48,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet("/api/profile")
 public class ProfileServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProfileServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     @Override
@@ -154,7 +159,7 @@ public class ProfileServlet extends HttpServlet {
                             oJson.add("pathFM", sseGson.toJsonTree(vrpPaths.get("pathFM")));
                             oJson.add("pathLM1", sseGson.toJsonTree(vrpPaths.get("pathLM1")));
                         } catch (Exception ex) {
-                            ex.printStackTrace();
+                            LOGGER.error("Unexpected servlet error", ex);
                         }
                     }
 
@@ -197,7 +202,7 @@ public class ProfileServlet extends HttpServlet {
                     ordersJson.add(oJson);
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.error("Unexpected servlet error", e);
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 resp.getWriter().write("{\"error\":\"Failed to retrieve orders\"}");
                 return;
@@ -505,7 +510,7 @@ public class ProfileServlet extends HttpServlet {
                     if (tx != null && tx.isActive()) {
                         tx.rollback();
                     }
-                    e.printStackTrace();
+                    LOGGER.error("Unexpected servlet error", e);
                     resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                     resp.getWriter().write("{\"error\":\"Exception: " + e.getMessage() + "\"}");
                     return;
@@ -536,7 +541,7 @@ public class ProfileServlet extends HttpServlet {
                                 tx2.commit();
                             }
                         } catch (Exception rpEx) {
-                            System.err.println("[ProfileServlet] Failed to create Razorpay Order: " + rpEx.getMessage());
+                            LOGGER.warn("[ProfileServlet] Failed to create Razorpay Order: " + rpEx.getMessage());
                             com.app.zingbiteutils.PaymentService.getInstance().processOrderCancellation(
                                     orderId, "Unable to initialize Razorpay checkout");
                             jsonResponse.addProperty("success", false);
@@ -554,7 +559,7 @@ public class ProfileServlet extends HttpServlet {
                 resp.getWriter().write("{\"error\":\"Invalid action\"}");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"An error occurred: " + e.getMessage() + "\"}");
         }

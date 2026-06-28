@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.util.List;
@@ -37,6 +40,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet("/api/delivery")
 public class DeliveryServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeliveryServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     private static final int DEFAULT_PAGE_SIZE = 50;
@@ -219,7 +224,7 @@ public class DeliveryServlet extends HttpServlet {
                                 oJson.add("pathLM1", pathCacheObj.get("pathLM1"));
                             }
                         } catch (Exception ex) {
-                            ex.printStackTrace();
+                            LOGGER.error("Unexpected servlet error", ex);
                         }
                         activeList.add(oJson);
                     }
@@ -278,7 +283,7 @@ public class DeliveryServlet extends HttpServlet {
             resp.getWriter().write(responseJson.toString());
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to fetch delivery orders\"}");
         }
@@ -328,7 +333,7 @@ public class DeliveryServlet extends HttpServlet {
                     }
                     txRider.commit();
                 } catch (Exception ex) {
-                    ex.printStackTrace();
+                    LOGGER.error("Unexpected servlet error", ex);
                 }
 
                 user.setLatitude(lat);
@@ -360,7 +365,7 @@ public class DeliveryServlet extends HttpServlet {
                     }
                     txRider.commit();
                 } catch (Exception ex) {
-                    ex.printStackTrace();
+                    LOGGER.error("Unexpected servlet error", ex);
                     resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                     resp.getWriter().write("{\"error\":\"Database error toggling availability\"}");
                     return;
@@ -436,7 +441,7 @@ public class DeliveryServlet extends HttpServlet {
                         }
                         txRider.commit();
                     } catch (Exception ex) {
-                        ex.printStackTrace();
+                        LOGGER.error("Unexpected servlet error", ex);
                     }
                     GeoUtils.updateCachedCoordinates(user.getUserID(), lat, lng);
                 }
@@ -519,7 +524,7 @@ public class DeliveryServlet extends HttpServlet {
                         );
                     }
                 } catch (Exception ex) {
-                    ex.printStackTrace();
+                    LOGGER.error("Unexpected servlet error", ex);
                 }
 
                 try (Session hibernateSession = DBUtils.openSession()) {
@@ -535,7 +540,7 @@ public class DeliveryServlet extends HttpServlet {
                     tx.commit();
                 } catch (Exception ex) {
                     if (tx != null) tx.rollback();
-                    ex.printStackTrace();
+                    LOGGER.error("Unexpected servlet error", ex);
                 }
 
                 // Broadcast SSE & Log Status
@@ -595,7 +600,7 @@ public class DeliveryServlet extends HttpServlet {
                                     itemsSummary = sb.toString();
                                 }
                             } catch (Exception itemEx) {
-                                itemEx.printStackTrace();
+                                LOGGER.error("Unexpected servlet error", itemEx);
                             }
                             String restName = order.getRestaurantId() != null ? order.getRestaurantId().getRestaurantName() : "ZingBite";
                             com.app.zingbiteutils.EmailService.sendEmailAsync(
@@ -606,7 +611,7 @@ public class DeliveryServlet extends HttpServlet {
                             );
                         }
                     } catch (Exception ex) {
-                        ex.printStackTrace();
+                        LOGGER.error("Unexpected servlet error", ex);
                     }
                 }
 
@@ -623,7 +628,7 @@ public class DeliveryServlet extends HttpServlet {
                     tx.commit();
                 } catch (Exception ex) {
                     if (tx != null) tx.rollback();
-                    ex.printStackTrace();
+                    LOGGER.error("Unexpected servlet error", ex);
                 }
 
                 // Broadcast SSE & Log Status
@@ -646,7 +651,7 @@ public class DeliveryServlet extends HttpServlet {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             resp.getWriter().write("{\"error\":\"Invalid delivery request\"}");
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to update delivery order\"}");
         }
@@ -699,7 +704,7 @@ public class DeliveryServlet extends HttpServlet {
             ssePayload.addProperty("riderLat", rLat);
             ssePayload.addProperty("riderLon", rLon);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
         }
     }
 
@@ -727,7 +732,7 @@ public class DeliveryServlet extends HttpServlet {
                 com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:rider_orders", msg.toString());
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
         }
     }
 }

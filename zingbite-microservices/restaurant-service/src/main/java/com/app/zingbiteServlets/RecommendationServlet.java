@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +19,8 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @WebServlet("/api/recommendations")
 public class RecommendationServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RecommendationServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     @Override
@@ -52,7 +57,7 @@ public class RecommendationServlet extends HttpServlet {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             resp.getWriter().write("{\"error\":\"Invalid restaurantId format\"}");
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to fetch recommendations\"}");
         }

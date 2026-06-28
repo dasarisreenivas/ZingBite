@@ -73,7 +73,88 @@
       "props": {
         "title": "Popular AI Combos",
         "subtitle": "Perfect food pairings calculated by our AI engine",
-        "maxCombos": 3
+        "maxCombos": 3,
+        "combos": [
+          {
+            "id": 101,
+            "name": "Royal Bite Combo",
+            "categoryLabel": "Signature Feast",
+            "items": [
+              "Loaded burger",
+              "Signature biryani",
+              "Melting pizza slice",
+              "Crispy fries",
+              "Dessert cup",
+              "Chilled drink"
+            ],
+            "price": 699,
+            "originalPrice": 1129,
+            "discountPercent": 38,
+            "searchQuery": "burger biryani pizza fries",
+            "badge": "Weekend bestseller",
+            "rating": "4.9",
+            "ratingLabel": "Chef rated",
+            "eta": "25-30 min",
+            "serves": 2,
+            "remainingPacks": 12,
+            "claimedPercent": 82,
+            "ctaText": "Add Combo",
+            "accent": "#ff7043",
+            "image": "https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=1200&auto=format&fit=crop"
+          },
+          {
+            "id": 102,
+            "name": "Green Power Pack",
+            "categoryLabel": "Clean Energy",
+            "items": [
+              "Grilled chicken salad",
+              "Avocado toast",
+              "Protein smoothie",
+              "Fruit bowl",
+              "Herb dressing"
+            ],
+            "price": 449,
+            "originalPrice": 699,
+            "discountPercent": 36,
+            "searchQuery": "salad healthy smoothie",
+            "badge": "Gym day pick",
+            "rating": "4.7",
+            "ratingLabel": "Light rated",
+            "eta": "20-25 min",
+            "serves": 1,
+            "remainingPacks": 9,
+            "claimedPercent": 74,
+            "ctaText": "Add Combo",
+            "accent": "#17a86b",
+            "image": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1200&auto=format&fit=crop"
+          },
+          {
+            "id": 103,
+            "name": "Movie Night Feast",
+            "categoryLabel": "Share Pack",
+            "items": [
+              "Large pepperoni pizza",
+              "Garlic bread",
+              "Loaded nachos",
+              "Chocolate brownie",
+              "Two chilled drinks"
+            ],
+            "price": 599,
+            "originalPrice": 949,
+            "discountPercent": 37,
+            "searchQuery": "pizza garlic bread nachos",
+            "badge": "Shareable hit",
+            "rating": "4.9",
+            "ratingLabel": "Crowd rated",
+            "eta": "28-35 min",
+            "serves": 3,
+            "remainingPacks": 6,
+            "claimedPercent": 89,
+            "ctaText": "Add Combo",
+            "accent": "#f59e0b",
+            "image": "https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=1200&auto=format&fit=crop"
+          }
+        ]
       }
     },
     {

@@ -1,5 +1,8 @@
 package com.app.zingbitedaoimpl;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -15,6 +18,8 @@ import com.app.zingbitemodels.User;
 import com.app.zingbiteutils.DBUtils;
 
 public class UserDAOImplementation implements UserDAO {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserDAOImplementation.class);
 
 //    private Connection con;
 //
@@ -34,7 +39,6 @@ public class UserDAOImplementation implements UserDAO {
 //        try {
 //            con = DBUtils.myConnect();
 //        } catch (Exception e) {
-//            e.printStackTrace();
 //        }
 //    }
 
@@ -49,7 +53,7 @@ public class UserDAOImplementation implements UserDAO {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return 0;
 	}
@@ -68,7 +72,7 @@ public class UserDAOImplementation implements UserDAO {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return userList;
 	}
@@ -93,8 +97,8 @@ public class UserDAOImplementation implements UserDAO {
 				if (tx != null && tx.isActive())
 					tx.rollback();
 			} catch (Exception rbf) {
-				System.err.println("rollback failed" + rbf);
-				e.printStackTrace();
+				LOGGER.warn("rollback failed" + rbf);
+				LOGGER.error("Unexpected error", e);
 			}
 		}
 		return user;
@@ -112,7 +116,7 @@ public class UserDAOImplementation implements UserDAO {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return result;
 	}
@@ -133,7 +137,7 @@ public class UserDAOImplementation implements UserDAO {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return result;
 	}

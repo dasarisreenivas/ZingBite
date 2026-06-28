@@ -1,5 +1,8 @@
 package com.app.zingbitedaoimpl;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.ArrayList;
 import org.hibernate.Session;
@@ -11,6 +14,8 @@ import com.app.zingbitemodels.Menu;
 import com.app.zingbiteutils.DBUtils;
 
 public class WishlistDAOImplementation implements WishlistDAO {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(WishlistDAOImplementation.class);
 
     @Override
     public boolean addToWishlist(WishlistItem item) {
@@ -28,7 +33,7 @@ public class WishlistDAOImplementation implements WishlistDAO {
                     tx.rollback();
                 } catch (Exception ignored) {}
             }
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         } finally {
             if (session != null && session.isOpen()) {
                 session.close();
@@ -57,7 +62,7 @@ public class WishlistDAOImplementation implements WishlistDAO {
                     tx.rollback();
                 } catch (Exception ignored) {}
             }
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         } finally {
             if (session != null && session.isOpen()) {
                 session.close();
@@ -74,7 +79,7 @@ public class WishlistDAOImplementation implements WishlistDAO {
             query.setParameter("userId", userId);
             return query.list();
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         return new ArrayList<>();
     }
@@ -89,7 +94,7 @@ public class WishlistDAOImplementation implements WishlistDAO {
             Long count = query.uniqueResult();
             return count != null && count > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         return false;
     }
@@ -103,7 +108,7 @@ public class WishlistDAOImplementation implements WishlistDAO {
             query.setParameter("userId", userId);
             return query.list();
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         return new ArrayList<>();
     }

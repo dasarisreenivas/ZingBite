@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.List;
 import jakarta.servlet.ServletException;
@@ -18,6 +21,8 @@ import com.google.gson.Gson;
 
 @WebServlet("/api/emails")
 public class EmailServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(EmailServlet.class);
+
     private static final long serialVersionUID = 1L;
     private static final Gson gson = new Gson();
 
@@ -57,7 +62,7 @@ public class EmailServlet extends HttpServlet {
 
             resp.getWriter().write(gson.toJson(emails));
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to retrieve emails: " + e.getMessage() + "\"}");
         }

@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import useSSE from '../hooks/useSSE';
@@ -12,6 +12,7 @@ import {
 import { useWishlist } from '../context/WishlistContext';
 import ReviewsSection from '../components/ReviewsSection';
 import { useSDUI } from '../hooks/useSDUI';
+import { getMenuItemDisplayText, isVegDish } from '../utils/menuDisplay';
 
 const DEFAULT_RESTAURANT_IMAGE = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop';
 const DEFAULT_DISH_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop';
@@ -350,13 +351,6 @@ const Menu = () => {
     await addToCart(itemId, 1);
   };
 
-  const isVegDish = (item) => {
-    const nonVegKeywords = ['chicken', 'mutton', 'egg', 'fish', 'pork', 'beef', 'shrimp', 'prawn', 'meat', 'kebab', 'tikka', 'biryani'];
-    const nameLower = (item.menuName || '').toLowerCase();
-    const descLower = (item.description || '').toLowerCase();
-    return !nonVegKeywords.some(keyword => nameLower.includes(keyword) || descLower.includes(keyword));
-  };
-
   const isDrinkItem = (item) => {
     const drinkKeywords = ['drink', 'beverage', 'coke', 'pepsi', 'sprite', 'water', 'soda', 'juice', 'shake', 'smoothie', 'mojito', 'lassi', 'chaas', 'mocktail', 'cocktail', 'coffee', 'tea', 'thums up', 'cold drink'];
     const nameLower = (item.menuName || '').toLowerCase();
@@ -457,6 +451,7 @@ const Menu = () => {
   const renderDishCard = (item, idx, isCombo = false) => {
     const qty = getCartQuantity(item.menuId);
     const isVeg = isVegDish(item);
+    const dishDisplay = getMenuItemDisplayText(item);
     return (
       <div key={item.menuId} className={`menu-dish-card animate-card ${isCombo ? 'combo-dish-card' : ''} ${getTrailClass(item)}`} style={{ animationDelay: `${idx * 0.05}s` }}>
         <div className="dish-card-info">
@@ -473,17 +468,17 @@ const Menu = () => {
                 <span className="dish-featured-tag"><Star size={12} fill="#ff9f40" color="#ff9f40" /> Bestseller</span>
               ) : null}
             </div>
-            <h3 className="dish-card-title">{item.menuName}</h3>
+            <h3 className="dish-card-title">{dishDisplay.title}</h3>
             <div className="dish-card-price-row">
               <span className="price-symbol">&#8377;</span>
               <span className="price-value">{item.price}</span>
             </div>
-            <p className="dish-card-desc">{item.description}</p>
+            {dishDisplay.subtitle && <p className="dish-card-desc">{dishDisplay.subtitle}</p>}
           </div>
         </div>
         <div className="dish-card-media">
           <div className="dish-card-img-container">
-            <img src={item.imagePath || DEFAULT_DISH_IMAGE} alt={item.menuName} className="dish-card-img" loading="lazy"
+            <img src={item.imagePath || DEFAULT_DISH_IMAGE} alt={dishDisplay.title} className="dish-card-img" loading="lazy"
               onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_DISH_IMAGE; }}
             />
             {user && user.role === 'customer' && (
@@ -507,12 +502,13 @@ const Menu = () => {
           </div>
           <div className="dish-card-action">
             {qty === 0 ? (
-              <button className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>
+              <button type="button" className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>
                 {(!item.isAvailable) ? 'SOLD OUT' : (dynRestaurant && !dynRestaurant.isOpen) ? 'CLOSED' : 'ADD'}
               </button>
             ) : (
               <div className="qty-stepper" style={{ opacity: (dynRestaurant && !dynRestaurant.isOpen) ? 0.6 : 1, borderColor: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--border-medium)' : 'var(--success)' }}>
                 <button
+                  type="button"
                   className="step-btn"
                   disabled={dynRestaurant && !dynRestaurant.isOpen}
                   onClick={() => handleUpdateQuantity(item.menuId, qty - 1)}
@@ -522,6 +518,7 @@ const Menu = () => {
                 </button>
                 <span className="step-val">{qty}</span>
                 <button
+                  type="button"
                   className="step-btn"
                   disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)}
                   onClick={() => handleUpdateQuantity(item.menuId, qty + 1)}
@@ -657,7 +654,7 @@ const Menu = () => {
           display: block;
         }
         .combo-dish-card {
-          background: linear-gradient(135deg, #ffffff 0%, rgba(247, 55, 79, 0.02) 100%) !important;
+          background: linear-gradient(135deg, var(--bg-card) 0%, var(--brand-tint-soft) 100%) !important;
           border: 1.5px solid rgba(247, 55, 79, 0.12) !important;
           box-shadow: 0 4px 20px rgba(247, 55, 79, 0.03) !important;
         }
@@ -684,18 +681,29 @@ const Menu = () => {
         .slideshow-dot.active { background: #fff; transform: scale(1.3); box-shadow: 0 0 8px rgba(255,255,255,0.5); }
         .menu-controls-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
         .search-menu-wrapper { position: relative; flex: 1; min-width: 280px; }
-        .search-menu-wrapper input { width: 100%; padding: 14px 16px 14px 46px; border: 1.5px solid var(--border-medium); border-radius: 14px; font-size: 0.95rem; outline: none; box-shadow: 0 2px 12px rgba(0,0,0,0.03); transition: all 0.25s var(--ease-premium); }
+        .search-menu-wrapper input { width: 100%; padding: 14px 16px 14px 46px; border: 1.5px solid var(--border-medium); border-radius: 14px; font-size: 0.95rem; outline: none; color: var(--text-primary); background: var(--bg-card); box-shadow: 0 2px 12px rgba(0,0,0,0.03); transition: all 0.25s var(--ease-premium); }
         .search-menu-wrapper input:focus { border-color: var(--brand-red); box-shadow: 0 0 0 4px rgba(247,55,79,0.08); }
         .search-icon-pos { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
         .filter-sort-wrapper { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .filter-pills { display: flex; background: var(--bg-surface); border-radius: 30px; padding: 4px; border: 1px solid var(--border-light); }
         .filter-pill { background: transparent; border: none; padding: 7px 16px; font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); cursor: pointer; border-radius: 26px; transition: all 0.25s var(--ease-premium); display: flex; align-items: center; gap: 4px; }
-        .filter-pill.active { background: #fff; color: var(--brand-red); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-        .sort-select { padding: 10px 36px 10px 14px; border-radius: 12px; border: 1.5px solid var(--border-medium); font-size: 0.85rem; font-weight: 600; color: var(--text-primary); outline: none; cursor: pointer; background: #fff; transition: all 0.25s var(--ease-premium); appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239e9e9e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 14px; }
+        .filter-pill.active { background: var(--bg-card); color: var(--brand-red); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .sort-select { padding: 10px 36px 10px 14px; border-radius: 12px; border: 1.5px solid var(--border-medium); font-size: 0.85rem; font-weight: 600; color: var(--text-primary); outline: none; cursor: pointer; background-color: var(--bg-card); transition: all 0.25s var(--ease-premium); appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239e9e9e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 14px; }
         .sort-select:hover { border-color: var(--brand-red); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23F7374F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
         .sort-select:focus { border-color: var(--brand-red); box-shadow: 0 0 0 3px rgba(247,55,79,0.1); }
+        [data-theme="dark"] .sort-select {
+          background-color: var(--bg-card) !important;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a0a0b0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+          background-repeat: no-repeat !important;
+          background-position: right 12px center !important;
+          background-size: 14px !important;
+        }
+        [data-theme="dark"] .sort-select:hover,
+        [data-theme="dark"] .sort-select:focus {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ff4d6a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+        }
         .menu-items-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 24px; }
-        .menu-dish-card { background: #fff; border: 1px solid var(--border-light); border-radius: 20px; padding: 20px; display: flex; justify-content: space-between; gap: 20px; box-shadow: 0 2px 16px rgba(0,0,0,0.02); transition: all 0.35s var(--ease-premium); opacity: 0; transform: translateY(20px); position: relative; overflow: visible; }
+        .menu-dish-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 20px; padding: 20px; display: flex; justify-content: space-between; gap: 20px; box-shadow: var(--shadow-sm); transition: all 0.35s var(--ease-premium); opacity: 0; transform: translateY(20px); position: relative; overflow: visible; }
         .menu-dish-card:hover { transform: translateY(-4px); box-shadow: 0 12px 36px rgba(247,55,79,0.06); border-color: rgba(247,55,79,0.12); }
         .dish-card-info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
         .dish-card-header-tags { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
@@ -715,22 +723,22 @@ const Menu = () => {
         .dish-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s var(--ease-premium); }
         .menu-dish-card:hover .dish-card-img { transform: scale(1.08); }
         .dish-card-action { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); z-index: 10; }
-        .add-btn { background: #fff; color: var(--success); border: 1.5px solid var(--success); font-weight: 800; font-size: 0.85rem; padding: 6px 20px; border-radius: 12px; cursor: pointer; transition: all 0.25s var(--ease-premium); box-shadow: 0 4px 12px rgba(96,178,70,0.12); white-space: nowrap; }
+        .add-btn { background: var(--bg-card); color: var(--success); border: 1.5px solid var(--success); font-weight: 800; font-size: 0.85rem; padding: 6px 20px; border-radius: 12px; cursor: pointer; transition: all 0.25s var(--ease-premium); box-shadow: 0 4px 12px rgba(96,178,70,0.12); white-space: nowrap; }
         .add-btn:hover:not(:disabled) { background: var(--success); color: #fff; box-shadow: 0 6px 18px rgba(96,178,70,0.25); transform: scale(1.03); }
         .add-btn:disabled { background: var(--bg-surface); border-color: var(--border-medium); color: var(--text-muted); box-shadow: none; cursor: not-allowed; }
-        .qty-stepper { display: flex; align-items: center; justify-content: space-between; background: #fff; border: 1.5px solid var(--success); border-radius: 12px; width: 90px; height: 32px; box-shadow: 0 4px 12px rgba(96,178,70,0.1); overflow: hidden; }
+        .qty-stepper { display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border: 1.5px solid var(--success); border-radius: 12px; width: 90px; height: 32px; box-shadow: 0 4px 12px rgba(96,178,70,0.1); overflow: hidden; }
         .step-btn { width: 28px; height: 100%; background: transparent; border: none; color: var(--success); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
         .step-btn:hover { background: rgba(96,178,70,0.08); }
         .step-val { font-weight: 800; font-size: 0.9rem; color: var(--text-primary); }
         .cart-bar-popup { position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(135deg, var(--success), #4a9a32); color: #fff; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; box-shadow: 0 -4px 24px rgba(0,0,0,0.12); }
         .cart-bar-link { color: #fff; font-weight: 700; display: flex; align-items: center; gap: 6px; text-decoration: none; }
-        .no-data-dish { grid-column: 1 / -1; text-align: center; padding: 64px 24px; color: var(--text-secondary); border: 1.5px dashed var(--border-medium); border-radius: 20px; background: #fff; }
+        .no-data-dish { grid-column: 1 / -1; text-align: center; padding: 64px 24px; color: var(--text-secondary); border: 1.5px dashed var(--border-medium); border-radius: 20px; background: var(--bg-card); }
         .zingbite-promise-section { margin-top: 64px; border-top: 1px solid var(--border-light); padding-top: 48px; }
         .promise-header { text-align: center; margin-bottom: 36px; }
         .promise-subtitle { font-size: 0.8rem; font-weight: 800; color: var(--brand-red); text-transform: uppercase; letter-spacing: 1px; }
         .promise-title { font-family: 'Outfit', sans-serif; font-size: 2.2rem; font-weight: 800; color: var(--text-primary); margin: 6px 0 0; letter-spacing: -0.5px; }
         .promise-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 20px; }
-        .promise-card { background: #fff; border: 1px solid var(--border-light); border-radius: 20px; padding: 32px 24px; text-align: center; transition: all 0.3s var(--ease-premium); box-shadow: 0 2px 16px rgba(0,0,0,0.02); }
+        .promise-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 20px; padding: 32px 24px; text-align: center; transition: all 0.3s var(--ease-premium); box-shadow: var(--shadow-sm); }
         .promise-card:hover { transform: translateY(-6px); box-shadow: 0 12px 36px rgba(247,55,79,0.05); border-color: rgba(247,55,79,0.12); }
         .promise-icon-wrapper { width: 56px; height: 56px; border-radius: 16px; background: rgba(247,55,79,0.08); color: var(--brand-red); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; transition: transform 0.3s ease; }
         .promise-card:hover .promise-icon-wrapper { transform: scale(1.1) rotate(-4deg); }
@@ -740,7 +748,7 @@ const Menu = () => {
         @keyframes slideIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
         .animate-card { animation: cardFadeInUp 0.55s var(--ease-premium) both; }
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 2000; animation: fadeIn 0.25s ease-out both; }
-        .modal-content { background: #fff; padding: 36px; border-radius: 24px; max-width: 420px; width: 90%; box-shadow: 0 25px 60px rgba(0,0,0,0.2); text-align: center; }
+        .modal-content { background: var(--bg-card); border: 1px solid var(--border-light); padding: 36px; border-radius: 24px; max-width: 420px; width: 90%; box-shadow: 0 25px 60px rgba(0,0,0,0.2); text-align: center; }
         .modal-icon { width: 64px; height: 64px; border-radius: 50%; background: rgba(247,55,79,0.08); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
         .modal-title { font-size: 1.3rem; font-family: 'Outfit', sans-serif; font-weight: 700; margin: 0 0 10px; color: var(--text-primary); }
         .modal-desc { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; margin: 0; }
@@ -1034,7 +1042,7 @@ const Menu = () => {
           width: 32px;
           height: 32px;
           border-radius: 50%;
-          background: rgba(255, 255, 255, 0.9);
+          background: var(--surface-card);
           border: 1px solid var(--border-light);
           display: flex;
           align-items: center;
@@ -1045,7 +1053,7 @@ const Menu = () => {
         }
         .heart-toggle-btn:hover {
           transform: scale(1.1);
-          background: #fff;
+          background: var(--bg-card);
           border-color: rgba(247, 55, 79, 0.3);
         }
         .heart-toggle-btn:active {
@@ -1162,6 +1170,7 @@ const Menu = () => {
                   {visibleRecommendations.map((item, idx) => {
                     const qty = getCartQuantity(item.menuId);
                     const isVeg = isVegDish(item);
+                    const dishDisplay = getMenuItemDisplayText(item);
                     return (
                       <div key={`rec-${item.menuId}`} className={`menu-dish-card ${getTrailClass(item)}`} style={{ animationDelay: `${idx * 0.05}s`, borderLeft: '4px solid var(--brand-red)' }}>
                         <div className="dish-card-info">
@@ -1170,9 +1179,9 @@ const Menu = () => {
                               <div className={isVeg ? "dish-type-badge veg" : "dish-type-badge nonveg"}><span className="dot"></span><span>{isVeg ? 'VEG' : 'NON-VEG'}</span></div>
                               <span className="dish-featured-tag" style={{ color: 'var(--brand-red)', background: 'rgba(247,55,79,0.05)', borderColor: 'rgba(247,55,79,0.1)' }}><ShoppingBag size={12} /> {item.tag || 'Recommended'}</span>
                             </div>
-                            <h3 className="dish-card-title">{item.menuName}</h3>
+                            <h3 className="dish-card-title">{dishDisplay.title}</h3>
                             <div className="dish-card-price-row"><span className="price-symbol">&#8377;</span><span className="price-value">{item.price}</span></div>
-                            <p className="dish-card-desc">{item.description}</p>
+                            {dishDisplay.subtitle && <p className="dish-card-desc">{dishDisplay.subtitle}</p>}
                             {item.reason && (
                               <p style={{ fontSize: '0.78rem', color: 'var(--brand-red)', marginTop: '4px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <span>✨</span> <span>{item.reason}</span>
@@ -1182,16 +1191,17 @@ const Menu = () => {
                         </div>
                         <div className="dish-card-media">
                           <div className="dish-card-img-container">
-                            <img src={item.imagePath || DEFAULT_DISH_IMAGE} alt={item.menuName} className="dish-card-img" loading="lazy"
+                            <img src={item.imagePath || DEFAULT_DISH_IMAGE} alt={dishDisplay.title} className="dish-card-img" loading="lazy"
                               onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_DISH_IMAGE; }}
                             />
                           </div>
                           <div className="dish-card-action">
                             {qty === 0 ? (
-                              <button className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>{(!item.isAvailable) ? 'SOLD OUT' : (dynRestaurant && !dynRestaurant.isOpen) ? 'CLOSED' : 'ADD'}</button>
+                              <button type="button" className="add-btn" disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)} onClick={() => handleAddClick(item.menuId)}>{(!item.isAvailable) ? 'SOLD OUT' : (dynRestaurant && !dynRestaurant.isOpen) ? 'CLOSED' : 'ADD'}</button>
                             ) : (
                               <div className="qty-stepper" style={{ opacity: (dynRestaurant && !dynRestaurant.isOpen) ? 0.6 : 1, borderColor: (dynRestaurant && !dynRestaurant.isOpen) ? 'var(--border-medium)' : 'var(--success)' }}>
                                 <button
+                                  type="button"
                                   className="step-btn"
                                   disabled={dynRestaurant && !dynRestaurant.isOpen}
                                   onClick={() => handleUpdateQuantity(item.menuId, qty - 1)}
@@ -1201,6 +1211,7 @@ const Menu = () => {
                                 </button>
                                 <span className="step-val">{qty}</span>
                                 <button
+                                  type="button"
                                   className="step-btn"
                                   disabled={!item.isAvailable || (dynRestaurant && !dynRestaurant.isOpen)}
                                   onClick={() => handleUpdateQuantity(item.menuId, qty + 1)}
@@ -1390,7 +1401,7 @@ const Menu = () => {
         </div>
       </div>
 
-      {cartError && ReactDOM.createPortal(
+      {cartError && createPortal(
         <div style={{
           position: 'fixed', top: '80px', right: '24px', zIndex: 3000,
           background: '#fff', border: '1.5px solid var(--danger)',
@@ -1402,7 +1413,7 @@ const Menu = () => {
         }}>
           <AlertTriangle size={18} color="var(--danger)" />
           <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>{cartError}</span>
-          <button onClick={() => setCartError(null)} style={{
+          <button type="button" onClick={() => setCartError(null)} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: 'var(--text-muted)', marginLeft: '4px', padding: '2px'
           }}>✕</button>
@@ -1410,7 +1421,7 @@ const Menu = () => {
         document.body
       )}
 
-      {!groupRoom && cart && cart.itemCount > 0 && ReactDOM.createPortal(
+      {!groupRoom && cart && cart.itemCount > 0 && createPortal(
         <div className="cart-bar-popup slide-up">
           <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ShoppingBag size={18} /> {cart.itemCount} item{cart.itemCount > 1 ? 's' : ''} in cart
@@ -1420,15 +1431,15 @@ const Menu = () => {
         document.body
       )}
 
-      {conflictPopup && ReactDOM.createPortal(
+      {conflictPopup && createPortal(
         <div className="modal-overlay" onClick={() => setConflictPopup(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-icon"><AlertCircle size={32} color="var(--brand-red)" /></div>
             <h3 className="modal-title">Items from another restaurant</h3>
             <p className="modal-desc">Your cart contains items from a different restaurant. Start fresh to add items from this one?</p>
             <div className="modal-actions">
-              <button className="modal-btn-outline" onClick={() => setConflictPopup(null)}>Cancel</button>
-              <button className="modal-btn-primary" onClick={() => clearAndAdd(conflictPopup.itemId, conflictPopup.quantity)}>Start Fresh</button>
+              <button type="button" className="modal-btn-outline" onClick={() => setConflictPopup(null)}>Cancel</button>
+              <button type="button" className="modal-btn-primary" onClick={() => clearAndAdd(conflictPopup.itemId, conflictPopup.quantity)}>Start Fresh</button>
             </div>
           </div>
         </div>,

@@ -184,7 +184,7 @@ function App() {
                               <Route path="/delivery" element={<ProtectedRoute allowedRoles={['delivery_partner']}><DeliveryDashboard /></ProtectedRoute>} />
                               <Route path="/restaurant-admin" element={<ProtectedRoute allowedRoles={['restaurant_admin']}><RestaurantDashboard /></ProtectedRoute>} />
                               <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
-                              <Route path="/sdui-portal" element={<SDUIDashboard />} />
+                              <Route path="/sdui-portal" element={<ProtectedRoute allowedRoles={['super_admin']}><SDUIDashboard /></ProtectedRoute>} />
                               <Route path="/vrp" element={<ProtectedRoute allowedRoles={['super_admin']}><VRPDashboard /></ProtectedRoute>} />
                               <Route path="*" element={<NotFound />} />
                             </Routes>

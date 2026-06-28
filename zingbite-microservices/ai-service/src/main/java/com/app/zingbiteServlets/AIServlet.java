@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.util.*;
@@ -32,6 +35,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet("/api/ai/*")
 public class AIServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AIServlet.class);
+
     private static final long serialVersionUID = 1L;
     private final Gson gson = new Gson();
     private final ZingBiteAiModel aiModel = new ZingBiteAiModel();
@@ -79,7 +84,7 @@ public class AIServlet extends HttpServlet {
                     resp.getWriter().write("{\"error\":\"Endpoint not found\"}");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Internal server error: " + e.getMessage() + "\"}");
         }
@@ -128,7 +133,7 @@ public class AIServlet extends HttpServlet {
                     resp.getWriter().write("{\"error\":\"Endpoint not found\"}");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Internal server error: " + e.getMessage() + "\"}");
         }

@@ -1,22 +1,28 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext } from 'react';
 
 export const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
   const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('zingbite_theme');
+    if (typeof window === 'undefined') return false;
+
+    const saved = window.localStorage?.getItem('zingbite_theme');
     if (saved) return saved === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
   });
 
   useEffect(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+
     const root = document.documentElement;
+    root.classList.toggle('dark', darkMode);
+    root.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+    root.style.colorScheme = darkMode ? 'dark' : 'light';
+
     if (darkMode) {
-      root.setAttribute('data-theme', 'dark');
-      localStorage.setItem('zingbite_theme', 'dark');
+      window.localStorage?.setItem('zingbite_theme', 'dark');
     } else {
-      root.removeAttribute('data-theme');
-      localStorage.setItem('zingbite_theme', 'light');
+      window.localStorage?.setItem('zingbite_theme', 'light');
     }
   }, [darkMode]);
 

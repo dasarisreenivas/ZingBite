@@ -1,5 +1,8 @@
 package com.app.zingbitedaoimpl;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -15,6 +18,8 @@ import com.app.zingbitemodels.OrderItem;
 import com.app.zingbiteutils.DBUtils;
 
 public class OrderItemDAOImplementation implements OrderItemDAO {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(OrderItemDAOImplementation.class);
 
 //    private Connection con;
 //
@@ -34,7 +39,6 @@ public class OrderItemDAOImplementation implements OrderItemDAO {
 //        try {
 //            con = DBUtils.myConnect();
 //        } catch (Exception e) {
-//            e.printStackTrace();
 //        }
 //    }
 
@@ -50,7 +54,7 @@ public class OrderItemDAOImplementation implements OrderItemDAO {
 		} catch (Exception e) {
 			if (tx != null && tx.isActive())
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return 0;
 	}
@@ -68,7 +72,7 @@ public class OrderItemDAOImplementation implements OrderItemDAO {
 		} catch (Exception e) {
 			if (tx != null && tx.isActive())
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return list;
 	}
@@ -79,7 +83,7 @@ public class OrderItemDAOImplementation implements OrderItemDAO {
 		try (Session session = DBUtils.openSession()) {
 			orderItem = session.get(OrderItem.class, orderItemId);
 		} catch (Exception e) {
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return orderItem;
 	}
@@ -96,7 +100,7 @@ public class OrderItemDAOImplementation implements OrderItemDAO {
 		} catch (Exception e) {
 			if (tx != null && tx.isActive())
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return result;
 	}
@@ -117,7 +121,7 @@ public class OrderItemDAOImplementation implements OrderItemDAO {
 		} catch (Exception e) {
 			if (tx != null && tx.isActive())
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return result;
 	}

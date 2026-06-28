@@ -1,5 +1,8 @@
 package com.app.zingbitedaoimpl;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -16,6 +19,8 @@ import com.app.zingbitemodels.Menu;
 import com.app.zingbiteutils.DBUtils;
 
 public class MenuDAOImplementation implements MenuDAO {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(MenuDAOImplementation.class);
 
 	// SQL queries are updated for correctness and consistency.
 //    private static final String ADD_MENU = "INSERT INTO MENU(RESTAURANTID, MENUNAME, PRICE, ITEMDESCRIPTION, ISAVAILABLE, IMAGEPATH) VALUES (?,?,?,?,?,?)";
@@ -39,7 +44,7 @@ public class MenuDAOImplementation implements MenuDAO {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return 0;
 	}
@@ -62,7 +67,7 @@ public class MenuDAOImplementation implements MenuDAO {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return menuList;
 	}
@@ -74,7 +79,7 @@ public class MenuDAOImplementation implements MenuDAO {
 			menu = session.get(Menu.class, menuId);
 
 		} catch (Exception e) {
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return menu;
 	}
@@ -91,7 +96,7 @@ public class MenuDAOImplementation implements MenuDAO {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return result;
 	}
@@ -111,7 +116,7 @@ public class MenuDAOImplementation implements MenuDAO {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return result;
 	}
@@ -133,7 +138,7 @@ public class MenuDAOImplementation implements MenuDAO {
 
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return menuList;
 	}

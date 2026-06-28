@@ -1,5 +1,8 @@
 package com.app.zingbiteutils;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -9,6 +12,8 @@ import com.app.zingbitemodels.User;
 import com.app.zingbitemodels.Restaurant;
 
 public class GeoUtils {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GeoUtils.class);
 
     private static final double EARTH_RADIUS = 6371.0;
 
@@ -98,7 +103,7 @@ public class GeoUtils {
                 return lat;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         double fallback = HUB_LAT + ((restaurantId * 17) % 100) * 0.0003;
         restaurantLatCache.put(restaurantId, new CachedCoord(fallback));
@@ -131,7 +136,7 @@ public class GeoUtils {
                 return lon;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         double fallback = HUB_LON + ((restaurantId * 23) % 100) * 0.0003;
         restaurantLonCache.put(restaurantId, new CachedCoord(fallback));
@@ -164,7 +169,7 @@ public class GeoUtils {
                 return lat;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         double fallback = HUB_LAT + ((userId * 19) % 100) * 0.0004;
         userLatCache.put(userId, new CachedCoord(fallback));
@@ -197,7 +202,7 @@ public class GeoUtils {
                 return lon;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         double fallback = HUB_LON + ((userId * 29) % 100) * 0.0004;
         userLonCache.put(userId, new CachedCoord(fallback));
@@ -230,7 +235,7 @@ public class GeoUtils {
                 return lat;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         double fallback = HUB_LAT + ((riderId * 13) % 100) * 0.0005;
         riderLatCache.put(riderId, new CachedCoord(fallback));
@@ -263,7 +268,7 @@ public class GeoUtils {
                 return lon;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         double fallback = HUB_LON + ((riderId * 31) % 100) * 0.0005;
         riderLonCache.put(riderId, new CachedCoord(fallback));

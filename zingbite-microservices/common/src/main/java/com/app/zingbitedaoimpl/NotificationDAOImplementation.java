@@ -1,5 +1,8 @@
 package com.app.zingbitedaoimpl;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.ArrayList;
 import org.hibernate.Session;
@@ -10,6 +13,8 @@ import com.app.zingbitemodels.Notification;
 import com.app.zingbiteutils.DBUtils;
 
 public class NotificationDAOImplementation implements NotificationDAO {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(NotificationDAOImplementation.class);
 
     @Override
     public boolean addNotification(Notification notification) {
@@ -27,7 +32,7 @@ public class NotificationDAOImplementation implements NotificationDAO {
                     tx.rollback();
                 } catch (Exception ignored) {}
             }
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         } finally {
             if (session != null && session.isOpen()) {
                 session.close();
@@ -46,7 +51,7 @@ public class NotificationDAOImplementation implements NotificationDAO {
             query.setMaxResults(50);
             return query.list();
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         return new ArrayList<>();
     }
@@ -71,7 +76,7 @@ public class NotificationDAOImplementation implements NotificationDAO {
                     tx.rollback();
                 } catch (Exception ignored) {}
             }
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         } finally {
             if (session != null && session.isOpen()) {
                 session.close();
@@ -99,7 +104,7 @@ public class NotificationDAOImplementation implements NotificationDAO {
                     tx.rollback();
                 } catch (Exception ignored) {}
             }
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         } finally {
             if (session != null && session.isOpen()) {
                 session.close();
@@ -117,7 +122,7 @@ public class NotificationDAOImplementation implements NotificationDAO {
             Long count = query.uniqueResult();
             return count != null ? count.intValue() : 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         return 0;
     }

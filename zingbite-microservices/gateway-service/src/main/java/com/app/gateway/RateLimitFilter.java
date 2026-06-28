@@ -1,5 +1,8 @@
 package com.app.gateway;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -21,6 +24,8 @@ import java.util.Arrays;
 
 @Component
 public class RateLimitFilter implements GlobalFilter, Ordered {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RateLimitFilter.class);
+
     private static final String CLIENT_IP_HEADER = "X-ZingBite-Client-IP";
 
     @Autowired
@@ -78,7 +83,7 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
                 .onErrorReturn(-1L)
                 .flatMap(current -> {
                     if (current < 0) {
-                        System.err.println("[RateLimitFilter] Redis unavailable; allowing request");
+                        LOGGER.warn("[RateLimitFilter] Redis unavailable; allowing request");
                         return chain.filter(downstreamExchange);
                     }
                     Mono<Boolean> expiry = current == 1

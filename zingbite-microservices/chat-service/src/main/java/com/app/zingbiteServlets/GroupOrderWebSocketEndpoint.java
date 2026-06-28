@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,6 +25,8 @@ import com.google.gson.*;
 @Component
 public class GroupOrderWebSocketEndpoint {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(GroupOrderWebSocketEndpoint.class);
+
     private static final Map<String, Set<jakarta.websocket.Session>> roomSessions = new ConcurrentHashMap<>();
     private static final Gson gson = new Gson();
 
@@ -31,7 +36,7 @@ public class GroupOrderWebSocketEndpoint {
         @PathParam("roomId") int roomId,
         @PathParam("userId") int userId
     ) throws IOException {
-        System.out.println("[GroupWS] Connection attempt: roomId=" + roomId + ", userId=" + userId);
+        LOGGER.info("[GroupWS] Connection attempt: roomId=" + roomId + ", userId=" + userId);
 
         HttpSession httpSession = (HttpSession) session.getUserProperties().get("httpSession");
         if (httpSession == null) {
@@ -53,7 +58,7 @@ public class GroupOrderWebSocketEndpoint {
 
         String roomKey = String.valueOf(roomId);
         roomSessions.computeIfAbsent(roomKey, k -> new CopyOnWriteArraySet<>()).add(session);
-        System.out.println("[GroupWS] Client connected successfully: userId=" + userId + ", room=" + roomId);
+        LOGGER.info("[GroupWS] Client connected successfully: userId=" + userId + ", room=" + roomId);
     }
 
     @OnClose
@@ -70,13 +75,13 @@ public class GroupOrderWebSocketEndpoint {
                 roomSessions.remove(roomKey);
             }
         }
-        System.out.println("[GroupWS] Client disconnected: userId=" + userId + ", room=" + roomId);
+        LOGGER.info("[GroupWS] Client disconnected: userId=" + userId + ", room=" + roomId);
     }
 
     @OnError
     public void onError(Throwable t) {
-        System.err.println("[GroupWS] WebSocket error: " + t.getMessage());
-        t.printStackTrace();
+        LOGGER.warn("[GroupWS] WebSocket error: " + t.getMessage());
+        LOGGER.error("Unexpected error", t);
     }
 
     @OnMessage
@@ -86,7 +91,7 @@ public class GroupOrderWebSocketEndpoint {
         @PathParam("roomId") int roomId,
         @PathParam("userId") int userId
     ) throws IOException {
-        System.out.println("[GroupWS] Message received from userId=" + userId + ": " + message);
+        LOGGER.info("[GroupWS] Message received from userId=" + userId + ": " + message);
 
         GroupRoom room = GroupOrderManager.getRoomById(roomId);
         if (room == null || !room.isActive) {
@@ -171,7 +176,7 @@ public class GroupOrderWebSocketEndpoint {
                     try {
                         s.getBasicRemote().sendText(messageText);
                     } catch (IOException e) {
-                        System.err.println("[GroupWS] Failed to broadcast to session: " + e.getMessage());
+                        LOGGER.warn("[GroupWS] Failed to broadcast to session: " + e.getMessage());
                     }
                 }
             }

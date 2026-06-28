@@ -1,5 +1,8 @@
 package com.app.zingbitedaoimpl;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.ArrayList;
 import org.hibernate.Session;
@@ -11,6 +14,8 @@ import com.app.zingbitemodels.OrderStatus;
 import com.app.zingbiteutils.DBUtils;
 
 public class ReviewDAOImplementation implements ReviewDAO {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReviewDAOImplementation.class);
 
     @Override
     public boolean addReview(Review review) {
@@ -35,7 +40,7 @@ public class ReviewDAOImplementation implements ReviewDAO {
                     tx.rollback();
                 } catch (Exception ignored) {}
             }
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         } finally {
             if (session != null && session.isOpen()) {
                 session.close();
@@ -65,7 +70,7 @@ public class ReviewDAOImplementation implements ReviewDAO {
                     tx.rollback();
                 } catch (Exception ignored) {}
             }
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         } finally {
             if (session != null && session.isOpen()) {
                 session.close();
@@ -81,7 +86,7 @@ public class ReviewDAOImplementation implements ReviewDAO {
             query.setParameter("restaurantId", restaurantId);
             return query.list();
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         return new ArrayList<>();
     }
@@ -97,7 +102,7 @@ public class ReviewDAOImplementation implements ReviewDAO {
             Long count = query.uniqueResult();
             return count != null && count > 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         return false;
     }
@@ -111,7 +116,7 @@ public class ReviewDAOImplementation implements ReviewDAO {
             Double avg = query.uniqueResult();
             return avg != null ? avg : 0.0;
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         return 0.0;
     }
@@ -125,7 +130,7 @@ public class ReviewDAOImplementation implements ReviewDAO {
             Long count = query.uniqueResult();
             return count != null ? count.intValue() : 0;
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         return 0;
     }

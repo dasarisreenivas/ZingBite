@@ -1,5 +1,8 @@
 package com.app.zingbiteutils;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 
@@ -12,6 +15,8 @@ import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
 
 public class RazorpayUtils {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(RazorpayUtils.class);
 
     private static RazorpayClient client;
 
@@ -67,7 +72,7 @@ public class RazorpayUtils {
             byte[] actual = hexStringToBytes(razorpaySignature);
             return MessageDigest.isEqual(expected, actual);
         } catch (Exception e) {
-            System.err.println("[RazorpayUtils] Signature verification failed: " + e.getMessage());
+            LOGGER.warn("[RazorpayUtils] Signature verification failed: " + e.getMessage());
             return false;
         }
     }

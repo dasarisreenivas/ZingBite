@@ -1,5 +1,8 @@
 package com.app.zingbiteutils;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
@@ -20,6 +23,8 @@ import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 
 public class OrderEventBroker {
+    private static final Logger LOGGER = LoggerFactory.getLogger(OrderEventBroker.class);
+
     private static final String BRIDGE_CHANNEL = "zingbite:realtime-events";
     private static final OrderEventBroker instance = new OrderEventBroker();
 
@@ -133,7 +138,7 @@ public class OrderEventBroker {
                 redisClient.shutdown();
                 redisClient = null;
             }
-            System.err.println("[OrderEventBroker] Redis bridge unavailable; using local delivery only: "
+            LOGGER.warn("[OrderEventBroker] Redis bridge unavailable; using local delivery only: "
                     + ex.getMessage());
         }
     }
@@ -167,7 +172,7 @@ public class OrderEventBroker {
                 deliverTopicUpdate(target, data);
             }
         } catch (Exception ex) {
-            System.err.println("[OrderEventBroker] Ignoring malformed Redis event: " + ex.getMessage());
+            LOGGER.warn("[OrderEventBroker] Ignoring malformed Redis event: " + ex.getMessage());
         }
     }
 
@@ -205,8 +210,8 @@ public class OrderEventBroker {
                 notificationDAO.addNotification(notification);
             }
         } catch (Exception ex) {
-            System.err.println("[OrderEventBroker] Failed to persist OrderStatusLog or Notification: " + ex.getMessage());
-            ex.printStackTrace();
+            LOGGER.warn("[OrderEventBroker] Failed to persist OrderStatusLog or Notification: " + ex.getMessage());
+            LOGGER.error("Unexpected error", ex);
         }
 
         // 2. Fetch rider name if assigned
@@ -218,7 +223,7 @@ public class OrderEventBroker {
                     riderName = rider.getUserName();
                 }
             } catch (Exception ex) {
-                ex.printStackTrace();
+                LOGGER.error("Unexpected error", ex);
             }
         }
 
@@ -265,8 +270,8 @@ public class OrderEventBroker {
             broadcastTopicUpdate("topic:all_orders", jsonMessage);
 
         } catch (Exception ex) {
-            System.err.println("[OrderEventBroker] Failed to build or broadcast SSE message: " + ex.getMessage());
-            ex.printStackTrace();
+            LOGGER.warn("[OrderEventBroker] Failed to build or broadcast SSE message: " + ex.getMessage());
+            LOGGER.error("Unexpected error", ex);
         }
     }
 }

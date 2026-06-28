@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import jakarta.servlet.ServletException;
@@ -28,6 +31,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet(urlPatterns = { "/api/payment/verify", "/api/payment/webhook" })
 public class PaymentVerificationServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PaymentVerificationServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     @Override
@@ -114,12 +119,12 @@ public class PaymentVerificationServlet extends HttpServlet {
                 resp.getWriter().write("{\"success\":false,\"status\":\"PENDING\"}");
             }
         } catch (SecurityException e) {
-            System.err.println("[PaymentVerification] Rejected payment proof: " + e.getMessage());
+            LOGGER.warn("[PaymentVerification] Rejected payment proof: " + e.getMessage());
             sendError(resp, HttpServletResponse.SC_BAD_REQUEST, "Payment proof is invalid");
         } catch (IllegalArgumentException e) {
             sendError(resp, HttpServletResponse.SC_BAD_REQUEST, "Payment verification request is invalid");
         } catch (Exception e) {
-            System.err.println("[PaymentVerification] Verification failed: " + e.getMessage());
+            LOGGER.warn("[PaymentVerification] Verification failed: " + e.getMessage());
             sendError(resp, HttpServletResponse.SC_BAD_GATEWAY, "Payment verification could not be completed");
         }
     }

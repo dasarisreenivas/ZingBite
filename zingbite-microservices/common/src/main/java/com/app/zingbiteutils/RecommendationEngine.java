@@ -1,5 +1,8 @@
 package com.app.zingbiteutils;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import com.app.zingbitedao.MenuDAO;
@@ -10,6 +13,8 @@ import com.app.zingbitemodels.Menu;
 import com.app.zingbitemodels.OrderItem;
 
 public class RecommendationEngine {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RecommendationEngine.class);
+
     private static final Map<Integer, Map<Integer, Double>> similarityMatrix = new ConcurrentHashMap<>();
     private static final Map<Integer, Integer> itemPopularity = new ConcurrentHashMap<>();
     private static final Object lock = new Object();
@@ -71,10 +76,10 @@ public class RecommendationEngine {
                     }
                 }
                 initialized = true;
-                System.out.println("[RecommendationEngine] Initialized similarity matrix for " + menuIds.size() + " unique items.");
+                LOGGER.info("[RecommendationEngine] Initialized similarity matrix for " + menuIds.size() + " unique items.");
             } catch (Exception e) {
-                System.err.println("[RecommendationEngine] Error during initialization:");
-                e.printStackTrace();
+                LOGGER.warn("[RecommendationEngine] Error during initialization:");
+                LOGGER.error("Unexpected error", e);
             }
         }
     }

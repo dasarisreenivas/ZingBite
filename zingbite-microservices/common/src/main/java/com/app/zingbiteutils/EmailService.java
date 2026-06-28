@@ -1,5 +1,8 @@
 package com.app.zingbiteutils;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.Date;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
@@ -19,6 +22,8 @@ import com.app.zingbitemodels.User;
 
 public class EmailService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(EmailService.class);
+
     private static final ExecutorService executor = new ThreadPoolExecutor(
         2, 2, 0L, TimeUnit.MILLISECONDS,
         new LinkedBlockingQueue<>(1000),
@@ -33,13 +38,13 @@ public class EmailService {
                                                   || SMTP_PASS.isEmpty();
 
     public static void shutdown() {
-        System.out.println("[EmailService] Shutting down email executor pool...");
+        LOGGER.info("[EmailService] Shutting down email executor pool...");
         executor.shutdown();
         try {
             if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
                 executor.shutdownNow();
             }
-            System.out.println("[EmailService] Email executor pool shut down successfully.");
+            LOGGER.info("[EmailService] Email executor pool shut down successfully.");
         } catch (InterruptedException e) {
             executor.shutdownNow();
             Thread.currentThread().interrupt();
@@ -48,7 +53,7 @@ public class EmailService {
 
     public static void sendEmailAsync(final int userId, final String recipientEmail, final String subject, final String htmlBody) {
         if (SMTP_DISABLED) {
-            System.out.println("[EmailService] SMTP disabled or password not configured. Skipping email to " + recipientEmail
+            LOGGER.info("[EmailService] SMTP disabled or password not configured. Skipping email to " + recipientEmail
                 + " (subject: " + subject + "). Set ZINGBITE_SMTP_PASS env var to enable.");
             logNotification(userId, recipientEmail, subject, htmlBody, "DISABLED");
             return;
@@ -73,7 +78,7 @@ public class EmailService {
                         throw e;
                     }
                 } catch (Exception e) {
-                    System.err.println("[EmailService] Failed to log initial EmailNotification in DB: " + e.getMessage());
+                    LOGGER.warn("[EmailService] Failed to log initial EmailNotification in DB: " + e.getMessage());
                 }
 
                 try {
@@ -105,24 +110,24 @@ public class EmailService {
                             Transport.send(message);
                             String sentDateStr = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
                             updateStatus(notificationId, "SENT", sentDateStr);
-                            System.out.println("[EmailService] Email sent successfully to " + recipientEmail + " on attempt " + attempt);
+                            LOGGER.info("[EmailService] Email sent successfully to " + recipientEmail + " on attempt " + attempt);
                             lastException = null;
                             break;
                         } catch (Exception e) {
                             lastException = e;
-                            System.err.println("[EmailService] Attempt " + attempt + "/" + maxRetries + " failed for " + recipientEmail + ": " + e.getMessage());
+                            LOGGER.warn("[EmailService] Attempt " + attempt + "/" + maxRetries + " failed for " + recipientEmail + ": " + e.getMessage());
                             if (attempt < maxRetries) {
-                                System.out.println("[EmailService] Retrying in 2 seconds...");
+                                LOGGER.info("[EmailService] Retrying in 2 seconds...");
                                 try { Thread.sleep(2000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
                             }
                         }
                     }
                     if (lastException != null) {
-                        System.err.println("[EmailService] All " + maxRetries + " attempts failed for " + recipientEmail + ": " + lastException.getMessage());
+                        LOGGER.warn("[EmailService] All " + maxRetries + " attempts failed for " + recipientEmail + ": " + lastException.getMessage());
                         updateStatus(notificationId, "FAILED", null);
                     }
                 } catch (Exception e) {
-                    System.err.println("[EmailService] Failed to prepare email for " + recipientEmail + ": " + e.getMessage());
+                    LOGGER.warn("[EmailService] Failed to prepare email for " + recipientEmail + ": " + e.getMessage());
                     updateStatus(notificationId, "FAILED", null);
                 }
             }
@@ -136,7 +141,7 @@ public class EmailService {
             dbSession.persist(notification);
             tx.commit();
         } catch (Exception e) {
-            System.err.println("[EmailService] Failed to log disabled notification: " + e.getMessage());
+            LOGGER.warn("[EmailService] Failed to log disabled notification: " + e.getMessage());
         }
     }
 
@@ -154,7 +159,7 @@ public class EmailService {
             tx.commit();
         } catch (Exception e) {
             if (tx != null) tx.rollback();
-            System.err.println("[EmailService] Failed to update notification status: " + e.getMessage());
+            LOGGER.warn("[EmailService] Failed to update notification status: " + e.getMessage());
         }
     }
 }

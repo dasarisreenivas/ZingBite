@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
@@ -28,6 +31,8 @@ import com.app.zingbitemodels.User;
 
 @WebServlet(urlPatterns = "/api/stream", asyncSupported = true)
 public class GlobalSSEServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalSSEServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     private static final Set<PrintWriter> activeWriters = ConcurrentHashMap.newKeySet();
@@ -142,7 +147,7 @@ public class GlobalSSEServlet extends HttpServlet {
         // Log connection
         String userRole = user != null ? user.getRole() : "anonymous";
         int userId = user != null ? user.getUserID() : 0;
-        System.out.println("[GlobalSSEServlet] Client connected to topic '" + topicParam + "' (User ID: " + userId + ", Role: " + userRole + ")");
+        LOGGER.info("[GlobalSSEServlet] Client connected to topic '" + topicParam + "' (User ID: " + userId + ", Role: " + userRole + ")");
 
         // Send initial connection packet
         synchronized (writer) {
@@ -169,7 +174,7 @@ public class GlobalSSEServlet extends HttpServlet {
             private void cleanUp() {
                 activeWriters.remove(writer);
                 int uId = finalUser != null ? finalUser.getUserID() : 0;
-                System.out.println("[GlobalSSEServlet] Client disconnected from topics " + topicsToSubscribe + " (User ID: " + uId + ")");
+                LOGGER.info("[GlobalSSEServlet] Client disconnected from topics " + topicsToSubscribe + " (User ID: " + uId + ")");
                 for (String topic : topicsToSubscribe) {
                     OrderEventBroker.getInstance().removeTopicListener(topic, listener);
                 }
@@ -208,7 +213,7 @@ public class GlobalSSEServlet extends HttpServlet {
                 return restaurant.getRestaurantId();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
         }
         return 0;
     }

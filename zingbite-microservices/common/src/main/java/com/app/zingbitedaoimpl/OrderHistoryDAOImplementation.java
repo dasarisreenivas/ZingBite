@@ -1,5 +1,8 @@
 package com.app.zingbitedaoimpl;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -15,6 +18,8 @@ import com.app.zingbitemodels.OrderHistory;
 import com.app.zingbiteutils.DBUtils;
 
 public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(OrderHistoryDAOImplementation.class);
 
 //    private Connection con;
 //
@@ -34,7 +39,6 @@ public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 //        try {
 //            Session session = DBUtils.openSession();
 //        } catch (Exception e) {
-//            e.printStackTrace();
 //        }
 //    }
 
@@ -52,7 +56,7 @@ public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 			if (tx != null && tx.isActive()) {
 				tx.rollback();
 			}
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return 0;
 	}
@@ -73,7 +77,7 @@ public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 			if (tx != null && tx.isActive()) {
 				tx.rollback();
 			}
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return OrderHistoryList;
 	}
@@ -92,7 +96,7 @@ public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 		} catch (Exception e) {
 			if (tx != null && tx.isActive())
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return orderHistory;
 	}
@@ -110,7 +114,7 @@ public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 		} catch (Exception e) {
 			if (tx != null && tx.isActive())
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return result;
 	}
@@ -131,7 +135,7 @@ public class OrderHistoryDAOImplementation implements OrderHistoryDAO {
 			if (tx != null && tx.isActive()) {
 				tx.rollback();
 			}
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return 0;
 	}

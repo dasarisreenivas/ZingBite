@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.util.List;
@@ -25,6 +28,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet("/api/delivery/route")
 public class RouteServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RouteServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     @Override
@@ -71,7 +76,7 @@ public class RouteServlet extends HttpServlet {
             resp.getWriter().write(jsonResponse.toString());
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to retrieve routing details\"}");
         }
@@ -124,7 +129,7 @@ public class RouteServlet extends HttpServlet {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to update route simulation details\"}");
         }

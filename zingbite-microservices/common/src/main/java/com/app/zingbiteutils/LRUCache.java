@@ -1,17 +1,25 @@
 package com.app.zingbiteutils;
 
 import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class LRUCache<K, V> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LRUCache.class);
 
     private final int capacity;
     private final long maxAgeMillis;
     private final long staleAgeMillis;
     private final Map<K, CacheEntry<V>> cacheMap;
+    private final Map<K, CompletableFuture<V>> inFlightLoads;
     private final ExecutorService revalidationExecutor;
 
     private static class CacheEntry<V> {
@@ -45,6 +53,7 @@ public class LRUCache<K, V> {
                 return size() > LRUCache.this.capacity;
             }
         };
+        this.inFlightLoads = new HashMap<>();
         this.revalidationExecutor = Executors.newFixedThreadPool(4, runnable -> {
             Thread t = new Thread(runnable, "CacheRevalidationThread");
             t.setDaemon(true);
@@ -79,43 +88,88 @@ public class LRUCache<K, V> {
         }
 
         if (entry == null) {
-            System.out.println("[Cache] Miss for key: " + key + ". Loading synchronously...");
-            V value = loader.apply(key);
-            if (value != null) {
-                put(key, value);
-            }
-            return value;
+            LOGGER.debug("Cache miss for key {}. Loading synchronously.", key);
+            return loadOnce(key, loader);
         }
 
         if (entry.isExpired(maxAgeMillis)) {
             if (entry.isStale(maxAgeMillis, staleAgeMillis)) {
-                System.out.println("[Cache] Stale hit for key: " + key + ". Returning stale value and triggering revalidation...");
+                LOGGER.debug("Cache stale hit for key {}. Returning stale value and triggering revalidation.", key);
                 triggerRevalidation(key, loader);
                 return entry.value;
             } else {
-                System.out.println("[Cache] Expired hit for key: " + key + ". Loading synchronously...");
-                V value = loader.apply(key);
-                if (value != null) {
-                    put(key, value);
-                }
-                return value;
+                LOGGER.debug("Cache expired hit for key {}. Loading synchronously.", key);
+                return loadOnce(key, loader);
             }
         }
 
         return entry.value;
     }
 
+    private V loadOnce(K key, Function<K, V> loader) {
+        CompletableFuture<V> loadFuture;
+        boolean shouldLoad = false;
+
+        synchronized (this) {
+            CacheEntry<V> latestEntry = cacheMap.get(key);
+            if (latestEntry != null && !latestEntry.isExpired(maxAgeMillis)) {
+                return latestEntry.value;
+            }
+
+            loadFuture = inFlightLoads.get(key);
+            if (loadFuture == null) {
+                loadFuture = new CompletableFuture<>();
+                inFlightLoads.put(key, loadFuture);
+                shouldLoad = true;
+            }
+        }
+
+        if (shouldLoad) {
+            try {
+                V value = loader.apply(key);
+                if (value != null) {
+                    put(key, value);
+                }
+                loadFuture.complete(value);
+                return value;
+            } catch (RuntimeException | Error ex) {
+                loadFuture.completeExceptionally(ex);
+                throw ex;
+            } finally {
+                synchronized (this) {
+                    if (inFlightLoads.get(key) == loadFuture) {
+                        inFlightLoads.remove(key);
+                    }
+                }
+            }
+        }
+
+        try {
+            return loadFuture.get();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for cache load", ex);
+        } catch (ExecutionException ex) {
+            Throwable cause = ex.getCause();
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
+            }
+            if (cause instanceof Error) {
+                throw (Error) cause;
+            }
+            throw new RuntimeException("Cache load failed", cause);
+        }
+    }
+
     private void triggerRevalidation(K key, Function<K, V> loader) {
         revalidationExecutor.submit(() -> {
             try {
-                V freshValue = loader.apply(key);
+                V freshValue = loadOnce(key, loader);
                 if (freshValue != null) {
-                    put(key, freshValue);
-                    System.out.println("[Cache] Successfully revalidated key in background: " + key);
+                    LOGGER.debug("Successfully revalidated cache key in background: {}", key);
                 }
             } catch (Exception e) {
-                System.err.println("[Cache] Background revalidation failed for key: " + key);
-                e.printStackTrace();
+                LOGGER.warn("Background cache revalidation failed for key {}", key, e);
             }
         });
     }
@@ -139,6 +193,7 @@ public class LRUCache<K, V> {
      */
     public synchronized void clear() {
         cacheMap.clear();
+        inFlightLoads.clear();
     }
 
     /**

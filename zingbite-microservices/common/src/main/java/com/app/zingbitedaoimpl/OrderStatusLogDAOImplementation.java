@@ -1,5 +1,8 @@
 package com.app.zingbitedaoimpl;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import org.hibernate.Session;
@@ -10,6 +13,8 @@ import com.app.zingbitemodels.OrderStatusLog;
 import com.app.zingbiteutils.DBUtils;
 
 public class OrderStatusLogDAOImplementation implements OrderStatusLogDAO {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(OrderStatusLogDAOImplementation.class);
 
     @Override
     public int addLog(OrderStatusLog log) {
@@ -23,7 +28,7 @@ public class OrderStatusLogDAOImplementation implements OrderStatusLogDAO {
             if (tx != null) {
                 tx.rollback();
             }
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         return 0;
     }
@@ -43,7 +48,7 @@ public class OrderStatusLogDAOImplementation implements OrderStatusLogDAO {
             if (tx != null) {
                 tx.rollback();
             }
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
         return logList;
     }

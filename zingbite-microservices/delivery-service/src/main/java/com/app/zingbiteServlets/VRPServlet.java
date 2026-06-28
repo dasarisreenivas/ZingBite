@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.util.List;
@@ -22,6 +25,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet("/api/delivery/vrp")
 public class VRPServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(VRPServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     // Default Simulation Coordinates (Bangalore — used when no orderId provided)
@@ -325,7 +330,7 @@ public class VRPServlet extends HttpServlet {
             resp.getWriter().write(responseJson.toString());
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"VRP simulation engine failure\"}");
         }
@@ -418,14 +423,14 @@ public class VRPServlet extends HttpServlet {
                         "topic:vrp",
                         sseMsg.toString()
                     );
-                    System.out.println("[VRPServlet] Broadcasted vrp_update event: " + sseMsg.toString());
+                    LOGGER.info("[VRPServlet] Broadcasted vrp_update event: " + sseMsg.toString());
                 } catch (Exception ex) {
-                    System.err.println("[VRPServlet] Failed to broadcast VRP update event: " + ex.getMessage());
+                    LOGGER.warn("[VRPServlet] Failed to broadcast VRP update event: " + ex.getMessage());
                 }
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to update VRP simulation config\"}");
         }

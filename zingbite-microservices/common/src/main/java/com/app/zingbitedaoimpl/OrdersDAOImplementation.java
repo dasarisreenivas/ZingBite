@@ -1,5 +1,8 @@
 package com.app.zingbitedaoimpl;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -15,6 +18,8 @@ import com.app.zingbitemodels.Orders;
 import com.app.zingbiteutils.DBUtils;
 
 public class OrdersDAOImplementation implements OrdersDAo {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(OrdersDAOImplementation.class);
 
 //    private Connection con;
 //
@@ -34,7 +39,6 @@ public class OrdersDAOImplementation implements OrdersDAo {
 //        try {
 //            con = DBUtils.myConnect();
 //        } catch (Exception e) {
-//            e.printStackTrace();
 //        }
 //    }
 
@@ -50,7 +54,7 @@ public class OrdersDAOImplementation implements OrdersDAo {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return 0;
 	}
@@ -70,7 +74,7 @@ public class OrdersDAOImplementation implements OrdersDAo {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return ordersList;
 	}
@@ -89,7 +93,7 @@ public class OrdersDAOImplementation implements OrdersDAo {
 			tx.commit();
 		} catch (Exception e) {
 			if (tx != null) tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return ordersList;
 	}
@@ -101,7 +105,7 @@ public class OrdersDAOImplementation implements OrdersDAo {
 			Query<Long> query = session.createQuery(hql, Long.class);
 			return query.uniqueResult();
 		} catch (Exception e) {
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 			return 0;
 		}
 	}
@@ -117,7 +121,7 @@ public class OrdersDAOImplementation implements OrdersDAo {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return orders;
 	}
@@ -135,7 +139,7 @@ public class OrdersDAOImplementation implements OrdersDAo {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return result;
 	}
@@ -156,7 +160,7 @@ public class OrdersDAOImplementation implements OrdersDAo {
 		} catch (Exception e) {
 			if (tx != null)
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return result;
 	}

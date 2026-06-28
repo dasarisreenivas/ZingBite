@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import jakarta.servlet.ServletException;
@@ -20,6 +23,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet("/api/cart")
 public class CartServlet extends HttpServlet {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CartServlet.class);
 
     private static final long serialVersionUID = 1L;
 
@@ -75,7 +80,7 @@ public class CartServlet extends HttpServlet {
             sendCartTotals(req, resp, cart);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             sendError(resp, "Cart operation failed");
         }
     }

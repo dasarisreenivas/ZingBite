@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import jakarta.servlet.ServletException;
@@ -24,6 +27,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet("/api/delivery/location")
 public class RiderLocationServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RiderLocationServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     @Override
@@ -141,7 +146,7 @@ public class RiderLocationServlet extends HttpServlet {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             resp.getWriter().write("{\"success\":false,\"error\":\"Invalid telemetry request\"}");
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"success\":false,\"error\":\"Failed to ingest telemetry coordinate\"}");
         }

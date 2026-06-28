@@ -12,6 +12,8 @@ import com.app.zingbitedaoimpl.MenuDAOImplementation;
 import com.app.zingbitedaoimpl.RestaurantDAOImplementation;
 import com.app.zingbitemodels.Menu;
 import com.app.zingbitemodels.Restaurant;
+import com.app.zingbitemodels.User;
+import com.app.zingbiteutils.AuthorizationUtils;
 import com.app.zingbiteutils.LRUCache;
 import com.app.zingbiteutils.RestaurantRanker;
 import com.app.zingbiteutils.SearchEngine;
@@ -70,6 +72,7 @@ public class HomeServlet extends HttpServlet {
 
         Double latitude = parseCoordinate(req.getParameter("lat"));
         Double longitude = parseCoordinate(req.getParameter("lng"));
+        String locationSource = (latitude != null && longitude != null) ? "request" : null;
         if (latitude == null || longitude == null) {
             jakarta.servlet.http.HttpSession session = req.getSession(false);
             if (session != null) {
@@ -78,12 +81,14 @@ public class HomeServlet extends HttpServlet {
                 if (user != null && user.getLatitude() != null && user.getLongitude() != null) {
                     latitude = user.getLatitude();
                     longitude = user.getLongitude();
+                    locationSource = "session";
                 }
             }
         }
         if (latitude == null || longitude == null) {
             latitude = 12.9716;
             longitude = 77.5946;
+            locationSource = "fallback";
         }
 
         List<Restaurant> rankedRestaurants =
@@ -113,6 +118,9 @@ public class HomeServlet extends HttpServlet {
         body.addProperty("suggestion", suggestion);
         body.addProperty("resultCount", responseRestaurants.size());
         body.addProperty("isSearch", isSearch);
+        if ("request".equals(locationSource) || "session".equals(locationSource)) {
+            body.addProperty("locationSource", locationSource);
+        }
         resp.getWriter().write(body.toString());
     }
 
@@ -121,6 +129,14 @@ public class HomeServlet extends HttpServlet {
             throws ServletException, IOException {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
+
+        User user = AuthorizationUtils.requireRole(req, "super_admin");
+        if (user == null) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"error\":\"Forbidden\"}");
+            return;
+        }
+
         if (!"true".equals(req.getParameter("clearCache"))) {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             resp.getWriter().write("{\"error\":\"Invalid action\"}");
@@ -129,6 +145,7 @@ public class HomeServlet extends HttpServlet {
 
         restaurantCache.clear();
         menuSearchCache.clear();
+        MenuServlet.categoryMenuCache.clear();
         resp.getWriter().write("{\"success\":true,\"message\":\"Cache cleared\"}");
     }
 

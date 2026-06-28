@@ -8,32 +8,39 @@ import {
   Home,
   Mail,
   MapPin,
+  Moon,
   Shield,
   ShoppingCart,
   Store,
+  Sun,
   User,
   X,
-  ChevronRight,
   Heart
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import MailboxModal from './MailboxModal';
 import NotificationCenter from './NotificationCenter';
+import { useTheme } from '../context/ThemeContext';
 
 const Header = () => {
   const { user, logout } = useContext(AuthContext);
   const { cart } = useCart();
+  const { darkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showMailbox, setShowMailbox] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(() => (
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false
+  ));
   const headerRef = useRef(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
     };
@@ -42,13 +49,15 @@ const Header = () => {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
+
     const handleScroll = () => {
       setScrolled(window.scrollY > 10);
       const scrollTop = window.scrollY;
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
       setScrollProgress(docHeight > 0 ? Math.min((scrollTop / docHeight) * 100, 100) : 0);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -304,6 +313,39 @@ const Header = () => {
           transform: translateY(-2px);
           box-shadow: 0 6px 20px rgba(247, 55, 79, 0.4);
         }
+        .theme-toggle-btn {
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          border: 1px solid var(--border-medium);
+          background: var(--bg-surface);
+          color: var(--text-secondary);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: transform 0.28s var(--ease-premium), color 0.28s var(--ease-premium), border-color 0.28s var(--ease-premium), background 0.28s var(--ease-premium), box-shadow 0.28s var(--ease-premium);
+        }
+        .theme-toggle-btn:hover,
+        .theme-toggle-btn:focus-visible {
+          color: var(--brand-red);
+          border-color: rgba(247, 55, 79, 0.25);
+          background: var(--brand-tint-medium);
+          box-shadow: 0 8px 20px rgba(247, 55, 79, 0.12);
+          transform: translateY(-1px);
+          outline: none;
+        }
+        .mobile-theme-toggle {
+          width: 100%;
+          min-height: 48px;
+          justify-content: flex-start;
+          gap: 10px;
+          padding: 0 16px;
+          border-radius: var(--radius-sm);
+          font: inherit;
+          font-weight: 600;
+        }
         .cart-badge {
           background: linear-gradient(135deg, var(--brand-red), #ff6b7a);
           color: #fff;
@@ -485,6 +527,16 @@ const Header = () => {
               </Link>
             )}
 
+            <button
+              type="button"
+              className="theme-toggle-btn"
+              onClick={toggleTheme}
+              aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {darkMode ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
+
             {user ? (
               <>
                 <Link to="/profile" onClick={closeMenus} className={`nav-link ${isActive('/profile') ? 'active' : ''}`}>
@@ -565,6 +617,16 @@ const Header = () => {
           </>
         )}
         <Link to="/careers" onClick={closeMobileMenu} className={`nav-link mobile-nav-item ${isActive('/careers') ? 'active' : ''}`}><Briefcase size={16} /> Careers</Link>
+
+        <button
+          type="button"
+          className="theme-toggle-btn mobile-theme-toggle"
+          onClick={toggleTheme}
+          aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+          {darkMode ? 'Light mode' : 'Dark mode'}
+        </button>
         
         {/* Dynamic authorized mobile portal links */}
         {user && (user.role === 'delivery_partner' || user.role === 'restaurant_admin' || user.role === 'super_admin') && (

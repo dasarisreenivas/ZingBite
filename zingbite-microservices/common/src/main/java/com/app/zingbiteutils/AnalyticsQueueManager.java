@@ -1,5 +1,8 @@
 package com.app.zingbiteutils;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -12,6 +15,8 @@ import com.app.zingbitemodels.AnalyticsEvent;
 
 public class AnalyticsQueueManager {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(AnalyticsQueueManager.class);
+
     private static final AnalyticsQueueManager INSTANCE = new AnalyticsQueueManager();
 
     private final LinkedBlockingQueue<AnalyticsEvent> queue = new LinkedBlockingQueue<>();
@@ -22,7 +27,7 @@ public class AnalyticsQueueManager {
         this.workerThread = new Thread(this::processQueue, "AnalyticsBatchProcessor");
         this.workerThread.setDaemon(true);
         this.workerThread.start();
-        System.out.println("[AnalyticsQueueManager] Telemetry background thread started.");
+        LOGGER.info("[AnalyticsQueueManager] Telemetry background thread started.");
     }
 
     public static AnalyticsQueueManager getInstance() {
@@ -33,7 +38,7 @@ public class AnalyticsQueueManager {
         if (running) {
             queue.offer(event);
         } else {
-            System.err.println("[AnalyticsQueueManager] Queue manager is stopped. Dropping event: " + event.getEventType());
+            LOGGER.warn("[AnalyticsQueueManager] Queue manager is stopped. Dropping event: " + event.getEventType());
         }
     }
 
@@ -53,12 +58,12 @@ public class AnalyticsQueueManager {
                     batch.clear();
                 }
             } catch (InterruptedException e) {
-                System.out.println("[AnalyticsQueueManager] Thread interrupted, shutting down processor...");
+                LOGGER.info("[AnalyticsQueueManager] Thread interrupted, shutting down processor...");
                 Thread.currentThread().interrupt();
                 break;
             } catch (Exception e) {
-                System.err.println("[AnalyticsQueueManager] Error in worker processing queue: " + e.getMessage());
-                e.printStackTrace();
+                LOGGER.warn("[AnalyticsQueueManager] Error in worker processing queue: " + e.getMessage());
+                LOGGER.error("Unexpected error", e);
             }
         }
         
@@ -73,7 +78,7 @@ public class AnalyticsQueueManager {
     }
 
     private synchronized void flushBatch(List<AnalyticsEvent> batch) {
-        System.out.println("[AnalyticsQueueManager] Batch size " + batch.size() + " is flushing to database...");
+        LOGGER.info("[AnalyticsQueueManager] Batch size " + batch.size() + " is flushing to database...");
         Transaction tx = null;
         try (Session session = DBUtils.openSession()) {
             tx = session.beginTransaction();
@@ -81,22 +86,22 @@ public class AnalyticsQueueManager {
                 session.persist(event);
             }
             tx.commit();
-            System.out.println("[AnalyticsQueueManager] Flush completed successfully.");
+            LOGGER.info("[AnalyticsQueueManager] Flush completed successfully.");
         } catch (Exception e) {
             if (tx != null) tx.rollback();
-            System.err.println("[AnalyticsQueueManager] Failed to write batch to database: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.warn("[AnalyticsQueueManager] Failed to write batch to database: " + e.getMessage());
+            LOGGER.error("Unexpected error", e);
         }
     }
 
     public void shutdown() {
-        System.out.println("[AnalyticsQueueManager] Stopping processor and flushing remaining events...");
+        LOGGER.info("[AnalyticsQueueManager] Stopping processor and flushing remaining events...");
         running = false;
         try {
             // Wait up to 8 seconds for the worker thread to exit gracefully
             workerThread.join(8000);
         } catch (InterruptedException e) {
-            System.err.println("[AnalyticsQueueManager] Shutdown join interrupted.");
+            LOGGER.warn("[AnalyticsQueueManager] Shutdown join interrupted.");
             Thread.currentThread().interrupt();
         }
         
@@ -108,6 +113,6 @@ public class AnalyticsQueueManager {
                 flushBatch(remaining);
             }
         }
-        System.out.println("[AnalyticsQueueManager] Telemetry pipeline offline.");
+        LOGGER.info("[AnalyticsQueueManager] Telemetry pipeline offline.");
     }
 }

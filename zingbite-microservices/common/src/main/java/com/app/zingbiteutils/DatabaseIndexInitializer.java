@@ -1,11 +1,16 @@
 package com.app.zingbiteutils;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 
 public class DatabaseIndexInitializer {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseIndexInitializer.class);
+
     public static void initialize() {
-        System.out.println("[DBIndex] Starting Database Index Initialization...");
+        LOGGER.info("[DBIndex] Starting Database Index Initialization...");
         String[][] indexes = {
             {"idx_orders_user", "orders", "userId"},
             {"idx_orders_rider", "orders", "riderId"},
@@ -24,22 +29,22 @@ public class DatabaseIndexInitializer {
                     ).setParameter("tbl", table).setParameter("idx", idxName).getSingleResult();
                     if (count.longValue() == 0) {
                         session.createNativeQuery("CREATE INDEX " + idxName + " ON " + table + " (" + column + ")").executeUpdate();
-                        System.out.println("[DBIndex] Created index: " + idxName + " ON " + table + " (" + column + ")");
+                        LOGGER.info("[DBIndex] Created index: " + idxName + " ON " + table + " (" + column + ")");
                     } else {
-                        System.out.println("[DBIndex] Index already exists: " + idxName);
+                        LOGGER.info("[DBIndex] Index already exists: " + idxName);
                     }
                     tx.commit();
                 } catch (Exception e) {
                     if (tx != null) {
                         try { tx.rollback(); } catch (Exception ignored) {}
                     }
-                    System.err.println("[DBIndex] Failed to create index " + idxName + ": " + e.getMessage());
+                    LOGGER.warn("[DBIndex] Failed to create index " + idxName + ": " + e.getMessage());
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected error", e);
         }
-        System.out.println("[DBIndex] Finished database index check/creation.");
+        LOGGER.info("[DBIndex] Finished database index check/creation.");
     }
 
     public static void main(String[] args) {

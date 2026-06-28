@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -12,6 +12,14 @@ import {
   Star,
   UtensilsCrossed
 } from 'lucide-react';
+import {
+  formatDeliveryTime,
+  formatRating,
+  formatRestaurantPrice,
+  getDeliveryMinutes,
+  getHomeCustomerCoordinates,
+  getRestaurantDistanceLabel
+} from '../utils/restaurantMeta';
 
 const RESTAURANT_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop';
 
@@ -33,22 +41,6 @@ const CUISINES = [
   'Thai'
 ];
 
-const getDeliveryMinutes = (value) => {
-  const match = String(value ?? '').match(/\d+/);
-  return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
-};
-
-const formatDeliveryTime = (value) => {
-  const text = String(value ?? '').trim();
-  if (!text) return '30-40 min';
-  return /\b(min|mins|minutes)\b/i.test(text) ? text : `${text} min`;
-};
-
-const formatRating = (value) => {
-  const rating = Number(value);
-  return Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : 'New';
-};
-
 const normalizeRestaurants = (payload) => {
   if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
     return {
@@ -62,23 +54,13 @@ const normalizeRestaurants = (payload) => {
   };
 };
 
-const getMockPrice = (restaurantId, index) => {
-  const seed = Number(restaurantId) || index + 1;
-  if (seed % 3 === 0) return 'Rs 300 for two';
-  if (seed % 2 === 0) return 'Rs 200 for two';
-  return 'Rs 150 for two';
-};
-
-const getMockDistance = (restaurantId, index) => {
-  const seed = Number(restaurantId) || index + 1;
-  return `${(1.2 + (seed % 4) * 0.8).toFixed(1)} km`;
-};
-
-function RestaurantBrowseCard({ restaurant, index }) {
+function RestaurantBrowseCard({ restaurant, index, customerCoords }) {
   const ratingText = formatRating(restaurant.rating);
   const ratingVal = parseFloat(ratingText);
   const ratingClass = Number.isNaN(ratingVal) ? 'excellent' : ratingVal >= 4 ? 'excellent' : ratingVal >= 3 ? 'good' : 'average';
   const isPopular = ratingText === 'New' || ratingVal >= 4.3;
+  const priceLabel = formatRestaurantPrice(restaurant);
+  const distanceLabel = getRestaurantDistanceLabel(restaurant, customerCoords);
 
   return (
     <Link
@@ -114,8 +96,8 @@ function RestaurantBrowseCard({ restaurant, index }) {
       <div className="restaurants-card-body">
         <div className="restaurants-meta-row">
           <span><Clock size={13} /> {formatDeliveryTime(restaurant.deliveryTime)}</span>
-          <span>{getMockPrice(restaurant.restaurantId, index)}</span>
-          <span><MapPin size={12} /> {getMockDistance(restaurant.restaurantId, index)}</span>
+          {priceLabel && <span>{priceLabel}</span>}
+          {distanceLabel && <span><MapPin size={12} /> {distanceLabel}</span>}
         </div>
         <div className="restaurants-card-footer">
           <span className={`restaurants-open ${restaurant.isOpen !== false ? 'open' : 'closed'}`}>
@@ -141,6 +123,7 @@ export default function Restaurants() {
   const [selectedCuisine, setSelectedCuisine] = useState('All');
   const [sortBy, setSortBy] = useState('default');
   const [coords, setCoords] = useState(null);
+  const [homeCustomerCoords, setHomeCustomerCoords] = useState(null);
 
   useEffect(() => {
     if (!navigator.geolocation) return undefined;
@@ -157,7 +140,7 @@ export default function Restaurants() {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  const fetchRestaurants = async () => {
+  const fetchRestaurants = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -172,17 +155,18 @@ export default function Restaurants() {
       const normalized = normalizeRestaurants(response.data);
       setRestaurants(normalized.restaurants);
       setSuggestion(normalized.suggestion);
+      setHomeCustomerCoords(getHomeCustomerCoordinates(response.data, coords));
     } catch (fetchError) {
       console.error(fetchError);
       setError('We could not load restaurants right now. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [coords, debouncedSearchQuery]);
 
   useEffect(() => {
     fetchRestaurants();
-  }, [debouncedSearchQuery, coords]);
+  }, [fetchRestaurants]);
 
   const filteredRestaurants = useMemo(() => {
     const query = debouncedSearchQuery.trim().toLowerCase();
@@ -640,6 +624,7 @@ export default function Restaurants() {
               key={restaurant.restaurantId || `${restaurant.restaurantName}-${index}`}
               restaurant={restaurant}
               index={index}
+              customerCoords={homeCustomerCoords}
             />
           ))}
         </div>

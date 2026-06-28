@@ -1,28 +1,21 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
-import { Heart, ShoppingBag, Minus, Plus, Trash2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { AlertCircle, Heart, ShoppingBag, Minus, Plus, Trash2 } from 'lucide-react';
+import { getMenuItemDisplayText, isVegDish } from '../utils/menuDisplay';
 
 const DEFAULT_DISH_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop';
 
 const Wishlist = () => {
   const { wishlist, toggleWishlist, loading } = useWishlist();
-  const { cart, addToCart, updateQuantity } = useCart();
-  const navigate = useNavigate();
+  const { cart, addToCart, updateQuantity, conflictPopup, clearAndAdd, setConflictPopup } = useCart();
 
   const getCartQuantity = (itemId) => {
     if (!cart || !cart.items) return 0;
     const itemsArray = Array.isArray(cart.items) ? cart.items : Object.values(cart.items);
     const item = itemsArray.find(i => i.itemId === itemId);
     return item ? item.quantity : 0;
-  };
-
-  const isVegDish = (item) => {
-    const nonVegKeywords = ['chicken', 'mutton', 'egg', 'fish', 'pork', 'beef', 'shrimp', 'prawn', 'meat', 'kebab', 'tikka', 'biryani'];
-    const nameLower = (item.menuName || '').toLowerCase();
-    const descLower = (item.description || '').toLowerCase();
-    return !nonVegKeywords.some(keyword => nameLower.includes(keyword) || descLower.includes(keyword));
   };
 
   // --- 1. Loading State ---
@@ -94,7 +87,7 @@ const Wishlist = () => {
           gap: 24px;
         }
         .wishlist-card {
-          background: #fff;
+          background: var(--bg-card);
           border: 1px solid var(--border-light);
           border-radius: 20px;
           padding: 20px;
@@ -167,6 +160,85 @@ const Wishlist = () => {
         .remove-icon-btn:hover {
           color: var(--danger);
         }
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 2000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(0, 0, 0, 0.45);
+          backdrop-filter: blur(6px);
+          padding: 20px;
+        }
+        .modal-content {
+          background: var(--bg-card);
+          border: 1px solid var(--border-light);
+          border-radius: 20px;
+          padding: 32px;
+          max-width: 420px;
+          width: 100%;
+          box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
+          text-align: center;
+        }
+        .modal-icon {
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          background: rgba(247, 55, 79, 0.08);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 20px;
+        }
+        .modal-title {
+          margin: 0 0 10px;
+          color: var(--text-primary);
+          font-family: 'Outfit', sans-serif;
+          font-size: 1.3rem;
+          font-weight: 700;
+        }
+        .modal-desc {
+          margin: 0;
+          color: var(--text-secondary);
+          font-size: 0.95rem;
+          line-height: 1.6;
+        }
+        .modal-actions {
+          display: flex;
+          gap: 12px;
+          margin-top: 26px;
+        }
+        .modal-btn-outline,
+        .modal-btn-primary {
+          flex: 1;
+          border-radius: 12px;
+          padding: 13px;
+          font: inherit;
+          font-size: 0.9rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.25s var(--ease-premium);
+        }
+        .modal-btn-outline {
+          background: transparent;
+          border: 2px solid var(--border-medium);
+          color: var(--text-primary);
+        }
+        .modal-btn-outline:hover {
+          border-color: var(--brand-red);
+          color: var(--brand-red);
+        }
+        .modal-btn-primary {
+          background: linear-gradient(135deg, var(--brand-red), #d42d42);
+          border: none;
+          color: #fff;
+          box-shadow: 0 4px 14px rgba(247, 55, 79, 0.25);
+        }
+        .modal-btn-primary:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 20px rgba(247, 55, 79, 0.35);
+        }
       `}</style>
 
       <div className="wishlist-container page-enter">
@@ -179,6 +251,7 @@ const Wishlist = () => {
           {wishlist.map((item) => {
             const qty = getCartQuantity(item.menuId);
             const isVeg = isVegDish(item);
+            const dishDisplay = getMenuItemDisplayText(item);
 
             return (
               <div key={item.menuId} className="wishlist-card">
@@ -194,7 +267,7 @@ const Wishlist = () => {
                 <div className="wishlist-card-img-wrapper">
                   <img 
                     src={item.imagePath || DEFAULT_DISH_IMAGE} 
-                    alt={item.menuName} 
+                    alt={dishDisplay.title}
                     className="wishlist-card-img"
                     onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_DISH_IMAGE; }}
                   />
@@ -208,8 +281,8 @@ const Wishlist = () => {
                         <span>{isVeg ? 'VEG' : 'NON-VEG'}</span>
                       </div>
                     </div>
-                    <h3 className="wishlist-card-title">{item.menuName}</h3>
-                    <p className="wishlist-card-desc">{item.description}</p>
+                    <h3 className="wishlist-card-title">{dishDisplay.title}</h3>
+                    {dishDisplay.subtitle && <p className="wishlist-card-desc">{dishDisplay.subtitle}</p>}
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -219,6 +292,7 @@ const Wishlist = () => {
                     <div style={{ position: 'relative' }}>
                       {qty === 0 ? (
                         <button 
+                          type="button"
                           className="add-btn" 
                           disabled={!item.isAvailable} 
                           onClick={() => addToCart(item.menuId, 1)}
@@ -227,11 +301,11 @@ const Wishlist = () => {
                         </button>
                       ) : (
                         <div className="qty-stepper" style={{ position: 'static' }}>
-                          <button className="step-btn" onClick={() => updateQuantity(item.menuId, qty - 1)}>
+                          <button type="button" className="step-btn" onClick={() => updateQuantity(item.menuId, qty - 1)}>
                             <Minus size={12} />
                           </button>
                           <span className="step-val">{qty}</span>
-                          <button className="step-btn" onClick={() => updateQuantity(item.menuId, qty + 1)}>
+                          <button type="button" className="step-btn" onClick={() => updateQuantity(item.menuId, qty + 1)}>
                             <Plus size={12} />
                           </button>
                         </div>
@@ -244,6 +318,20 @@ const Wishlist = () => {
           })}
         </div>
       </div>
+      {conflictPopup && createPortal(
+        <div className="modal-overlay" onClick={() => setConflictPopup(null)}>
+          <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-icon"><AlertCircle size={32} color="var(--brand-red)" /></div>
+            <h3 className="modal-title">Items from another restaurant</h3>
+            <p className="modal-desc">Your cart contains items from a different restaurant. Start fresh to add this favorite?</p>
+            <div className="modal-actions">
+              <button type="button" className="modal-btn-outline" onClick={() => setConflictPopup(null)}>Cancel</button>
+              <button type="button" className="modal-btn-primary" onClick={() => clearAndAdd(conflictPopup.itemId, conflictPopup.quantity)}>Start Fresh</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 };

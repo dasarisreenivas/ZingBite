@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.util.List;
@@ -25,6 +28,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet("/api/analytics")
 public class AnalyticsServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AnalyticsServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     private boolean isSuperAdmin(HttpServletRequest req) {
@@ -123,7 +128,7 @@ public class AnalyticsServlet extends HttpServlet {
                     }
                 }
             } catch (Throwable ex) {
-                System.err.println("[AnalyticsServlet] Failed to retrieve HikariCP pool stats: " + ex.getMessage());
+                LOGGER.warn("[AnalyticsServlet] Failed to retrieve HikariCP pool stats: " + ex.getMessage());
             }
             
             if (!hikariSuccess) {
@@ -153,7 +158,7 @@ public class AnalyticsServlet extends HttpServlet {
                     hibernateJson.addProperty("txSuccessCount", statsInfo.getSuccessfulTransactionCount());
                 }
             } catch (Throwable ex) {
-                System.err.println("[AnalyticsServlet] Failed to retrieve Hibernate stats: " + ex.getMessage());
+                LOGGER.warn("[AnalyticsServlet] Failed to retrieve Hibernate stats: " + ex.getMessage());
             }
             systemMetrics.add("hibernate", hibernateJson);
 
@@ -163,7 +168,7 @@ public class AnalyticsServlet extends HttpServlet {
                 rateLimiterJson.addProperty("activeIps", com.app.zingbiteutils.RateLimiter.getActiveIpsCount());
                 rateLimiterJson.addProperty("totalRequests", com.app.zingbiteutils.RateLimiter.getTotalRequestCount());
             } catch (Throwable ex) {
-                System.err.println("[AnalyticsServlet] Failed to retrieve RateLimiter stats: " + ex.getMessage());
+                LOGGER.warn("[AnalyticsServlet] Failed to retrieve RateLimiter stats: " + ex.getMessage());
             }
             systemMetrics.add("rateLimiter", rateLimiterJson);
 
@@ -172,7 +177,7 @@ public class AnalyticsServlet extends HttpServlet {
             resp.getWriter().write(stats.toString());
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to compile platform analytics data\"}");
         }
@@ -234,7 +239,7 @@ public class AnalyticsServlet extends HttpServlet {
             resp.getWriter().write("{\"success\":true}");
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"success\":false,\"error\":\"Failed to process telemetry event\"}");
         }

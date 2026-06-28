@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 
@@ -27,15 +30,17 @@ public class LoginServlet extends HttpServlet {
 
 
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(LoginServlet.class);
+
     @Override
     public void init() throws ServletException {
         super.init();
-        System.out.println("Pre-initializing Hibernate SessionFactory for ZingBite...");
+        LOGGER.info("Pre-initializing Hibernate SessionFactory for ZingBite...");
         try {
             com.app.zingbiteutils.DBUtils.getSessionFactory();
-            System.out.println("Hibernate SessionFactory pre-initialized successfully!");
+            LOGGER.info("Hibernate SessionFactory pre-initialized successfully!");
         } catch (Exception e) {
-            System.err.println("Failed to pre-initialize SessionFactory: " + e.getMessage());
+            LOGGER.warn("Failed to pre-initialize SessionFactory: " + e.getMessage());
         }
     }
 

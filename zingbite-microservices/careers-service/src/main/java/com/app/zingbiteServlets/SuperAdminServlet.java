@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.text.SimpleDateFormat;
@@ -40,6 +43,8 @@ import java.net.URLEncoder;
 
 @WebServlet("/api/super-admin")
 public class SuperAdminServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SuperAdminServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     private boolean isSuperAdmin(HttpServletRequest req) {
@@ -119,7 +124,7 @@ public class SuperAdminServlet extends HttpServlet {
             resp.getWriter().write(stats.toString());
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to fetch admin stats\"}");
         }
@@ -175,9 +180,9 @@ public class SuperAdminServlet extends HttpServlet {
                             if (coords != null) {
                                 r.setLatitude(coords[0]);
                                 r.setLongitude(coords[1]);
-                                System.out.println("[SuperAdmin] Geocoded restaurant '" + rr.getRestaurantName() + "' to: " + coords[0] + ", " + coords[1]);
+                                LOGGER.info("[SuperAdmin] Geocoded restaurant '" + rr.getRestaurantName() + "' to: " + coords[0] + ", " + coords[1]);
                             } else {
-                                System.out.println("[SuperAdmin] Could not geocode address for restaurant '" + rr.getRestaurantName() + "': " + rr.getAddress());
+                                LOGGER.info("[SuperAdmin] Could not geocode address for restaurant '" + rr.getRestaurantName() + "': " + rr.getAddress());
                             }
 
                             hibernateSession.persist(r);
@@ -229,7 +234,7 @@ public class SuperAdminServlet extends HttpServlet {
                             com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:admin_requests", sseMsg.toString());
                             com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:user_orders:" + rr.getAdminId(), sseMsg.toString());
                         } catch (Exception ex) {
-                            ex.printStackTrace();
+                            LOGGER.error("Unexpected servlet error", ex);
                         }
                     } else {
                         resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -255,7 +260,7 @@ public class SuperAdminServlet extends HttpServlet {
                 if (coords != null) {
                     restaurant.setLatitude(coords[0]);
                     restaurant.setLongitude(coords[1]);
-                    System.out.println("[SuperAdmin] Geocoded new restaurant '" + name + "' to: " + coords[0] + ", " + coords[1]);
+                    LOGGER.info("[SuperAdmin] Geocoded new restaurant '" + name + "' to: " + coords[0] + ", " + coords[1]);
                 }
 
                 try (Session hibernateSession = DBUtils.openSession()) {
@@ -450,7 +455,7 @@ public class SuperAdminServlet extends HttpServlet {
                                 r.setLongitude(coords[1]);
                                 hibernateSession.merge(r);
                                 geocoded++;
-                                System.out.println("[SuperAdmin] Backfill geocoded '" + r.getRestaurantName() + "' → " + coords[0] + ", " + coords[1]);
+                                LOGGER.info("[SuperAdmin] Backfill geocoded '" + r.getRestaurantName() + "' → " + coords[0] + ", " + coords[1]);
 
                                 // Rate limit: Nominatim requires 1 request per second
                                 try { Thread.sleep(1100); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
@@ -479,7 +484,7 @@ public class SuperAdminServlet extends HttpServlet {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Operation failed\"}");
         }
@@ -516,7 +521,7 @@ public class SuperAdminServlet extends HttpServlet {
             }
             conn.disconnect();
         } catch (Exception e) {
-            System.err.println("[SuperAdmin] Geocoding failed for address '" + address + "': " + e.getMessage());
+            LOGGER.warn("[SuperAdmin] Geocoding failed for address '" + address + "': " + e.getMessage());
         }
         return null;
     }
@@ -533,10 +538,10 @@ public class SuperAdminServlet extends HttpServlet {
             connection.setReadTimeout(2000);
             int status = connection.getResponseCode();
             if (status < 200 || status >= 300) {
-                System.err.println("[SuperAdmin] Restaurant cache clear returned HTTP " + status);
+                LOGGER.warn("[SuperAdmin] Restaurant cache clear returned HTTP " + status);
             }
         } catch (Exception e) {
-            System.err.println("[SuperAdmin] Failed to clear restaurant cache: " + e.getMessage());
+            LOGGER.warn("[SuperAdmin] Failed to clear restaurant cache: " + e.getMessage());
         } finally {
             if (connection != null) {
                 connection.disconnect();

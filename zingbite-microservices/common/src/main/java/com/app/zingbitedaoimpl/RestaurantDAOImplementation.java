@@ -1,5 +1,8 @@
 package com.app.zingbitedaoimpl;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -14,6 +17,8 @@ import com.app.zingbitemodels.Restaurant;
 import com.app.zingbiteutils.DBUtils;
 
 public class RestaurantDAOImplementation implements RestaurantDAO {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(RestaurantDAOImplementation.class);
 
 //    private Connection con;
 //
@@ -33,7 +38,6 @@ public class RestaurantDAOImplementation implements RestaurantDAO {
 //        try {
 //            con = DBUtils.myConnect();
 //        } catch (Exception e) {
-//            e.printStackTrace();
 //        }
 //    }
 
@@ -48,7 +52,7 @@ public class RestaurantDAOImplementation implements RestaurantDAO {
 		} catch (Exception e) {
 			if (tx != null && tx.isActive())
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return 0;
 	}
@@ -70,8 +74,8 @@ public class RestaurantDAOImplementation implements RestaurantDAO {
 			if (tx != null && tx.isActive())
 				tx.rollback();
 			}catch(Exception rbf) {
-				System.err.println("rollback failed"+rbf);
-				e.printStackTrace();
+				LOGGER.warn("rollback failed"+rbf);
+				LOGGER.error("Unexpected error", e);
 			}
 		}
 		return restuarantList;
@@ -88,7 +92,7 @@ public class RestaurantDAOImplementation implements RestaurantDAO {
 		} catch (Exception e) {
 			if (tx != null && tx.isActive())
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return restaurant;
 	}
@@ -106,7 +110,7 @@ public class RestaurantDAOImplementation implements RestaurantDAO {
 		} catch (Exception e) {
 			if (tx != null && tx.isActive())
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return result;
 	}
@@ -127,7 +131,7 @@ public class RestaurantDAOImplementation implements RestaurantDAO {
 		} catch (Exception e) {
 			if (tx != null && tx.isActive())
 				tx.rollback();
-			e.printStackTrace();
+			LOGGER.error("Unexpected error", e);
 		}
 		return result;
 	}

@@ -16,6 +16,8 @@ import jakarta.servlet.http.HttpSession;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.query.Query;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.app.zingbitedao.MenuDAO;
 import com.app.zingbitedaoimpl.MenuDAOImplementation;
@@ -40,6 +42,7 @@ import com.google.gson.JsonParser;
 @WebServlet("/api/restaurant-admin")
 public class RestaurantAdminServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
+    private static final Logger LOGGER = LoggerFactory.getLogger(RestaurantAdminServlet.class);
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -206,8 +209,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                 analyticsJson.add("bestsellingItems", bestArray);
                 analyticsJson.add("dailySales", dailyArray);
             } catch (Exception ex) {
-                System.err.println("Failed to fetch restaurant analytics: " + ex.getMessage());
-                ex.printStackTrace();
+                LOGGER.warn("Failed to fetch restaurant analytics", ex);
             }
 
             JsonObject responseJson = new JsonObject();
@@ -219,7 +221,7 @@ public class RestaurantAdminServlet extends HttpServlet {
             resp.getWriter().write(responseJson.toString());
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Failed to load restaurant data", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to load restaurant data\"}");
         }
@@ -285,7 +287,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                         return;
                     }
                 } catch (Exception rateEx) {
-                    rateEx.printStackTrace();
+                    LOGGER.warn("Failed to check pending restaurant request rate limit", rateEx);
                 }
 
                 RestaurantRequest request = new RestaurantRequest(
@@ -305,7 +307,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                         sseMsg.addProperty("event", "new_request");
                         com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:admin_requests", sseMsg.toString());
                     } catch (Exception ex) {
-                        ex.printStackTrace();
+                        LOGGER.warn("Failed to broadcast new restaurant request event", ex);
                     }
                 } catch (Exception e) {
                     if (tx != null) tx.rollback();
@@ -330,6 +332,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                         MenuServlet.menuCache.remove(restaurantId);
                         HomeServlet.restaurantCache.remove("all");
                         HomeServlet.menuSearchCache.clear();
+                        MenuServlet.categoryMenuCache.clear();
 
                         try {
                             JsonObject sseMsg = new JsonObject();
@@ -338,7 +341,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                             sseMsg.addProperty("isOpen", newStatus);
                             com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:menu:" + restaurantId, sseMsg.toString());
                         } catch (Exception sseEx) {
-                            sseEx.printStackTrace();
+                            LOGGER.warn("Failed to broadcast restaurant status update", sseEx);
                         }
                         
                         JsonObject jsonResponse = new JsonObject();
@@ -353,7 +356,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                     }
                 } catch (Exception ex) {
                     if (tx != null) tx.rollback();
-                    ex.printStackTrace();
+                    LOGGER.error("Failed to toggle restaurant status", ex);
                     resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                     resp.getWriter().write("{\"error\":\"Failed to toggle restaurant status\"}");
                     return;
@@ -382,6 +385,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                         // Invalidate LRU Cache
                         MenuServlet.menuCache.remove(restaurant.getRestaurantId());
                         HomeServlet.menuSearchCache.clear();
+                        MenuServlet.categoryMenuCache.clear();
 
                         resp.getWriter().write("{\"success\":true}");
                         // Broadcast menu update
@@ -392,7 +396,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                             sseMsg.addProperty("isAvailable", isAvailable);
                             com.app.zingbiteutils.OrderEventBroker.getInstance().broadcastTopicUpdate("topic:menu:" + restaurant.getRestaurantId(), sseMsg.toString());
                         } catch (Exception ex) {
-                            ex.printStackTrace();
+                            LOGGER.warn("Failed to broadcast menu availability update", ex);
                         }
                     } else {
                         resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -429,6 +433,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                         // Invalidate LRU Cache
                         MenuServlet.menuCache.remove(restaurantId);
                         HomeServlet.menuSearchCache.clear();
+                        MenuServlet.categoryMenuCache.clear();
 
                         resp.getWriter().write("{\"success\":true}");
                     } catch (Exception e) {
@@ -471,6 +476,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                         // Invalidate LRU Cache
                         MenuServlet.menuCache.remove(restaurant.getRestaurantId());
                         HomeServlet.menuSearchCache.clear();
+                        MenuServlet.categoryMenuCache.clear();
 
                         resp.getWriter().write("{\"success\":true}");
                     } else {
@@ -498,6 +504,27 @@ public class RestaurantAdminServlet extends HttpServlet {
                     menuIdsArray = new JsonArray();
                 }
 
+                if (name == null || name.trim().isEmpty()) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"Combo name is required\"}");
+                    return;
+                }
+                if (!Double.isFinite(price) || price <= 0) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"Combo price must be greater than zero\"}");
+                    return;
+                }
+                if (restaurantId <= 0) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"Restaurant ID is required\"}");
+                    return;
+                }
+                if (menuIdsArray == null || menuIdsArray.size() == 0) {
+                    resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    resp.getWriter().write("{\"error\":\"At least one combo item is required\"}");
+                    return;
+                }
+
                 Restaurant restaurant = new RestaurantDAOImplementation().getRestaurantById(restaurantId);
                 if (restaurant != null) {
                     if (!"super_admin".equals(user.getRole()) && (restaurant.getAdminId() == null || restaurant.getAdminId() != user.getUserID())) {
@@ -515,6 +542,12 @@ public class RestaurantAdminServlet extends HttpServlet {
                         
                         for (int i = 0; i < menuIdsArray.size(); i++) {
                             int mappedMenuId = menuIdsArray.get(i).getAsInt();
+                            Menu constituent = hibernateSession.get(Menu.class, mappedMenuId);
+                            if (constituent == null
+                                    || constituent.getRestaurant() == null
+                                    || constituent.getRestaurant().getRestaurantId() != restaurantId) {
+                                throw new IllegalArgumentException("Combo item does not belong to this restaurant");
+                            }
                             ComboMapping mapping = new ComboMapping(menu.getMenuId(), mappedMenuId);
                             hibernateSession.persist(mapping);
                         }
@@ -522,6 +555,7 @@ public class RestaurantAdminServlet extends HttpServlet {
 
                         MenuServlet.menuCache.remove(restaurantId);
                         HomeServlet.menuSearchCache.clear();
+                        MenuServlet.categoryMenuCache.clear();
 
                         JsonObject responseJson = new JsonObject();
                         responseJson.addProperty("success", true);
@@ -530,9 +564,11 @@ public class RestaurantAdminServlet extends HttpServlet {
                         resp.getWriter().write(responseJson.toString());
                     } catch (Exception e) {
                         if (tx != null) tx.rollback();
-                        e.printStackTrace();
-                        resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                        resp.getWriter().write("{\"error\":\"Exception: " + e.getMessage() + "\"}");
+                        LOGGER.warn("Failed to create combo", e);
+                        resp.setStatus(e instanceof IllegalArgumentException
+                                ? HttpServletResponse.SC_BAD_REQUEST
+                                : HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                        resp.getWriter().write("{\"error\":\"Failed to create combo\"}");
                         return;
                     }
                 } else {
@@ -578,7 +614,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                             );
                         }
                     } catch (Exception ex) {
-                        ex.printStackTrace();
+                        LOGGER.warn("Failed to send order status update email", ex);
                     }
 
                     try (Session hibernateSession = DBUtils.openSession()) {
@@ -594,7 +630,7 @@ public class RestaurantAdminServlet extends HttpServlet {
                         tx.commit();
                     } catch (Exception ex) {
                         if (tx != null) tx.rollback();
-                        ex.printStackTrace();
+                        LOGGER.warn("Failed to update order history status", ex);
                     }
 
                     // Broadcast SSE & Log Status
@@ -617,13 +653,14 @@ public class RestaurantAdminServlet extends HttpServlet {
                 resp.getWriter().write("{\"error\":\"Invalid action\"}");
             }
 
+        } catch (com.google.gson.JsonParseException | IllegalStateException e) {
+            LOGGER.warn("Invalid restaurant admin JSON request body", e);
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            resp.getWriter().write("{\"error\":\"Invalid JSON request body\"}");
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Restaurant admin operation failed", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            java.io.StringWriter sw = new java.io.StringWriter();
-            java.io.PrintWriter pw = new java.io.PrintWriter(sw);
-            e.printStackTrace(pw);
-            resp.getWriter().write("{\"error\":\"Operation failed: " + e.getMessage() + "\", \"trace\": \"" + sw.toString().replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\"}");
+            resp.getWriter().write("{\"error\":\"Operation failed\"}");
         }
     }
 }

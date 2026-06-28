@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.util.List;
@@ -20,6 +23,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet("/api/notifications")
 public class NotificationServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(NotificationServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     @Override
@@ -63,7 +68,7 @@ public class NotificationServlet extends HttpServlet {
 
             response.getWriter().write(result.toString());
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             response.getWriter().write("{\"error\":\"An error occurred while fetching notifications\"}");
         }
@@ -131,7 +136,7 @@ public class NotificationServlet extends HttpServlet {
             }
             response.getWriter().write(jsonResponse.toString());
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             jsonResponse.addProperty("error", "An error occurred: " + e.getMessage());
             response.getWriter().write(jsonResponse.toString());

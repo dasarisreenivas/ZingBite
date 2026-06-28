@@ -1,5 +1,8 @@
 package com.app.zingbiteServlets;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.text.SimpleDateFormat;
@@ -31,6 +34,8 @@ import com.google.gson.JsonParser;
 
 @WebServlet("/api/careers")
 public class CareersServlet extends HttpServlet {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CareersServlet.class);
+
     private static final long serialVersionUID = 1L;
 
     // Global jobs list cache: 5 minutes fresh (TTL), 15 minutes stale (SWR)
@@ -51,7 +56,7 @@ public class CareersServlet extends HttpServlet {
         if ("jobs".equals(action)) {
             try {
                 List<Job> jobsList = jobsCache.get("all", key -> {
-                    System.out.println("[CareersServlet] Cache miss/revalidate: Loading jobs from DB");
+                    LOGGER.info("[CareersServlet] Cache miss/revalidate: Loading jobs from DB");
                     try (Session hibernateSession = DBUtils.openSession()) {
                         String hql = "from Job order by id desc";
                         Query<Job> query = hibernateSession.createQuery(hql, Job.class);
@@ -74,7 +79,7 @@ public class CareersServlet extends HttpServlet {
                                 list = hibernateSession.createQuery("from Job order by id desc", Job.class).list();
                             } catch (Exception ex) {
                                 if (tx != null) tx.rollback();
-                                ex.printStackTrace();
+                                LOGGER.error("Unexpected servlet error", ex);
                             }
                         }
                         return list;
@@ -83,7 +88,7 @@ public class CareersServlet extends HttpServlet {
 
                 resp.getWriter().write(gson.toJson(jobsList));
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.error("Unexpected servlet error", e);
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 resp.getWriter().write("{\"error\":\"Failed to load jobs\"}");
             }
@@ -123,7 +128,7 @@ public class CareersServlet extends HttpServlet {
 
                 resp.getWriter().write(responseArray.toString());
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.error("Unexpected servlet error", e);
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 resp.getWriter().write("{\"error\":\"Failed to load applications\"}");
             }
@@ -143,7 +148,7 @@ public class CareersServlet extends HttpServlet {
                 List<EmailNotification> notesList = query.list();
                 resp.getWriter().write(gson.toJson(notesList));
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.error("Unexpected servlet error", e);
                 resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 resp.getWriter().write("{\"error\":\"Failed to load notifications\"}");
             }
@@ -195,7 +200,7 @@ public class CareersServlet extends HttpServlet {
                     return;
                 }
             } catch (Exception rateEx) {
-                rateEx.printStackTrace();
+                LOGGER.error("Unexpected servlet error", rateEx);
             }
 
             Application app = new Application();
@@ -237,7 +242,7 @@ public class CareersServlet extends HttpServlet {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Unexpected servlet error", e);
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.getWriter().write("{\"error\":\"Failed to submit application\"}");
         }
