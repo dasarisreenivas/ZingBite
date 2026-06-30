@@ -1,22 +1,23 @@
 import { useState, useEffect, useRef, useContext } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { Sparkles, Mic, MicOff, Send, X, Bot, User as UserIcon } from 'lucide-react';
 import { CartContext } from '../context/CartContext';
+import useAgent from '../hooks/useAgent';
+import AgentMessageCard from './agent/AgentMessageCard';
+import AgentQuickActions from './agent/AgentQuickActions';
+import AgentThinking from './agent/AgentThinking';
 
 export default function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [messages, setMessages] = useState([
-    { sender: 'bot', text: "Hello! I am your ZingBite AI Assistant. Try saying: 'Add biryani', 'Search pizza', 'Open cart', or 'Checkout'." }
-  ]);
   const [inputVal, setInputVal] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const chatEndRef = useRef(null);
 
   const { addToCart } = useContext(CartContext);
   const navigate = useNavigate();
-  const location = useLocation();
+
+  const { messages, sendMessage, loading, thinkingState } = useAgent();
 
   // Speech Recognition setup
   const recognitionRef = useRef(null);
@@ -36,8 +37,9 @@ export default function AIAssistant() {
 
       rec.onresult = (event) => {
         const speechToText = event.results[0][0].transcript;
-        addMessage('user', speechToText);
-        processVoiceCommand(speechToText);
+        sendMessage(speechToText).then(botMsg => {
+          if (botMsg) executeAction(botMsg);
+        });
       };
 
       rec.onerror = (e) => {
@@ -52,17 +54,13 @@ export default function AIAssistant() {
 
       recognitionRef.current = rec;
     }
-  }, []);
+  }, [sendMessage]);
 
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen]);
-
-  const addMessage = (sender, text) => {
-    setMessages((prev) => [...prev, { sender, text }]);
-  };
 
   const startListening = () => {
     if (!recognitionRef.current) {
@@ -79,46 +77,10 @@ export default function AIAssistant() {
   const handleSend = () => {
     if (!inputVal.trim()) return;
     const txt = inputVal;
-    addMessage('user', txt);
     setInputVal('');
-    processVoiceCommand(txt);
-  };
-
-  // Extracts restaurant ID from URL if on Menu page
-  const getActiveRestaurantId = () => {
-    const searchParams = new URLSearchParams(location.search);
-    const queryRestaurantId = searchParams.get('restaurantId');
-    if (queryRestaurantId) return queryRestaurantId;
-
-    const match = location.pathname.match(/\/menu\/(\d+)/);
-    return match ? match[1] : null;
-  };
-
-  const processVoiceCommand = async (text) => {
-    const restId = getActiveRestaurantId();
-    addMessage('bot', 'Processing...');
-
-    try {
-      const aiPath = restId
-        ? `/api/ai/voice-command?restaurantId=${encodeURIComponent(restId)}`
-        : '/api/ai/voice-command';
-      const res = await axios.post(aiPath, { text });
-      const data = res.data;
-
-      // Remove the "Processing..." loader message
-      setMessages((prev) => prev.filter((m) => m.text !== 'Processing...'));
-
-      if (data.status === 'success') {
-        addMessage('bot', data.message || 'Action executed successfully!');
-        executeAction(data);
-      } else {
-        addMessage('bot', data.message || 'Sorry, I could not complete that request.');
-      }
-    } catch (e) {
-      console.error(e);
-      setMessages((prev) => prev.filter((m) => m.text !== 'Processing...'));
-      addMessage('bot', 'Sorry, I encountered an error connecting to the AI service.');
-    }
+    sendMessage(txt).then(botMsg => {
+      if (botMsg) executeAction(botMsg);
+    });
   };
 
   const executeAction = async (data) => {
@@ -128,13 +90,15 @@ export default function AIAssistant() {
         if (payload && payload.menuId) {
           const success = await addToCart(payload.menuId, payload.quantity || 1);
           if (!success) {
-            addMessage('bot', 'Could not add to cart. You might have items from another restaurant in your cart.');
+            setErrorMsg('Could not add to cart. You might have items from another restaurant in your cart.');
           }
         }
         break;
       case 'SEARCH':
-        if (payload) {
-          // Dispatch a custom event so Home.jsx or Menu.jsx can capture the search action
+        if (payload && payload.items) {
+          // Dispatch custom search event for list filtering
+          window.dispatchEvent(new CustomEvent('ai-search', { detail: { query: payload.items[0]?.menuName || '' } }));
+        } else if (typeof payload === 'string') {
           window.dispatchEvent(new CustomEvent('ai-search', { detail: { query: payload } }));
         }
         break;
@@ -146,6 +110,26 @@ export default function AIAssistant() {
         break;
       default:
         break;
+    }
+  };
+
+  const handleQuickAction = (actionText) => {
+    // If it's a structural command
+    if (actionText.startsWith("Add ")) {
+      const food = actionText.substring(4);
+      sendMessage(`Add ${food} to my cart`).then(botMsg => {
+        if (botMsg) executeAction(botMsg);
+      });
+    } else if (actionText.toLowerCase() === "go to checkout") {
+      navigate('/checkout');
+      setIsOpen(false);
+    } else if (actionText.toLowerCase() === "view cart") {
+      navigate('/cart');
+      setIsOpen(false);
+    } else {
+      sendMessage(actionText).then(botMsg => {
+        if (botMsg) executeAction(botMsg);
+      });
     }
   };
 
@@ -164,12 +148,12 @@ export default function AIAssistant() {
 
       {/* Expanded Chat Drawer */}
       {isOpen && (
-        <div className="flex h-[450px] w-[330px] flex-col rounded-2xl border border-gray-100 bg-white shadow-2xl shadow-gray-500/25 transition-all duration-300 sm:w-[360px]">
+        <div className="flex h-[520px] w-[340px] flex-col rounded-2xl border border-gray-100 bg-white shadow-2xl shadow-gray-500/25 transition-all duration-300 sm:w-[380px]">
           {/* Header */}
           <div className="flex items-center justify-between rounded-t-2xl bg-red-500 px-4 py-3.5 text-white">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
-              <span className="font-semibold tracking-wide">ZingBite AI Assistant</span>
+              <span className="font-semibold tracking-wide">ZingBot custom AI</span>
             </div>
             <button
               onClick={() => {
@@ -185,37 +169,59 @@ export default function AIAssistant() {
           {/* Messages list */}
           <div className="flex-1 overflow-y-auto bg-gray-50/50 p-4 space-y-3">
             {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex gap-2.5 max-w-[85%] ${
-                  msg.sender === 'user' ? 'ml-auto flex-row-reverse' : 'mr-auto'
-                }`}
-              >
+              <div key={i} className="space-y-1">
                 <div
-                  className={`flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-full text-xs font-semibold ${
-                    msg.sender === 'user' ? 'bg-red-100 text-red-600' : 'bg-red-500 text-white'
+                  className={`flex gap-2.5 max-w-[85%] ${
+                    msg.sender === 'user' ? 'ml-auto flex-row-reverse' : 'mr-auto'
                   }`}
                 >
-                  {msg.sender === 'user' ? <UserIcon className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                  <div
+                    className={`flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-full text-xs font-semibold ${
+                      msg.sender === 'user' ? 'bg-red-100 text-red-600' : 'bg-red-500 text-white'
+                    }`}
+                  >
+                    {msg.sender === 'user' ? <UserIcon className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                  </div>
+                  <div
+                    className={`rounded-2xl px-3.5 py-2 text-sm shadow-sm leading-relaxed ${
+                      msg.sender === 'user'
+                        ? 'bg-red-500 text-white rounded-tr-none'
+                        : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
                 </div>
-                <div
-                  className={`rounded-2xl px-3.5 py-2 text-sm shadow-sm leading-relaxed ${
-                    msg.sender === 'user'
-                      ? 'bg-red-500 text-white rounded-tr-none'
-                      : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
-                  }`}
-                >
-                  {msg.text}
-                </div>
+
+                {/* Render Card Details if available */}
+                {msg.sender === 'bot' && msg.card && (
+                  <div className="pl-9 pr-2">
+                    <AgentMessageCard card={msg.card} />
+                  </div>
+                )}
+
+                {/* Render Quick Actions if available */}
+                {msg.sender === 'bot' && msg.quickActions && (
+                  <AgentQuickActions
+                    quickActions={msg.quickActions}
+                    onActionClick={handleQuickAction}
+                  />
+                )}
               </div>
             ))}
+
+            {loading && (
+              <AgentThinking thinkingState={thinkingState} />
+            )}
+
             <div ref={chatEndRef} />
           </div>
 
           {/* Warning / Error info banner */}
           {errorMsg && (
-            <div className="bg-amber-50 px-4 py-1.5 text-xs text-amber-700 border-t border-amber-100">
-              {errorMsg}
+            <div className="bg-amber-50 px-4 py-1.5 text-xs text-amber-700 border-t border-amber-100 flex justify-between items-center">
+              <span>{errorMsg}</span>
+              <button onClick={() => setErrorMsg('')} className="text-amber-800 font-bold ml-2">x</button>
             </div>
           )}
 
@@ -238,7 +244,7 @@ export default function AIAssistant() {
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Ask me to do something..."
+              placeholder="Chat with ZingBot..."
               className="flex-1 rounded-full border border-gray-200 bg-gray-50/50 px-4 py-2 text-sm text-gray-800 placeholder-gray-400 outline-none focus:border-red-400 focus:bg-white focus:ring-1 focus:ring-red-400"
             />
 

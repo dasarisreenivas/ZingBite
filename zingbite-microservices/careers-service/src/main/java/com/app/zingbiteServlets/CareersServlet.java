@@ -175,6 +175,18 @@ public class CareersServlet extends HttpServlet {
             BufferedReader reader = req.getReader();
             JsonObject requestBody = JsonParser.parseReader(reader).getAsJsonObject();
 
+            String action = requestBody.has("action") ? requestBody.get("action").getAsString() : "";
+            if ("clearCache".equals(action)) {
+                if (!"super_admin".equals(user.getRole())) {
+                    resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    resp.getWriter().write("{\"error\":\"Forbidden\"}");
+                    return;
+                }
+                jobsCache.clear();
+                resp.getWriter().write("{\"success\":true}");
+                return;
+            }
+
             int jobId = requestBody.get("jobId").getAsInt();
             String name = SanitizationUtils.escapeHtml(requestBody.get("name").getAsString());
             String email = requestBody.get("email").getAsString().trim().toLowerCase();

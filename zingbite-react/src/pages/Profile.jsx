@@ -232,7 +232,7 @@ const Profile = () => {
     isFetchingOrdersRef.current = true;
     if (!isBackground) setOrdersLoading(true);
     try {
-      const res = await axios.get('/api/profile?action=orders');
+      const res = await axios.get('/api/orders');
       setPastOrders(res.data);
     } catch (err) {
       console.error("Error fetching past orders:", err);

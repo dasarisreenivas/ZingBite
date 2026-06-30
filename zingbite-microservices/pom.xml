@@ -26,6 +26,17 @@
         <module>careers-service</module>
         <module>chat-service</module>
         <module>ai-service</module>
+        <module>wishlist-service</module>
+        <module>reviews-service</module>
+        <module>recommendations-service</module>
+        <module>notifications-service</module>
+        <module>payment-service</module>
+        <module>admin-service</module>
+        <module>analytics-service</module>
+        <module>surge-pricing-service</module>
+        <module>routing-service</module>
+        <module>group-order-service</module>
+        <module>agent-service</module>
     </modules>
 
     <dependencies>

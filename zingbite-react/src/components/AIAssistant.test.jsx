@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import axios from 'axios';
 import { CartContext } from '../context/CartContext';
+import { AuthContext } from '../context/AuthContext';
 import AIAssistant from './AIAssistant';
 
 // Mock axios
@@ -37,9 +38,11 @@ describe('AIAssistant Component tests', () => {
   const renderComponent = () => {
     return render(
       <MemoryRouter>
-        <CartContext.Provider value={{ addToCart: mockAddToCart }}>
-          <AIAssistant />
-        </CartContext.Provider>
+        <AuthContext.Provider value={{ user: { userID: 7, role: 'customer' }, loading: false }}>
+          <CartContext.Provider value={{ cart: { items: [] }, addToCart: mockAddToCart }}>
+            <AIAssistant />
+          </CartContext.Provider>
+        </AuthContext.Provider>
       </MemoryRouter>
     );
   };
@@ -49,7 +52,7 @@ describe('AIAssistant Component tests', () => {
     const floatBtn = screen.getByTitle('ZingBite AI Assistant');
     expect(floatBtn).toBeInTheDocument();
     // Chat drawer should not be visible
-    expect(screen.queryByText('ZingBite AI Assistant', { selector: 'span' })).not.toBeInTheDocument();
+    expect(screen.queryByText('ZingBot custom AI', { selector: 'span' })).not.toBeInTheDocument();
   });
 
   test('should open chat drawer when clicking the floating button', () => {
@@ -58,8 +61,8 @@ describe('AIAssistant Component tests', () => {
     fireEvent.click(floatBtn);
 
     // Chat drawer elements should show up
-    expect(screen.getByText('ZingBite AI Assistant', { selector: 'span' })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Ask me to do something...')).toBeInTheDocument();
+    expect(screen.getByText('ZingBot custom AI', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Chat with ZingBot...')).toBeInTheDocument();
   });
 
   test('should send typed text and update messages list', async () => {
@@ -76,7 +79,7 @@ describe('AIAssistant Component tests', () => {
     const floatBtn = screen.getByTitle('ZingBite AI Assistant');
     fireEvent.click(floatBtn);
 
-    const input = screen.getByPlaceholderText('Ask me to do something...');
+    const input = screen.getByPlaceholderText('Chat with ZingBot...');
     const sendBtn = container.querySelector('svg.lucide-send').closest('button');
 
     fireEvent.change(input, { target: { value: 'search pizza' } });
@@ -87,7 +90,16 @@ describe('AIAssistant Component tests', () => {
 
     // Wait for the mock API response and verification
     await waitFor(() => {
-      expect(axios.post).toHaveBeenCalledWith('/api/ai/voice-command?restaurantId=12', { text: 'search pizza' });
+      expect(axios.post).toHaveBeenCalledWith('/api/ai/agent/chat', expect.objectContaining({
+        message: 'search pizza',
+        sessionId: 'session_7',
+        context: expect.objectContaining({
+          userId: 7,
+          role: 'customer',
+          activePage: expect.any(String),
+          cartItems: []
+        })
+      }));
       expect(screen.getByText('Searching for pizza...')).toBeInTheDocument();
     });
   });
@@ -109,7 +121,7 @@ describe('AIAssistant Component tests', () => {
     const floatBtn = screen.getByTitle('ZingBite AI Assistant');
     fireEvent.click(floatBtn);
 
-    const input = screen.getByPlaceholderText('Ask me to do something...');
+    const input = screen.getByPlaceholderText('Chat with ZingBot...');
     const sendBtn = container.querySelector('svg.lucide-send').closest('button');
 
     fireEvent.change(input, { target: { value: 'add biryani' } });
@@ -135,7 +147,7 @@ describe('AIAssistant Component tests', () => {
     const floatBtn = screen.getByTitle('ZingBite AI Assistant');
     fireEvent.click(floatBtn);
 
-    const input = screen.getByPlaceholderText('Ask me to do something...');
+    const input = screen.getByPlaceholderText('Chat with ZingBot...');
     const sendBtn = container.querySelector('svg.lucide-send').closest('button');
 
     fireEvent.change(input, { target: { value: 'checkout' } });

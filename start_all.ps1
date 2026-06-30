@@ -10,6 +10,7 @@ $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $microservicesRoot = Join-Path $repoRoot "zingbite-microservices"
 $frontendRoot = Join-Path $repoRoot "zingbite-react"
 $mlServiceRoot = Join-Path $repoRoot "zingbite-ml-service"
+$agentServiceRoot = Join-Path $repoRoot "zingbite-agent-service"
 $envFile = Join-Path $repoRoot ".env"
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
@@ -42,7 +43,7 @@ if (-not $mvn) {
 if (-not $mvn) {
     throw "Maven was not found. Install Maven or add mvn.cmd to PATH."
 }
-$services = @("auth-service", "orders-service", "restaurant-service", "delivery-service", "careers-service", "chat-service", "ai-service", "gateway-service")
+$services = @("auth-service", "orders-service", "restaurant-service", "delivery-service", "careers-service", "chat-service", "ai-service", "agent-service", "wishlist-service", "reviews-service", "recommendations-service", "notifications-service", "payment-service", "admin-service", "analytics-service", "surge-pricing-service", "routing-service", "group-order-service", "gateway-service")
 
 function Get-ZingBitePython {
     if ($env:ZINGBITE_PYTHON -and (Test-Path $env:ZINGBITE_PYTHON)) {
@@ -82,6 +83,7 @@ function Start-ZingBiteMlService {
     Start-Sleep -Seconds 2
 }
 
+
 function Stop-ZingBiteServices {
     $running = @(Get-CimInstance Win32_Process -Filter "name = 'java.exe'" -ErrorAction Stop |
         Where-Object {
@@ -91,12 +93,16 @@ function Stop-ZingBiteServices {
         Where-Object {
             $_.Name -like "python*" -and $_.CommandLine -like "*$mlServiceRoot*"
         })
+    $agentRunning = @(Get-CimInstance Win32_Process -ErrorAction Stop |
+        Where-Object {
+            $_.Name -like "python*" -and $_.CommandLine -like "*$agentServiceRoot*"
+        })
 
-    if ($running.Count -eq 0 -and $mlRunning.Count -eq 0) {
+    if ($running.Count -eq 0 -and $mlRunning.Count -eq 0 -and $agentRunning.Count -eq 0) {
         return
     }
 
-    $processIds = @($running + $mlRunning | Select-Object -ExpandProperty ProcessId -Unique)
+    $processIds = @($running + $mlRunning + $agentRunning | Select-Object -ExpandProperty ProcessId -Unique)
     Write-Host "Stopping existing ZingBite services before restart..." -ForegroundColor Yellow
     Stop-Process -Id $processIds -Force -ErrorAction Stop
 

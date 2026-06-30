@@ -1,0 +1,233 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "id": "biryani"
+    },
+    {
+      "id": "raita"
+    },
+    {
+      "id": "mirchi ka salan"
+    },
+    {
+      "id": "indian"
+    },
+    {
+      "id": "rice"
+    },
+    {
+      "id": "lunch"
+    },
+    {
+      "id": "dinner"
+    },
+    {
+      "id": "burger"
+    },
+    {
+      "id": "french fries"
+    },
+    {
+      "id": "coke"
+    },
+    {
+      "id": "soda"
+    },
+    {
+      "id": "cheese"
+    },
+    {
+      "id": "fast food"
+    },
+    {
+      "id": "pizza"
+    },
+    {
+      "id": "garlic bread"
+    },
+    {
+      "id": "italian"
+    },
+    {
+      "id": "paneer tikka"
+    },
+    {
+      "id": "mint chutney"
+    },
+    {
+      "id": "naan"
+    },
+    {
+      "id": "veg"
+    },
+    {
+      "id": "masala chai"
+    },
+    {
+      "id": "biscuits"
+    },
+    {
+      "id": "samosa"
+    },
+    {
+      "id": "breakfast"
+    },
+    {
+      "id": "tea"
+    },
+    {
+      "id": "paneer biryani"
+    },
+    {
+      "id": "chicken biryani"
+    },
+    {
+      "id": "veg margherita pizza"
+    }
+  ],
+  "edges": [
+    {
+      "relation": "PAIRS_WITH",
+      "source": "biryani",
+      "target": "raita"
+    },
+    {
+      "relation": "PAIRS_WITH",
+      "source": "biryani",
+      "target": "mirchi ka salan"
+    },
+    {
+      "relation": "BELONGS_TO",
+      "source": "biryani",
+      "target": "indian"
+    },
+    {
+      "relation": "CONTAINS",
+      "source": "biryani",
+      "target": "rice"
+    },
+    {
+      "relation": "SUITABLE_FOR",
+      "source": "biryani",
+      "target": "lunch"
+    },
+    {
+      "relation": "SUITABLE_FOR",
+      "source": "biryani",
+      "target": "dinner"
+    },
+    {
+      "relation": "BELONGS_TO",
+      "source": "indian",
+      "target": "paneer tikka"
+    },
+    {
+      "relation": "BELONGS_TO",
+      "source": "indian",
+      "target": "paneer biryani"
+    },
+    {
+      "relation": "BELONGS_TO",
+      "source": "indian",
+      "target": "chicken biryani"
+    },
+    {
+      "relation": "BELONGS_TO",
+      "source": "indian",
+      "target": "masala chai"
+    },
+    {
+      "relation": "PAIRS_WITH",
+      "source": "burger",
+      "target": "french fries"
+    },
+    {
+      "relation": "PAIRS_WITH",
+      "source": "burger",
+      "target": "coke"
+    },
+    {
+      "relation": "PAIRS_WITH",
+      "source": "burger",
+      "target": "soda"
+    },
+    {
+      "relation": "CONTAINS",
+      "source": "burger",
+      "target": "cheese"
+    },
+    {
+      "relation": "BELONGS_TO",
+      "source": "burger",
+      "target": "fast food"
+    },
+    {
+      "relation": "BELONGS_TO",
+      "source": "french fries",
+      "target": "fast food"
+    },
+    {
+      "relation": "PAIRS_WITH",
+      "source": "coke",
+      "target": "pizza"
+    },
+    {
+      "relation": "CONTAINS",
+      "source": "cheese",
+      "target": "pizza"
+    },
+    {
+      "relation": "PAIRS_WITH",
+      "source": "pizza",
+      "target": "garlic bread"
+    },
+    {
+      "relation": "BELONGS_TO",
+      "source": "pizza",
+      "target": "italian"
+    },
+    {
+      "relation": "BELONGS_TO",
+      "source": "italian",
+      "target": "veg margherita pizza"
+    },
+    {
+      "relation": "PAIRS_WITH",
+      "source": "paneer tikka",
+      "target": "mint chutney"
+    },
+    {
+      "relation": "PAIRS_WITH",
+      "source": "paneer tikka",
+      "target": "naan"
+    },
+    {
+      "relation": "DIETARY_TAG",
+      "source": "paneer tikka",
+      "target": "veg"
+    },
+    {
+      "relation": "PAIRS_WITH",
+      "source": "masala chai",
+      "target": "biscuits"
+    },
+    {
+      "relation": "PAIRS_WITH",
+      "source": "masala chai",
+      "target": "samosa"
+    },
+    {
+      "relation": "SUITABLE_FOR",
+      "source": "masala chai",
+      "target": "breakfast"
+    },
+    {
+      "relation": "SIMILAR_TO",
+      "source": "masala chai",
+      "target": "tea"
+    }
+  ]
+}

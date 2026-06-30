@@ -173,7 +173,7 @@ const Checkout = () => {
         const restaurantId = firstItem ? firstItem.restaurantId : null;
         const latitude = addressChoice === 'profile' ? (user?.latitude || null) : manualLat;
         const longitude = addressChoice === 'profile' ? (user?.longitude || null) : manualLng;
-        const res = await axios.post('/api/profile', { action: 'createOrder', paymentMethod: 'COD', items: formattedItems, restaurantId, latitude, longitude });
+        const res = await axios.post('/api/orders', { action: 'createOrder', paymentMethod: 'COD', items: formattedItems, restaurantId, latitude, longitude });
         if (!res.data.success) { showAlert(res.data.error || "Failed to place order.", "error"); setPaying(false); return; }
         trackEvent('ORDER_PLACED', { orderId: res.data.orderId, amount: res.data.amount, method: 'COD' });
         clearCart();
@@ -201,7 +201,7 @@ const Checkout = () => {
         const restaurantId = firstItem ? firstItem.restaurantId : null;
         const latitude = addressChoice === 'profile' ? (user?.latitude || null) : manualLat;
         const longitude = addressChoice === 'profile' ? (user?.longitude || null) : manualLng;
-        const res = await axios.post('/api/profile', { action: 'createOrder', paymentMethod: 'Razorpay', items: formattedItems, restaurantId, latitude, longitude });
+        const res = await axios.post('/api/orders', { action: 'createOrder', paymentMethod: 'Razorpay', items: formattedItems, restaurantId, latitude, longitude });
         if (!res.data.success) { showAlert(res.data.error || "Failed to reserve order.", "error"); setPaying(false); return; }
         const orderId = res.data.orderId;
         const serverAmount = Number(res.data.amount);
@@ -263,7 +263,7 @@ const Checkout = () => {
       const restaurantId = firstItem ? firstItem.restaurantId : null;
       const latitude = addressChoice === 'profile' ? (user?.latitude || null) : manualLat;
       const longitude = addressChoice === 'profile' ? (user?.longitude || null) : manualLng;
-      const res = await axios.post('/api/profile', { action: 'createOrder', paymentMethod: 'Razorpay', items: formattedItems, restaurantId, latitude, longitude });
+      const res = await axios.post('/api/orders', { action: 'createOrder', paymentMethod: 'Razorpay', items: formattedItems, restaurantId, latitude, longitude });
       if (!res.data.success) { showAlert(res.data.error || "Failed to reserve order.", "error"); setPaying(false); return; }
       const orderId = res.data.orderId;
       const razorpayOrderId = res.data.razorpayOrderId;

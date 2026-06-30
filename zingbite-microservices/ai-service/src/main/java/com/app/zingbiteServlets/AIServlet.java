@@ -42,6 +42,8 @@ public class AIServlet extends HttpServlet {
     private final ZingBiteAiModel aiModel = new ZingBiteAiModel();
     private final MlServiceClient mlClient = new MlServiceClient();
     private final MlPredictionLogger predictionLogger = new MlPredictionLogger();
+    private final com.app.ai.agent.AgentServiceClient agentClient = new com.app.ai.agent.AgentServiceClient();
+
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -128,6 +130,13 @@ public class AIServlet extends HttpServlet {
                 case "/chat-assist":
                     handleChatAssist(req, resp);
                     break;
+                case "/agent/chat":
+                    handleAgentChat(req, resp);
+                    break;
+                case "/agent/train":
+                    handleAgentTrain(req, resp);
+                    break;
+
                 default:
                     resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
                     resp.getWriter().write("{\"error\":\"Endpoint not found\"}");
@@ -1224,5 +1233,54 @@ public class AIServlet extends HttpServlet {
 
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private void handleAgentChat(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        JsonObject requestBody = readJsonBody(req);
+
+        // Keep identity server-authoritative; the browser may still provide UI context.
+        User user = AuthorizationUtils.requireAuthenticated(req);
+        JsonObject context = requestBody.has("context") && requestBody.get("context").isJsonObject()
+            ? requestBody.getAsJsonObject("context")
+            : new JsonObject();
+        if (user != null) {
+            context.addProperty("userId", user.getUserID());
+            context.addProperty("role", user.getRole());
+        } else {
+            context.remove("userId");
+            context.addProperty("role", "customer");
+        }
+        requestBody.add("context", context);
+
+        JsonObject responseObj = agentClient.chat(requestBody);
+        writeAgentResponse(resp, responseObj);
+    }
+
+    private void handleAgentTrain(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        User user = AuthorizationUtils.requireAuthenticated(req);
+        if (user == null || (!"restaurant_admin".equals(user.getRole()) && !"super_admin".equals(user.getRole()))) {
+            resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            resp.getWriter().write("{\"status\":\"error\",\"message\":\"Forbidden: Admin access required.\"}");
+            return;
+        }
+
+        JsonObject responseObj = agentClient.train();
+        writeAgentResponse(resp, responseObj);
+    }
+
+    private void writeAgentResponse(HttpServletResponse resp, JsonObject responseObj) throws IOException {
+        if (responseObj != null
+                && responseObj.has("status")
+                && "error".equalsIgnoreCase(responseObj.get("status").getAsString())) {
+            int upstreamStatus = responseObj.has("upstreamStatus")
+                    ? responseObj.get("upstreamStatus").getAsInt()
+                    : HttpServletResponse.SC_BAD_GATEWAY;
+            if (upstreamStatus >= 400 && upstreamStatus <= 599) {
+                resp.setStatus(upstreamStatus);
+            } else {
+                resp.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
+            }
+        }
+        resp.getWriter().write(gson.toJson(responseObj));
     }
 }

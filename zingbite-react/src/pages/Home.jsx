@@ -6,6 +6,7 @@ import {
   MapPin, Clock, Award, Users, Sparkles, Smartphone, AlertTriangle,
   ChevronLeft, ChevronRight, BadgePercent, Heart, Check, Minus, Plus, ShoppingBag,
 } from 'lucide-react';
+import { FOOD_CATEGORIES } from '../constants/foodCategories';
 import { trackEvent } from '../utils/analytics';
 import { getPromoBackground, getRestaurantPageSize } from '../utils/homeConfig';
 import {
@@ -19,29 +20,21 @@ import {
 import { AuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import ScrollReveal from '../components/ScrollReveal';
+import { CategoryRail } from '../components/home/CategoryRail';
 import { CategoryCartOverlays, CategoryMenuSheet } from '../components/home/CategoryMenuSheet';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?q=80&w=2200&auto=format&fit=crop';
 const RESTAURANT_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop';
 const CATEGORY_DISH_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1200&auto=format&fit=crop';
-const RESTAURANT_PAGE_SIZE = 8;
-
-const CATEGORIES = [
-  { name: 'Biryani', image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Burger', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Pizza', image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Chinese', image: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Indian', image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Desserts', image: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Healthy', image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Pasta', image: 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Sandwich', image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Sushi', image: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Cafe', image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Breakfast', image: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Mexican', image: 'https://images.unsplash.com/photo-1613514785940-daed07799d9b?q=80&w=600&auto=format&fit=crop' },
-  { name: 'Thai', image: 'https://images.unsplash.com/photo-1559314809-0d155014e29e?q=80&w=600&auto=format&fit=crop' }
+const PROMO_POSTER_IMAGES = [
+  'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?q=80&w=1400&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1600891964599-f61ba0e24092?q=80&w=1400&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=1400&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=1400&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1400&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=1400&auto=format&fit=crop'
 ];
+const RESTAURANT_PAGE_SIZE = 8;
 
 // Particles background component
 function Particles() {
@@ -601,89 +594,19 @@ const Home = () => {
   };
 
   const renderPromoDeals = (props) => {
-    const deals = props.deals || [];
-    return (
-      <div style={{ maxWidth: '1400px', width: '92%', margin: '32px auto 0' }}>
-        <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.3rem', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>
-          Hot Deals & Offers
-        </h3>
-        <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '12px', scrollbarWidth: 'none' }} className="no-scrollbar">
-          {deals.map(deal => (
-            <div key={deal.id} style={{
-              flex: '0 0 300px',
-              padding: '24px',
-              borderRadius: '20px',
-              color: '#fff',
-              background: getPromoBackground(deal.bgGradient),
-              boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              height: '140px',
-              transition: 'transform 0.3s ease',
-              cursor: 'pointer'
-            }}
-            className="hover-scale"
-            onClick={() => alert(`Use code during checkout to redeem: ${deal.title}`)}
-            >
-              <div>
-                <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px' }}>
-                  PROMO
-                </span>
-                <h4 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.4rem', fontWeight: 800, margin: '8px 0 2px' }}>{deal.title}</h4>
-              </div>
-              <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.9)', margin: 0 }}>{deal.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <PromoDealsCarousel deals={props.deals || []} />;
   };
 
   const renderCategoryCarousel = (props) => {
     return (
-      <div style={{ marginTop: '32px' }}>
-        <div className="section-title-row page-enter" style={{ marginBottom: '16px' }}>
-          <h2 style={{ fontSize: '1.4rem' }}>{props.title || 'In the Mood for...'}</h2>
-        </div>
-        <div className="category-rail-shell page-enter" style={{ animationDelay: '0.1s', marginBottom: '24px' }}>
-          <button
-            type="button"
-            className="category-rail-btn left"
-            onClick={() => scrollCategoryRail('left')}
-            aria-label="Scroll food categories left"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div ref={categoryRailRef} className="cuisine-filters" aria-label="Food category filters">
-            {CATEGORIES.map((c, idx) => (
-              <button
-                key={c.name}
-                type="button"
-                className={`category-card ${categorySheet.open && categorySheet.category === c.name ? 'active' : ''}`}
-                onClick={() => openCategoryMenu(c.name)}
-                style={{
-                  animation: `premiumFadeIn 0.4s var(--ease-premium) ${idx * 0.06}s both`,
-                  padding: 0
-                }}
-              >
-                <img src={c.image} alt={c.name} className="category-card-img" loading="lazy" />
-                <div className="category-card-overlay">
-                  <h3 className="category-card-name">{c.name}</h3>
-                </div>
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="category-rail-btn right"
-            onClick={() => scrollCategoryRail('right')}
-            aria-label="Scroll food categories right"
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
-      </div>
+      <CategoryRail
+        title={props.title}
+        categories={FOOD_CATEGORIES}
+        activeCategory={categorySheet.open ? categorySheet.category : ''}
+        railRef={categoryRailRef}
+        onScroll={scrollCategoryRail}
+        onOpenCategory={openCategoryMenu}
+      />
     );
   };
   const renderFoodMoods = (props) => {
@@ -772,7 +695,7 @@ const Home = () => {
           image: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=600&auto=format&fit=crop'
         }
       };
-      const cuisineImage = CATEGORIES.find(c => c.name.toLowerCase() === mood.cuisine?.toLowerCase())?.image;
+      const cuisineImage = FOOD_CATEGORIES.find(c => c.name.toLowerCase() === mood.cuisine?.toLowerCase())?.image;
       return {
         title: mood.title || details[mood.tag]?.title || mood.tag || 'ZingBite Pick',
         cuisineLabel: mood.cuisineLabel || details[mood.tag]?.cuisineLabel || mood.cuisine || 'Fresh',
@@ -1873,6 +1796,261 @@ const Home = () => {
           background: rgba(247,55,79,0.94);
         }
 
+        /* ===== CINEMATIC PROMO POSTERS ===== */
+        .promo-cinema-section {
+          max-width: 1400px;
+          width: 92%;
+          margin: 38px auto 0;
+          overflow: hidden;
+        }
+        .promo-cinema-header {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 18px;
+          margin-bottom: 16px;
+        }
+        .promo-cinema-eyebrow,
+        .promo-cinema-live {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          color: var(--brand-red);
+          font-size: 0.78rem;
+          font-weight: 900;
+          text-transform: uppercase;
+        }
+        .promo-cinema-header h3 {
+          margin: 6px 0 0;
+          color: var(--text-primary);
+          font-family: 'Outfit', sans-serif;
+          font-size: clamp(1.35rem, 2.4vw, 2rem);
+          font-weight: 900;
+          line-height: 1.05;
+        }
+        .promo-cinema-live {
+          min-height: 34px;
+          padding: 0 12px;
+          border-radius: 999px;
+          color: #d9480f;
+          background: rgba(249,115,22,0.1);
+          border: 1px solid rgba(249,115,22,0.16);
+          white-space: nowrap;
+        }
+        .promo-cinema-viewport {
+          position: relative;
+          overflow: hidden;
+          padding: 6px 0 8px;
+        }
+        .promo-cinema-track {
+          display: flex;
+          width: 100%;
+          will-change: transform;
+          transition: transform 0.82s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .promo-poster-card {
+          --deal-poster-image: var(--deal-accent);
+          flex: 0 0 100%;
+          width: 100%;
+          min-height: clamp(245px, 25vw, 350px);
+          position: relative;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding: clamp(24px, 4vw, 46px);
+          border: 1px solid rgba(255,255,255,0.18);
+          border-radius: 8px;
+          color: #fff;
+          text-align: left;
+          cursor: pointer;
+          background:
+            linear-gradient(90deg, rgba(9,7,6,0.9) 0%, rgba(10,7,6,0.66) 48%, rgba(8,6,5,0.26) 100%),
+            linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.52)),
+            var(--deal-poster-image),
+            var(--deal-accent);
+          background-size: cover, cover, cover, cover;
+          background-position: center;
+          box-shadow: 0 12px 30px rgba(28,16,10,0.16);
+          isolation: isolate;
+        }
+        .promo-poster-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          z-index: -1;
+          background:
+            radial-gradient(circle at 84% 18%, rgba(255,255,255,0.28), transparent 28%),
+            linear-gradient(135deg, rgba(247,55,79,0.22), transparent 42%);
+          mix-blend-mode: screen;
+        }
+        .promo-poster-card:hover,
+        .promo-poster-card:focus-visible {
+          box-shadow: 0 18px 42px rgba(28,16,10,0.22);
+          outline: none;
+        }
+        .promo-poster-card:focus-visible {
+          box-shadow: 0 18px 42px rgba(28,16,10,0.22), 0 0 0 3px rgba(247,55,79,0.32);
+        }
+        .promo-poster-card.promo-tint-discount {
+          background:
+            linear-gradient(90deg, rgba(74,20,12,0.94) 0%, rgba(118,43,18,0.64) 46%, rgba(139,55,16,0.24) 100%),
+            radial-gradient(circle at 78% 28%, rgba(255,209,102,0.24), transparent 28%),
+            var(--deal-poster-image),
+            var(--deal-accent);
+          background-size: cover, cover, cover, cover;
+          background-position: center;
+        }
+        .promo-poster-card.promo-tint-delivery {
+          background:
+            linear-gradient(90deg, rgba(6,14,36,0.92) 0%, rgba(21,35,79,0.62) 48%, rgba(14,55,83,0.22) 100%),
+            radial-gradient(circle at 80% 28%, rgba(96,165,250,0.24), transparent 30%),
+            var(--deal-poster-image),
+            var(--deal-accent);
+          background-size: cover, cover, cover, cover;
+          background-position: center;
+        }
+        .promo-poster-tag {
+          width: max-content;
+          min-height: 30px;
+          display: inline-flex;
+          align-items: center;
+          padding: 0 12px;
+          border-radius: 999px;
+          color: #fff7ed;
+          background: rgba(255,255,255,0.14);
+          border: 1px solid rgba(255,255,255,0.2);
+          backdrop-filter: blur(14px);
+          font-size: 0.72rem;
+          font-weight: 950;
+          text-transform: uppercase;
+          position: relative;
+          z-index: 2;
+        }
+        .promo-poster-content {
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+          max-width: min(780px, 78%);
+          text-shadow: 0 2px 20px rgba(0,0,0,0.45);
+          position: relative;
+          z-index: 2;
+        }
+        .promo-poster-kicker {
+          color: #ffd166;
+          font-size: 0.72rem;
+          font-weight: 950;
+          text-transform: uppercase;
+        }
+        .promo-poster-content strong {
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: clamp(2.7rem, 6vw, 5.8rem);
+          font-weight: 950;
+          line-height: 0.9;
+          letter-spacing: 0;
+        }
+        .promo-poster-content span:last-child {
+          color: rgba(255,255,255,0.9);
+          font-size: clamp(0.88rem, 1.2vw, 1rem);
+          font-weight: 800;
+          line-height: 1.35;
+        }
+        .promo-poster-footer {
+          display: inline-flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          width: max-content;
+          max-width: 100%;
+          min-height: 38px;
+          padding: 0 12px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.15);
+          border: 1px solid rgba(255,255,255,0.2);
+          color: #fff;
+          backdrop-filter: blur(14px);
+          font-size: 0.8rem;
+          font-weight: 900;
+          position: relative;
+          z-index: 2;
+        }
+        .promo-cinema-dots {
+          position: absolute;
+          right: 24px;
+          bottom: 38px;
+          z-index: 3;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 7px 9px;
+          border-radius: 999px;
+          background: rgba(0,0,0,0.22);
+          border: 1px solid rgba(255,255,255,0.16);
+          backdrop-filter: blur(14px);
+        }
+        .promo-cinema-dot {
+          width: 26px;
+          height: 4px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.38);
+        }
+        .promo-cinema-dot.active {
+          width: 44px;
+          background: #fff;
+        }
+        @media (max-width: 768px) {
+          .promo-cinema-section {
+            width: 100%;
+            margin-top: 30px;
+          }
+          .promo-cinema-header {
+            width: 100%;
+            margin: 0 0 14px;
+            align-items: flex-start;
+            flex-direction: column;
+          }
+          .promo-cinema-viewport {
+            padding: 0 0 8px;
+          }
+          .promo-poster-card {
+            min-height: 216px;
+            padding: 20px;
+          }
+          .promo-poster-content {
+            max-width: 82%;
+          }
+          .promo-poster-content strong {
+            font-size: clamp(2rem, 12vw, 3.4rem);
+          }
+        }
+        @media (max-width: 420px) {
+          .promo-poster-card {
+            flex-basis: 100%;
+            min-height: 202px;
+            padding: 18px;
+          }
+          .promo-poster-content {
+            max-width: 88%;
+          }
+          .promo-poster-content span:last-child {
+            font-size: 0.84rem;
+          }
+          .promo-cinema-dots {
+            right: 16px;
+            bottom: 30px;
+          }
+          .promo-cinema-dot {
+            width: 18px;
+          }
+          .promo-cinema-dot.active {
+            width: 32px;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .promo-cinema-track {
+            transition: none;
+          }
+        }
         /* ===== RESTAURANT RAIL ===== */
         .restaurant-rail-shell {
           position: relative;
@@ -4000,6 +4178,96 @@ const Home = () => {
     </>
   );
 };
+
+function PromoDealsCarousel({ deals }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const posterDeals = useMemo(() => deals.map((deal, index) => ({
+    ...deal,
+    posterImage: deal.posterImage || deal.imageUrl || PROMO_POSTER_IMAGES[index % PROMO_POSTER_IMAGES.length],
+    accent: getPromoBackground(deal.bgGradient),
+    code: deal.code || (String(deal.description || '').match(/code:\s*([A-Z0-9]+)/i)?.[1]),
+    tintVariant: getPromoTintVariant(deal, index)
+  })), [deals]);
+
+  useEffect(() => {
+    if (posterDeals.length <= 1) return undefined;
+    const timerId = window.setInterval(() => {
+      setActiveIndex(current => (current + 1) % posterDeals.length);
+    }, 4600);
+    return () => window.clearInterval(timerId);
+  }, [posterDeals.length]);
+
+  useEffect(() => {
+    if (activeIndex >= posterDeals.length) {
+      setActiveIndex(0);
+    }
+  }, [activeIndex, posterDeals.length]);
+
+  if (!posterDeals.length) return null;
+
+  return (
+    <section className="promo-cinema-section" aria-label="Hot Deals and Offers">
+      <div className="promo-cinema-header">
+        <div>
+          <span className="promo-cinema-eyebrow"><BadgePercent size={15} /> Limited-time drops</span>
+          <h3>Hot Deals & Offers</h3>
+        </div>
+        <span className="promo-cinema-live"><Sparkles size={14} /> Fresh deals live</span>
+      </div>
+
+      <div className="promo-cinema-viewport">
+        <div
+          className="promo-cinema-track"
+          style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+        >
+          {posterDeals.map((deal, index) => (
+            <button
+              key={deal.id || deal.title || index}
+              type="button"
+              className={`promo-poster-card promo-tint-${deal.tintVariant}`}
+              style={{
+                '--deal-poster-image': `url("${deal.posterImage}")`,
+                '--deal-accent': deal.accent
+              }}
+              onClick={() => alert(`Use code during checkout to redeem: ${deal.title}`)}
+              aria-label={`${deal.title}. ${deal.description}`}
+              tabIndex={index === activeIndex ? 0 : -1}
+            >
+              <span className="promo-poster-tag">Promo</span>
+              <span className="promo-poster-content">
+                <span className="promo-poster-kicker">ZingBite Presents</span>
+                <strong>{deal.title}</strong>
+                <span>{deal.description}</span>
+              </span>
+              <span className="promo-poster-footer">
+                <span>{deal.code ? `Code ${deal.code}` : 'Tap to redeem'}</span>
+                <ArrowRight size={16} />
+              </span>
+            </button>
+          ))}
+        </div>
+        {posterDeals.length > 1 && (
+          <div className="promo-cinema-dots" aria-label="Offer slide position">
+            {posterDeals.map((deal, index) => (
+              <span
+                key={deal.id || deal.title || index}
+                className={`promo-cinema-dot ${index === activeIndex ? 'active' : ''}`}
+                aria-hidden="true"
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function getPromoTintVariant(deal, index) {
+  const promoText = `${deal?.title || ''} ${deal?.description || ''} ${deal?.code || ''}`.toLowerCase();
+  if (/50|off|discount|zing50/.test(promoText)) return 'discount';
+  if (/delivery|deliver|rider|free/.test(promoText)) return 'delivery';
+  return index % 2 === 0 ? 'discount' : 'delivery';
+}
 
 // Individual restaurant card with IntersectionObserver reveal
 function RestaurantCard({ restaurant: r, index, customerCoords }) {

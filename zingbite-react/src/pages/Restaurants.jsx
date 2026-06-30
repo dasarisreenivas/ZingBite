@@ -20,26 +20,9 @@ import {
   getHomeCustomerCoordinates,
   getRestaurantDistanceLabel
 } from '../utils/restaurantMeta';
+import { CUISINE_FILTERS } from '../constants/foodCategories';
 
 const RESTAURANT_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop';
-
-const CUISINES = [
-  'All',
-  'Biryani',
-  'Burger',
-  'Pizza',
-  'Chinese',
-  'Indian',
-  'Desserts',
-  'Healthy',
-  'Pasta',
-  'Sandwich',
-  'Sushi',
-  'Cafe',
-  'Breakfast',
-  'Mexican',
-  'Thai'
-];
 
 const normalizeRestaurants = (payload) => {
   if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
@@ -585,7 +568,7 @@ export default function Restaurants() {
         )}
 
         <div className="restaurants-cuisines" aria-label="Cuisine filters">
-          {CUISINES.map((cuisine) => (
+          {CUISINE_FILTERS.map((cuisine) => (
             <button
               key={cuisine}
               type="button"

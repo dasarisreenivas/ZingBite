@@ -15,7 +15,7 @@ if (Test-Path $envFile) {
         [Environment]::SetEnvironmentVariable($name, $value, "Process")
     }
 }
-$services = @("auth-service", "orders-service", "restaurant-service", "delivery-service", "careers-service", "chat-service", "ai-service", "gateway-service")
+$services = @("auth-service", "orders-service", "restaurant-service", "delivery-service", "careers-service", "chat-service", "ai-service", "agent-service", "wishlist-service", "reviews-service", "recommendations-service", "notifications-service", "payment-service", "admin-service", "analytics-service", "surge-pricing-service", "routing-service", "group-order-service", "gateway-service")
 $mlServiceRoot = Join-Path $repoRoot "zingbite-ml-service"
 
 function Get-ZingBitePython {
