@@ -5,38 +5,8 @@
 .env.production
 .env.staging
 .env.example
-database-schema.sql
-database-schemal.sql
-
-# OS metadata
-.DS_Store
-Thumbs.db
-
-# IDEs and Editors
-.idea/
-.vscode/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-.classpath
-.project
-.settings/
-
-# Maven build directories
-target/
-**/target/
-
-# Node/React dependencies and builds
-node_modules/
-# Environment variables (credentials, SMTP, databases, Razorpay API keys)
-.env
-.env.local
-.env.development
-.env.production
-.env.staging
-.env.example
+.env.*
+*.env
 database-schema.sql
 database-schemal.sql
 
@@ -67,6 +37,29 @@ dist/
 **/dist/
 dist-ssr/
 *.local
+
+# Private keys, certificates, and keystores
+*.pem
+*.key
+*.pub
+*.cert
+*.cer
+*.crt
+*.pfx
+*.p12
+*.jks
+*.keystore
+
+# Cloud credentials and API keys
+*credentials*.json
+*secret*.json
+*.secret
+*.secrets
+credentials.yml
+secrets.yml
+client_secret*.json
+.aws/
+.gcloud/
 
 # AI configuration folders
 .gemini/

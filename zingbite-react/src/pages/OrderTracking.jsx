@@ -4,7 +4,8 @@ import axios from 'axios';
 import { 
   CheckCircle2, Clock, MapPin, Bike, ShoppingBag, 
   ChevronRight, Phone, MessageSquare, AlertCircle, ArrowLeft,
-  Settings, Loader, Search, Sparkles
+  Settings, Loader, Search, Sparkles, Radio, ShieldCheck,
+  Route, ReceiptText, Navigation, PackageCheck, WalletCards
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { useModal } from '../context/ModalContext';
@@ -181,12 +182,12 @@ const ActiveOrderMap = ({ orderDetail, currentLat, currentLng, isRealGPS }) => {
     let drawn = false;
     if (orderDetail?.pathFM && orderDetail.pathFM.length > 0) {
       const latlngsFM = orderDetail.pathFM.map(n => [n.latitude, n.longitude]);
-      polylineFMRef.current = L.polyline(latlngsFM, { color: '#06b6d4', weight: 4, opacity: 0.8 }).addTo(map);
+      polylineFMRef.current = L.polyline(latlngsFM, { color: '#f7374f', weight: 4, opacity: 0.86 }).addTo(map);
       drawn = true;
     }
     if (orderDetail?.pathLM1 && orderDetail.pathLM1.length > 0) {
       const latlngsLM = orderDetail.pathLM1.map(n => [n.latitude, n.longitude]);
-      polylineLMRef.current = L.polyline(latlngsLM, { color: '#8b5cf6', weight: 4, opacity: 0.8, dashArray: '6, 6' }).addTo(map);
+      polylineLMRef.current = L.polyline(latlngsLM, { color: '#b91c1c', weight: 4, opacity: 0.82, dashArray: '6, 6' }).addTo(map);
       drawn = true;
     }
 
@@ -197,7 +198,7 @@ const ActiveOrderMap = ({ orderDetail, currentLat, currentLng, isRealGPS }) => {
         restCoords,
         custCoords
       ];
-      routePolylineRef.current = L.polyline(fallbackPoints, { color: '#8b5cf6', weight: 4, opacity: 0.7, dashArray: '8, 8' }).addTo(map);
+      routePolylineRef.current = L.polyline(fallbackPoints, { color: '#f7374f', weight: 4, opacity: 0.78, dashArray: '8, 8' }).addTo(map);
     }
 
     // 6. Fit map bounds to cover all points only once on initial load
@@ -224,6 +225,12 @@ const ActiveOrderMap = ({ orderDetail, currentLat, currentLng, isRealGPS }) => {
         {isRealGPS ? 'Live GPS map' : 'Projected route map'}
       </div>
 
+      <div className="map-route-legend" aria-hidden="true">
+        <span><i className="legend-dot restaurant" /> Kitchen</span>
+        <span><i className="legend-dot rider" /> Rider</span>
+        <span><i className="legend-dot customer" /> You</span>
+      </div>
+
       {leafletLoaded && (
         <button 
           onClick={handleRecenter}
@@ -247,7 +254,7 @@ const ActiveOrderMap = ({ orderDetail, currentLat, currentLng, isRealGPS }) => {
 
       {!leafletLoaded && (
         <div className="map-loading-state">
-          <Loader size={24} style={{ animation: 'spin 1s linear infinite', color: '#8b5cf6' }} />
+          <Loader size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
           <span>Loading interactive map...</span>
         </div>
       )}
@@ -321,6 +328,27 @@ const OrderTracking = () => {
     if (s === 'WAITING_TO_DISPATCH' || s === 'FOOD_READY') return 'READY_FOR_PICKUP';
     return s;
   };
+  const getOrderStageIndex = (status) => {
+    const idx = stages.indexOf(getNormalizedStatus(status));
+    return idx >= 0 ? idx : 0;
+  };
+  const getOrderProgressPercent = (status) => Math.round((getOrderStageIndex(status) / (stages.length - 1)) * 100);
+  const getEstimatedEta = (status, progress = 0) => {
+    const normalized = getNormalizedStatus(status);
+    const deliveryProgress = typeof progress === 'number' && !isNaN(progress) ? progress : 0;
+    if (normalized === 'DELIVERED') return 0;
+    if (normalized === 'OUT_FOR_DELIVERY') return Math.max(1, Math.round(10 * (1 - deliveryProgress / 100)));
+    if (normalized === 'PICKED_UP') return 12;
+    if (normalized === 'READY_FOR_PICKUP') return 15;
+    if (normalized === 'PREPARING') return 18;
+    if (normalized === 'ACCEPTED') return 22;
+    return 25;
+  };
+  const getStatusToneClass = (status) => getNormalizedStatus(status).toLowerCase().replace(/_/g, '-');
+  const getOrderItemCount = (order) => {
+    if (!Array.isArray(order?.items)) return 0;
+    return order.items.reduce((total, item) => total + Number(item.qty || item.quantity || 1), 0);
+  };
   const currentIdx = orderDetail ? stages.indexOf(getNormalizedStatus(orderDetail.status) || 'PLACED') : 0;
   const linePercent = orderDetail ? (Math.max(0, currentIdx) / (stages.length - 1)) * 100 : 0;
 
@@ -355,7 +383,7 @@ const OrderTracking = () => {
       : `/api/order/stream?orderId=${cleanId}`)
     : null;
 
-  useSSE(ssePath, (event) => {
+  const { connected: sseConnected, reconnecting: sseReconnecting } = useSSE(ssePath, (event) => {
     try {
       const data = JSON.parse(event.data);
       if (data && String(data.orderId) === cleanId) {
@@ -418,7 +446,7 @@ const OrderTracking = () => {
     } else if (orderIdParam) {
       const cleanParamId = String(orderIdParam).replace(/^ZB-/, '').trim();
       matching = orders.find(o => {
-        const cleanOrderId = String(o.id || '').replace(/^ZB-/, '').trim();
+        const cleanOrderId = String(o.id || o.orderId || '').replace(/^ZB-/, '').trim();
         return cleanOrderId === cleanParamId;
       });
     }
@@ -496,7 +524,7 @@ const OrderTracking = () => {
         id: i,
         left: Math.random() * 100 + 'vw',
         top: '-10px',
-        color: ['#f7374f', '#4bc0c0', '#ff9f40', '#9966ff', '#ffcd56'][Math.floor(Math.random() * 5)],
+        color: ['#f7374f', '#ff4d6a', '#d91f37', '#b91c1c', '#ffe4e8'][Math.floor(Math.random() * 5)],
         size: Math.random() * 8 + 4 + 'px',
         delay: Math.random() * 0.5 + 's',
         duration: Math.random() * 2 + 2 + 's',
@@ -563,7 +591,7 @@ const OrderTracking = () => {
   let displaySubtitle = "Your food is being processed.";
   
   if (orderDetail) {
-    const status = (orderDetail.status || '').toUpperCase();
+    const status = getNormalizedStatus(orderDetail.status);
     if (status === 'PLACED') {
       etaVal = 25;
       distanceLeftVal = "3.5 km";
@@ -656,6 +684,21 @@ const OrderTracking = () => {
   const currentStatusClass = currentStatus.toLowerCase().replace(/_/g, '-');
   const orderDisplayId = formatTrackOrderId(orderDetail) || orderIdParam || '';
   const isSimulatorVisible = import.meta.env.DEV && orderDetail;
+  const spotlightOrder = activeOrders[0] || recentOrders[0] || null;
+  const spotlightStatus = spotlightOrder ? getNormalizedStatus(spotlightOrder.status) : null;
+  const spotlightProgress = spotlightOrder ? getOrderProgressPercent(spotlightOrder.status) : 0;
+  const fastestEta = activeOrders.length
+    ? Math.min(...activeOrders.map(o => getEstimatedEta(o.status, o.gpsProgress)))
+    : 0;
+  const liveOrderItems = activeOrders.reduce((sum, order) => sum + getOrderItemCount(order), 0);
+  const channelStatusClass = sseConnected ? 'synced' : sseReconnecting ? 'reconnecting' : 'idle';
+  const channelStatusLabel = sseConnected ? 'Live channel synced' : sseReconnecting ? 'Reconnecting live channel' : 'Live channel standing by';
+  const currentTelemetryProgress = Math.round(currentStatus === 'OUT_FOR_DELIVERY' ? animationProgress : linePercent);
+  const portalStats = [
+    { label: 'Active runs', value: activeOrders.length, helper: `${liveOrderItems} items moving`, Icon: Radio, tone: 'live' },
+    { label: 'Best ETA', value: activeOrders.length ? `${fastestEta} min` : 'Idle', helper: 'Fastest live order', Icon: Clock, tone: 'eta' },
+    { label: 'Completed', value: recentOrders.length, helper: 'Recent deliveries', Icon: PackageCheck, tone: 'done' }
+  ];
 
   return (
     <>
@@ -671,31 +714,76 @@ const OrderTracking = () => {
       ) : !orderIdParam ? (
         <div className="track-portal fade-in page-enter">
           <section className="track-portal-hero">
-            <div>
-              <span className="track-portal-eyebrow"><MapPin size={16} /> Live order tracking</span>
-              <h1 className="track-portal-title">Find every delivery run in one place</h1>
+            <div className="track-hero-copy">
+              <span className="track-portal-eyebrow"><Radio size={16} /> Premium order command</span>
+              <h1 className="track-portal-title">Track every delivery with executive clarity</h1>
               <p className="track-portal-subtitle">
-                Search by order ID, jump into live map tracking, or review your recent ZingBite deliveries.
+                Live kitchen status, rider handoff, route movement, and receipt details stay organized in one polished ZingBite portal.
               </p>
+              <div className="track-portal-stat-strip">
+                {portalStats.map(({ label, value, helper, Icon, tone }) => (
+                  <div key={label} className={`track-portal-stat tone-${tone}`}>
+                    <span className="track-portal-stat-icon"><Icon size={18} /></span>
+                    <span>
+                      <strong>{value}</strong>
+                      <small>{label}</small>
+                    </span>
+                    <em>{helper}</em>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <form onSubmit={handleSearchSubmit} className="tracking-search-form">
-              <div className="search-input-wrapper">
-                <Search className="search-icon-inside" size={18} />
-                <input
-                  type="text"
-                  placeholder="Enter Order ID, for example ZB-2"
-                  value={searchId}
-                  onChange={(e) => setSearchId(e.target.value)}
-                />
-                <button type="submit" className="search-submit-btn">Track</button>
+            <div className="track-command-panel">
+              <div className="command-panel-top">
+                <span><ShieldCheck size={16} /> Customer portal</span>
+                <strong>{ordersLoading ? 'Syncing' : `${orders.length} orders`}</strong>
               </div>
-              {searchError && (
-                <p className="search-error-text">
-                  <AlertCircle size={14} /> {searchError}
-                </p>
-              )}
-            </form>
+
+              <form onSubmit={handleSearchSubmit} className="tracking-search-form">
+                <div className="search-input-wrapper">
+                  <Search className="search-icon-inside" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Enter Order ID, for example ZB-2"
+                    value={searchId}
+                    onChange={(e) => setSearchId(e.target.value)}
+                  />
+                  <button type="submit" className="search-submit-btn">
+                    <Navigation size={16} /> Track
+                  </button>
+                </div>
+                {searchError && (
+                  <p className="search-error-text">
+                    <AlertCircle size={14} /> {searchError}
+                  </p>
+                )}
+              </form>
+
+              <div className="track-spotlight">
+                <div className="spotlight-label">
+                  <Route size={15} /> Priority watch
+                </div>
+                {spotlightOrder ? (
+                  <>
+                    <div className="spotlight-main">
+                      <div>
+                        <strong>{formatTrackOrderId(spotlightOrder)}</strong>
+                        <span>{spotlightOrder.restaurantName || 'ZingBite Kitchen'}</span>
+                      </div>
+                      <span className={`status-chip status-${getStatusToneClass(spotlightOrder.status)}`}>
+                        {spotlightStatus.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <div className="spotlight-progress">
+                      <span style={{ width: `${spotlightProgress}%` }} />
+                    </div>
+                  </>
+                ) : (
+                  <p>No orders are currently queued in your tracking portal.</p>
+                )}
+              </div>
+            </div>
           </section>
 
           <section className="track-section">
@@ -715,27 +803,39 @@ const OrderTracking = () => {
               </div>
             ) : (
               <div className="active-orders-grid">
-                {visibleActiveOrders.map(o => (
-                  <article key={formatTrackOrderId(o)} className="active-order-card">
-                    <div className="active-order-info">
-                      <h3>{o.restaurantName || 'ZingBite Kitchen'}</h3>
-                      <p className="active-order-meta">
-                        Order ID: {formatTrackOrderId(o)} - {o.items ? o.items.length : 0} items
-                      </p>
-                      <div className="active-order-status-wrapper">
-                        <span className="active-order-status-dot" />
-                        <span className="active-order-status-text">{getNormalizedStatus(o.status).replace(/_/g, ' ')}</span>
+                {visibleActiveOrders.map(o => {
+                  const status = getNormalizedStatus(o.status);
+                  const progress = getOrderProgressPercent(o.status);
+                  const eta = getEstimatedEta(o.status, o.gpsProgress);
+                  return (
+                    <article key={formatTrackOrderId(o)} className="active-order-card" style={{ '--order-progress': `${progress}%` }}>
+                      <div className="active-order-info">
+                        <div className="active-card-topline">
+                          <span className="tracking-id-pill">{formatTrackOrderId(o)}</span>
+                          <span className={`status-chip status-${getStatusToneClass(o.status)}`}>{status.replace(/_/g, ' ')}</span>
+                        </div>
+                        <h3>{o.restaurantName || 'ZingBite Kitchen'}</h3>
+                        <p className="active-order-meta">
+                          {getOrderItemCount(o)} items prepared for this delivery run
+                        </p>
+                        <div className="active-order-progress" aria-hidden="true">
+                          <span />
+                        </div>
+                        <div className="active-order-metrics">
+                          <span><Clock size={14} /> {eta} min ETA</span>
+                          <span><Route size={14} /> {progress}% ready</span>
+                        </div>
                       </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/track-order?orderId=${formatTrackOrderId(o)}`)}
-                      className="track-button-link"
-                    >
-                      <MapPin size={16} /> Track live
-                    </button>
-                  </article>
-                ))}
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/track-order?orderId=${formatTrackOrderId(o)}`)}
+                        className="track-button-link"
+                      >
+                        <MapPin size={16} /> Track live
+                      </button>
+                    </article>
+                  );
+                })}
                 {hasMoreActiveOrders && (
                   <div className="load-more-wrap">
                     <button
@@ -753,12 +853,12 @@ const OrderTracking = () => {
 
           <section className="track-section">
             <h2 className="portal-section-title">
-              <CheckCircle2 size={18} color="var(--success)" /> Recently delivered
+              <CheckCircle2 size={18} color="var(--brand-red)" /> Recently delivered
             </h2>
 
             {ordersLoading ? (
               <div className="track-page-loader">
-                <Loader size={26} className="spin" color="var(--success)" />
+                <Loader size={26} className="spin" color="var(--brand-red)" />
                 <p>Loading order history...</p>
               </div>
             ) : recentOrders.length === 0 ? (
@@ -770,15 +870,21 @@ const OrderTracking = () => {
                 {visibleRecentOrders.map(o => (
                   <article key={formatTrackOrderId(o)} className="recent-order-item">
                     <div className="recent-order-details">
+                      <div className="active-card-topline">
+                        <span className="tracking-id-pill">{formatTrackOrderId(o)}</span>
+                        <span className={`status-chip status-${getStatusToneClass(o.status)}`}>
+                          {getNormalizedStatus(o.status).replace(/_/g, ' ')}
+                        </span>
+                      </div>
                       <h4>{o.restaurantName || 'ZingBite Kitchen'}</h4>
-                      <p>Order ID: {formatTrackOrderId(o)} - {o.date || 'recently'}</p>
+                      <p>{o.date || 'Recently'} - &#8377;{Number(o.total || o.totalAmount || 0).toFixed(2)}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => navigate(`/track-order?orderId=${formatTrackOrderId(o)}`)}
                       className="view-track-history-btn"
                     >
-                      View history
+                      <ReceiptText size={15} /> View history
                     </button>
                   </article>
                 ))}
@@ -830,14 +936,28 @@ const OrderTracking = () => {
         </div>
       ) : (
         <div className={`track-live-shell track-status-${currentStatusClass} fade-in page-enter`}>
-          <button onClick={() => navigate('/track-order')} className="back-home-btn" type="button">
-            <ArrowLeft size={16} /> Back to tracker portal
-          </button>
+          <div className="track-live-toolbar">
+            <button onClick={() => navigate('/track-order')} className="back-home-btn" type="button">
+              <ArrowLeft size={16} /> Back to tracker portal
+            </button>
+            <div className={`track-live-channel ${channelStatusClass}`}>
+              <Radio size={16} />
+              <span>{channelStatusLabel}</span>
+            </div>
+          </div>
 
           <div className="track-live-grid">
             <section className="track-map-panel" aria-label="Live delivery map">
               <div className="track-status-card">
-                <div className="track-status-kicker">{currentStatus.replace(/_/g, ' ')}</div>
+                <div className="track-status-topline">
+                  <div>
+                    <div className="track-status-kicker">{currentStatus.replace(/_/g, ' ')}</div>
+                    <span className="track-order-id">{orderDisplayId}</span>
+                  </div>
+                  <div className="track-status-orbit" aria-hidden="true">
+                    <Navigation size={20} />
+                  </div>
+                </div>
                 <h1 className="track-status-heading">{displayHeading}</h1>
                 <p className="track-status-subtitle">{displaySubtitle}</p>
 
@@ -846,6 +966,10 @@ const OrderTracking = () => {
                     <Sparkles size={14} /> AI delay forecast: Heavy monsoon rain on route. ETA adjusted (+3 mins).
                   </div>
                 )}
+
+                <div className="track-status-progress" style={{ '--status-progress': `${currentTelemetryProgress}%` }} aria-hidden="true">
+                  <span />
+                </div>
 
                 <div className="track-status-meta">
                   <div className="track-mini-stat">
@@ -862,7 +986,7 @@ const OrderTracking = () => {
                   </div>
                   <div className="track-mini-stat">
                     <div className="track-mini-label">Progress</div>
-                    <div className="track-mini-value">{Math.round(linePercent)}%</div>
+                    <div className="track-mini-value">{currentTelemetryProgress}%</div>
                   </div>
                 </div>
               </div>
@@ -878,6 +1002,10 @@ const OrderTracking = () => {
             <aside className="track-side-panel" aria-label="Tracking details">
               <section className="track-side-card">
                 <h2 className="track-side-card-header"><Clock size={18} color="var(--brand-red)" /> Delivery journey</h2>
+                <div className="journey-summary">
+                  <span>{currentStatus.replace(/_/g, ' ')}</span>
+                  <strong>{Math.round(linePercent)}% milestone progress</strong>
+                </div>
                 <div className="journey-rail">
                   {stages.map((stage, index) => {
                     const [title, description] = TRACKING_STEP_COPY[stage] || [stage, 'Status update'];
@@ -906,6 +1034,7 @@ const OrderTracking = () => {
                         <h4>{orderDetail.riderName}</h4>
                         <p>Splendor (KA-03-EX-9921)</p>
                       </div>
+                      <span className="rider-rating">4.9</span>
                     </div>
                     <div className="rider-contact-row">
                       <button
@@ -932,11 +1061,11 @@ const OrderTracking = () => {
               <section className="track-side-card receipt-summary">
                 <h2 className="track-side-card-header"><ShoppingBag size={18} color="var(--brand-red)" /> Order receipt</h2>
                 <div className="receipt-row">
-                  <span>Payment mode</span>
+                  <span><WalletCards size={14} /> Payment mode</span>
                   <span>{orderDetail.paymentMethod || 'Online'}</span>
                 </div>
                 <div className="receipt-row">
-                  <span>Restaurant</span>
+                  <span><MapPin size={14} /> Restaurant</span>
                   <span>{orderDetail.restaurantName || 'ZingBite Kitchen'}</span>
                 </div>
                 {orderDetail.items && orderDetail.items.length > 0 && (
@@ -944,8 +1073,8 @@ const OrderTracking = () => {
                     <h5>Items</h5>
                     {orderDetail.items.map((item, idx) => (
                       <div key={`${item.name || item.id}-${item.qty}-${idx}`} className="receipt-row">
-                        <span>{item.name || 'Menu item'} x {item.qty}</span>
-                        <span>&#8377;{(Number(item.price || 0) * Number(item.qty || 0)).toFixed(2)}</span>
+                        <span>{item.name || 'Menu item'} x {item.qty || item.quantity || 1}</span>
+                        <span>&#8377;{(Number(item.price || 0) * Number(item.qty || item.quantity || 1)).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
