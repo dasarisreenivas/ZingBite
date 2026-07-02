@@ -5,7 +5,6 @@ import { CartProvider } from './context/CartContext';
 import { ModalProvider } from './context/ModalContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { WishlistProvider } from './context/WishlistContext';
-import { NotificationProvider } from './context/NotificationContext';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -24,6 +23,7 @@ const Login = React.lazy(() => import('./pages/Login'));
 const Register = React.lazy(() => import('./pages/Register'));
 const Info = React.lazy(() => import('./pages/Info'));
 const Profile = React.lazy(() => import('./pages/Profile'));
+const Mailbox = React.lazy(() => import('./pages/Mailbox'));
 const OrderTracking = React.lazy(() => import('./pages/OrderTracking'));
 const DeliveryDashboard = React.lazy(() => import('./pages/DeliveryDashboard'));
 const RestaurantDashboard = React.lazy(() => import('./pages/RestaurantDashboard'));
@@ -142,63 +142,62 @@ function App() {
     <ThemeProvider>
       <ModalProvider>
         <AuthProvider>
-          <NotificationProvider>
-            <WishlistProvider>
-              <CartProvider>
-                <Router basename="/zingbite">
-                  <ScrollToTop />
-                  <PageViewTracker />
-                  <InteractionFX />
-                  <div className="app-shell">
-                    <PremiumAtmosphere />
-                    <Header />
-                    <main className="app-main">
-                      <ErrorBoundary>
-                        <React.Suspense fallback={<PremiumLoader />}>
-                          <RouteMotionFrame>
-                            <Routes>
-                              <Route path="/" element={<Home />} />
-                              <Route path="/home" element={<Home />} />
-                              <Route path="/restaurants" element={<Restaurants />} />
-                              <Route path="/menu" element={<Menu />} />
-                              <Route path="/login" element={<Login />} />
-                              <Route path="/register" element={<Register />} />
-                              <Route path="/info/:sectionId" element={<Info />} />
-                              <Route path="/about-us" element={<Info />} />
-                              <Route path="/team" element={<Info />} />
-                              <Route path="/blog" element={<Info />} />
-                              <Route path="/help-faq" element={<Info />} />
-                              <Route path="/contact-us" element={<Info />} />
-                              <Route path="/partner-with-us" element={<Info />} />
-                              <Route path="/ride-with-us" element={<Info />} />
-                              <Route path="/terms" element={<Info />} />
-                              <Route path="/privacy" element={<Info />} />
-                              <Route path="/cookies" element={<Info />} />
-                              <Route path="/refunds" element={<Info />} />
-                              <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-                              <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
-                              <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-                              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                              <Route path="/track-order" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
-                              <Route path="/careers" element={<ProtectedRoute><CareerPortal /></ProtectedRoute>} />
-                              <Route path="/delivery" element={<ProtectedRoute allowedRoles={['delivery_partner']}><DeliveryDashboard /></ProtectedRoute>} />
-                              <Route path="/restaurant-admin" element={<ProtectedRoute allowedRoles={['restaurant_admin']}><RestaurantDashboard /></ProtectedRoute>} />
-                              <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
-                              <Route path="/sdui-portal" element={<ProtectedRoute allowedRoles={['super_admin']}><SDUIDashboard /></ProtectedRoute>} />
-                              <Route path="/vrp" element={<ProtectedRoute allowedRoles={['super_admin']}><VRPDashboard /></ProtectedRoute>} />
-                              <Route path="*" element={<NotFound />} />
-                            </Routes>
-                          </RouteMotionFrame>
-                        </React.Suspense>
-                      </ErrorBoundary>
-                    </main>
-                    <Footer />
-                    <AIAssistant />
-                  </div>
-                </Router>
-              </CartProvider>
-            </WishlistProvider>
-          </NotificationProvider>
+          <WishlistProvider>
+            <CartProvider>
+              <Router basename="/zingbite">
+                <ScrollToTop />
+                <PageViewTracker />
+                <InteractionFX />
+                <div className="app-shell">
+                  <PremiumAtmosphere />
+                  <Header />
+                  <main className="app-main">
+                    <ErrorBoundary>
+                      <React.Suspense fallback={<PremiumLoader />}>
+                        <RouteMotionFrame>
+                          <Routes>
+                            <Route path="/" element={<Home />} />
+                            <Route path="/home" element={<Home />} />
+                            <Route path="/restaurants" element={<Restaurants />} />
+                            <Route path="/menu" element={<Menu />} />
+                            <Route path="/login" element={<Login />} />
+                            <Route path="/register" element={<Register />} />
+                            <Route path="/info/:sectionId" element={<Info />} />
+                            <Route path="/about-us" element={<Info />} />
+                            <Route path="/team" element={<Info />} />
+                            <Route path="/blog" element={<Info />} />
+                            <Route path="/help-faq" element={<Info />} />
+                            <Route path="/contact-us" element={<Info />} />
+                            <Route path="/partner-with-us" element={<Info />} />
+                            <Route path="/ride-with-us" element={<Info />} />
+                            <Route path="/terms" element={<Info />} />
+                            <Route path="/privacy" element={<Info />} />
+                            <Route path="/cookies" element={<Info />} />
+                            <Route path="/refunds" element={<Info />} />
+                            <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+                            <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
+                            <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+                            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                            <Route path="/mail-inbox" element={<ProtectedRoute><Mailbox /></ProtectedRoute>} />
+                            <Route path="/track-order" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
+                            <Route path="/careers" element={<ProtectedRoute><CareerPortal /></ProtectedRoute>} />
+                            <Route path="/delivery" element={<ProtectedRoute allowedRoles={['delivery_partner']}><DeliveryDashboard /></ProtectedRoute>} />
+                            <Route path="/restaurant-admin" element={<ProtectedRoute allowedRoles={['restaurant_admin']}><RestaurantDashboard /></ProtectedRoute>} />
+                            <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin']}><SuperAdminDashboard /></ProtectedRoute>} />
+                            <Route path="/sdui-portal" element={<ProtectedRoute allowedRoles={['super_admin']}><SDUIDashboard /></ProtectedRoute>} />
+                            <Route path="/vrp" element={<ProtectedRoute allowedRoles={['super_admin']}><VRPDashboard /></ProtectedRoute>} />
+                            <Route path="*" element={<NotFound />} />
+                          </Routes>
+                        </RouteMotionFrame>
+                      </React.Suspense>
+                    </ErrorBoundary>
+                  </main>
+                  <Footer />
+                  <AIAssistant />
+                </div>
+              </Router>
+            </CartProvider>
+          </WishlistProvider>
         </AuthProvider>
       </ModalProvider>
     </ThemeProvider>

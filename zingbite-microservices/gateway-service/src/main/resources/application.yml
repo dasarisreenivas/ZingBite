@@ -184,3 +184,6 @@ ratelimit:
   duration-minutes: ${ZINGBITE_RATE_LIMIT_DURATION_MINUTES:1}
   trust-forwarded-headers: ${ZINGBITE_TRUST_FORWARDED:false}
   trusted-proxies: ${ZINGBITE_TRUSTED_PROXIES:127.0.0.1,::1}
+  ai:
+    limit: ${ZINGBITE_AI_RATE_LIMIT:15}
+    duration-minutes: ${ZINGBITE_AI_RATE_LIMIT_DURATION_MINUTES:1}

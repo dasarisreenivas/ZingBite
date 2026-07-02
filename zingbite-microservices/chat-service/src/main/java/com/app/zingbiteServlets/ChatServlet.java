@@ -180,6 +180,10 @@ public class ChatServlet extends HttpServlet {
                 tx = dbSession.beginTransaction();
                 dbSession.persist(chatMsg);
                 tx.commit();
+
+                // Broadcast to active WebSocket clients in the same room
+                ChatWebSocketEndpoint.broadcastToRoom(type, targetId, gson.toJson(chatMsg));
+
                 resp.setStatus(HttpServletResponse.SC_CREATED);
                 resp.getWriter().write(gson.toJson(chatMsg));
             } catch (Exception e) {

@@ -25,14 +25,14 @@ const CareerPortal = () => {
   const [activeTab, setActiveTab] = useState('jobs');
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
-  const [notifications, setNotifications] = useState([]);
+  const [inboxNotes, setInboxNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [appsLoading, setAppsLoading] = useState(false);
   const [notesLoading, setNotesLoading] = useState(false);
   const [activeChatAppId, setActiveChatAppId] = useState(null);
   const [visibleJobCount, setVisibleJobCount] = useState(CAREER_LIST_PAGE_SIZE);
   const [visibleApplicationCount, setVisibleApplicationCount] = useState(CAREER_LIST_PAGE_SIZE);
-  const [visibleNotificationCount, setVisibleNotificationCount] = useState(CAREER_LIST_PAGE_SIZE);
+  const [visibleInboxNoteCount, setVisibleInboxNoteCount] = useState(CAREER_LIST_PAGE_SIZE);
   
   // Application form modal
   const [applyingJob, setApplyingJob] = useState(null);
@@ -87,14 +87,14 @@ const CareerPortal = () => {
     }
   };
 
-  const fetchNotifications = async (isBackground = false) => {
+  const fetchInboxNotes = async (isBackground = false) => {
     if (!user) return;
     if (!isBackground) setNotesLoading(true);
     try {
       const res = await axios.get('/api/careers?action=notifications');
-      setNotifications(res.data);
+      setInboxNotes(res.data);
     } catch (err) {
-      console.error('Failed to load notifications:', err);
+      console.error('Failed to load inbox notes:', err);
     } finally {
       if (!isBackground) setNotesLoading(false);
     }
@@ -105,7 +105,7 @@ const CareerPortal = () => {
     
     if (user) {
       fetchApplications(false);
-      fetchNotifications(false);
+      fetchInboxNotes(false);
     }
   }, [user]);
 
@@ -123,15 +123,15 @@ const CareerPortal = () => {
   useEffect(() => {
     setVisibleJobCount(CAREER_LIST_PAGE_SIZE);
     setVisibleApplicationCount(CAREER_LIST_PAGE_SIZE);
-    setVisibleNotificationCount(CAREER_LIST_PAGE_SIZE);
+    setVisibleInboxNoteCount(CAREER_LIST_PAGE_SIZE);
   }, [activeTab]);
 
   const visibleJobs = jobs.slice(0, visibleJobCount);
   const visibleApplications = applications.slice(0, visibleApplicationCount);
-  const visibleNotifications = notifications.slice(0, visibleNotificationCount);
+  const visibleInboxNotes = inboxNotes.slice(0, visibleInboxNoteCount);
   const hasMoreJobs = visibleJobCount < jobs.length;
   const hasMoreApplications = visibleApplicationCount < applications.length;
-  const hasMoreNotifications = visibleNotificationCount < notifications.length;
+  const hasMoreInboxNotes = visibleInboxNoteCount < inboxNotes.length;
 
   const handleApplyClick = (e) => {
     e.preventDefault();
@@ -174,7 +174,7 @@ const CareerPortal = () => {
       setApplyingJob(null);
       setApplyForm(prev => ({ ...prev, resumeUrl: '' }));
       await fetchApplications();
-      await fetchNotifications(); // Update email logs
+      await fetchInboxNotes(); // Update email logs
     } catch (err) {
       showAlert('Failed to submit application. Please try again.', 'error');
     } finally {
@@ -493,10 +493,10 @@ const CareerPortal = () => {
             className={`tab-btn ${activeTab === 'inbox' ? 'active' : ''}`} 
             onClick={() => {
               setActiveTab('inbox');
-              fetchNotifications();
+              fetchInboxNotes();
             }}
           >
-            Inbox Notifications {user && notifications.length > 0 && `(${notifications.length})`}
+            Email Inbox {user && inboxNotes.length > 0 && `(${inboxNotes.length})`}
           </button>
         </div>
 
@@ -640,26 +640,26 @@ const CareerPortal = () => {
           </div>
         )}
 
-        {/* Inbox Notifications View */}
+        {/* Email Inbox View */}
         {activeTab === 'inbox' && (
           <div>
             {!user ? (
               <div style={{ textAlign: 'center', padding: '48px', border: '1px dashed var(--border-medium)', borderRadius: '12px' }}>
                 <Inbox size={36} style={{ color: 'var(--text-secondary)', margin: '0 auto 12px' }} />
                 <h3>Sign in to view your inbox</h3>
-                <p style={{ color: 'var(--text-secondary)', marginTop: '8px' }}>Log in to view email notifications generated for your account.</p>
+                <p style={{ color: 'var(--text-secondary)', marginTop: '8px' }}>Log in to view emails generated for your account.</p>
               </div>
             ) : notesLoading ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
                 <Loader size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--brand-red)' }} />
               </div>
-            ) : notifications.length === 0 ? (
+            ) : inboxNotes.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '48px', border: '1px dashed var(--border-medium)', borderRadius: '12px', background: '#fff' }}>
                 <p style={{ color: 'var(--text-secondary)' }}>Your inbox is empty. We will email you here when your application status changes!</p>
               </div>
             ) : (
               <div className="inbox-list">
-                {visibleNotifications.map((note) => (
+                {visibleInboxNotes.map((note) => (
                   <div key={note.id} className="email-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', marginBottom: '12px' }}>
                       <div>
@@ -673,14 +673,14 @@ const CareerPortal = () => {
                     </p>
                   </div>
                 ))}
-                {hasMoreNotifications && (
+                {hasMoreInboxNotes && (
                   <div className="load-more-wrap" style={{ margin: '4px auto 0' }}>
                     <button
                       type="button"
                       className="load-more-btn"
-                      onClick={() => setVisibleNotificationCount(count => count + CAREER_LIST_PAGE_SIZE)}
+                      onClick={() => setVisibleInboxNoteCount(count => count + CAREER_LIST_PAGE_SIZE)}
                     >
-                      Load more inbox notes ({notifications.length - visibleNotificationCount} left) <ChevronRight className="load-more-icon" size={16} />
+                      Load more inbox notes ({inboxNotes.length - visibleInboxNoteCount} left) <ChevronRight className="load-more-icon" size={16} />
                     </button>
                   </div>
                 )}

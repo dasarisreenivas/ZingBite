@@ -126,6 +126,7 @@ public class RegisterServlet extends HttpServlet {
                     session.setAttribute("loggedInUser", registeredUser);
                     String csrfToken = CsrfUtils.generateToken(session);
                     jsonResponse.addProperty("csrfToken", csrfToken);
+                    jsonResponse.add("user", gson.toJsonTree(registeredUser));
                 }
                 jsonResponse.addProperty("success", true);
             } else {

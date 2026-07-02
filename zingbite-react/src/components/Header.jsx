@@ -19,8 +19,6 @@ import {
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import MailboxModal from './MailboxModal';
-import NotificationCenter from './NotificationCenter';
 import { useTheme } from '../context/ThemeContext';
 
 const Header = () => {
@@ -32,21 +30,7 @@ const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
-  const [showMailbox, setShowMailbox] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => (
-    typeof window !== 'undefined' ? window.innerWidth <= 768 : false
-  ));
   const headerRef = useRef(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
@@ -459,19 +443,9 @@ const Header = () => {
           from { opacity: 0; }
           to { opacity: 1; }
         }
-        .mobile-notification-wrap {
-          display: none;
-        }
         @media (max-width: 768px) {
           .nav-desktop { display: none; }
           .hamburger { display: block; }
-          .mobile-notification-wrap {
-            display: flex !important;
-            align-items: center;
-            justify-content: center;
-            margin-right: 8px;
-            margin-left: auto;
-          }
         }
         @media (max-width: 1120px) {
           .header-inner { width: 96%; }
@@ -553,10 +527,9 @@ const Header = () => {
                     {cart?.itemCount > 0 && <span className="cart-badge">{cart.itemCount}</span>}
                   </Link>
                 )}
-                <button type="button" onClick={() => setShowMailbox(true)} className="nav-link" style={{background:'none',border:'none',cursor:'pointer',fontSize:'0.9rem',color:'inherit',display:'flex',alignItems:'center',gap:'6px',padding:'8px 12px'}}>
-                  <Mail size={16} /> Mailbox
-                </button>
-                {!isMobile && <NotificationCenter />}
+                <Link to="/mail-inbox" onClick={closeMenus} className={`nav-link ${isActive('/mail-inbox') ? 'active' : ''}`}>
+                  <Mail size={16} /> Mail Inbox
+                </Link>
                 <button type="button" onClick={handleLogout} className="nav-btn-logout">Logout</button>
               </>
             ) : (
@@ -566,12 +539,6 @@ const Header = () => {
               </>
             )}
           </nav>
-
-          {user && isMobile && (
-            <div className="mobile-notification-wrap">
-              <NotificationCenter />
-            </div>
-          )}
 
           <button
             type="button"
@@ -673,9 +640,9 @@ const Header = () => {
                 <ShoppingCart size={16} /> Cart {cart?.itemCount > 0 && <span className="cart-badge">{cart.itemCount}</span>}
               </Link>
             )}
-            <button type="button" onClick={() => { setShowMailbox(true); closeMobileMenu(); }} className="nav-link mobile-nav-item" style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', color: 'inherit' }}>
-              <Mail size={16} /> Mailbox
-            </button>
+            <Link to="/mail-inbox" onClick={closeMobileMenu} className={`nav-link mobile-nav-item ${isActive('/mail-inbox') ? 'active' : ''}`}>
+              <Mail size={16} /> Mail Inbox
+            </Link>
             <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
               <button type="button" onClick={handleLogout} className="nav-btn-logout" style={{width:'100%'}}>Logout</button>
             </div>
@@ -708,7 +675,6 @@ const Header = () => {
           to { opacity: 1; transform: translateX(0); }
         }
       `}</style>
-      {showMailbox && <MailboxModal onClose={() => setShowMailbox(false)} />}
     </>
   );
 };

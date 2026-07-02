@@ -10,6 +10,52 @@ import useLeaflet from '../hooks/useLeaflet';
 
 const DELIVERY_LIST_PAGE_SIZE = 4;
 const FETCH_DEBOUNCE_MS = 5000;
+const DEFAULT_RESTAURANT_COORDS = [12.9716, 77.5946];
+const DEFAULT_CUSTOMER_COORDS = [12.9821, 77.6085];
+
+const normalizeDeliveryStatus = (status) => String(status || '').trim().toUpperCase().replace(/[\s-]/g, '_');
+
+const isFirstMileRouteVisible = (status) => (
+  !['PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'PENDING_PAYMENT'].includes(normalizeDeliveryStatus(status))
+);
+
+const isLastMileRouteVisible = (status) => (
+  ['PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(normalizeDeliveryStatus(status))
+);
+
+const hasDrawableRoutePath = (points) => Array.isArray(points) && points.length > 2;
+
+const toFiniteNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const isValidLatLng = (lat, lng) => (
+  Number.isFinite(lat)
+  && Number.isFinite(lng)
+  && lat >= -90
+  && lat <= 90
+  && lng >= -180
+  && lng <= 180
+);
+
+const getOrderLatLng = (order, latKey, lngKey, fallback) => {
+  const lat = toFiniteNumber(order?.[latKey]);
+  const lng = toFiniteNumber(order?.[lngKey]);
+  return isValidLatLng(lat, lng) ? [lat, lng] : fallback;
+};
+
+const getRouteLatLngs = (path) => (
+  Array.isArray(path)
+    ? path
+        .map((node) => {
+          const lat = toFiniteNumber(node?.latitude);
+          const lng = toFiniteNumber(node?.longitude);
+          return isValidLatLng(lat, lng) ? [lat, lng] : null;
+        })
+        .filter(Boolean)
+    : []
+);
 
 const interpolatePolyline = (points, progressPercent) => {
   if (!points || points.length === 0) return null;
@@ -95,13 +141,23 @@ const ActiveDeliveryMap = React.memo(({ order }) => {
   }, [leafletLoaded, order?.orderId, L]);
 
   // Resolve current coordinates
-  const restaurantLat = 12.9716;
-  const restaurantLng = 77.5946;
-  const customerLat = 12.9821;
-  const customerLng = 77.6085;
+  const restaurantCoords = useMemo(
+    () => getOrderLatLng(order, 'restaurantLat', 'restaurantLon', DEFAULT_RESTAURANT_COORDS),
+    [order?.restaurantLat, order?.restaurantLon]
+  );
+  const customerCoords = useMemo(
+    () => getOrderLatLng(order, 'customerLat', 'customerLon', DEFAULT_CUSTOMER_COORDS),
+    [order?.customerLat, order?.customerLon]
+  );
+  const riderBaseCoords = useMemo(
+    () => getOrderLatLng(order, 'riderLat', 'riderLon', restaurantCoords),
+    [order?.riderLat, order?.riderLon, restaurantCoords]
+  );
+  const [restaurantLat, restaurantLng] = restaurantCoords;
+  const [customerLat, customerLng] = customerCoords;
 
-  let currentLat = restaurantLat;
-  let currentLng = restaurantLng;
+  let currentLat = riderBaseCoords[0];
+  let currentLng = riderBaseCoords[1];
   let isRealGPS = false;
 
   if (order && order.gpsCoordinates) {
@@ -122,11 +178,11 @@ const ActiveDeliveryMap = React.memo(({ order }) => {
     let pathPoints = [];
     if (order.status === 'OUT_FOR_DELIVERY' || order.status === 'Out for Delivery') {
       if (order.pathLM1 && order.pathLM1.length > 0) {
-        pathPoints = order.pathLM1.map(n => [n.latitude, n.longitude]);
+        pathPoints = getRouteLatLngs(order.pathLM1);
       }
     } else {
       if (order.pathFM && order.pathFM.length > 0) {
-        pathPoints = order.pathFM.map(n => [n.latitude, n.longitude]);
+        pathPoints = getRouteLatLngs(order.pathFM);
       }
     }
 
@@ -136,9 +192,6 @@ const ActiveDeliveryMap = React.memo(({ order }) => {
         currentLat = pos[0];
         currentLng = pos[1];
       }
-    } else {
-      currentLat = restaurantLat + (customerLat - restaurantLat) * (progress / 100);
-      currentLng = restaurantLng + (customerLng - restaurantLng) * (progress / 100);
     }
   }
 
@@ -170,18 +223,9 @@ const ActiveDeliveryMap = React.memo(({ order }) => {
       iconAnchor: [14, 14]
     });
 
-    // 2. Resolve coordinates from paths
-    let restCoords = [restaurantLat, restaurantLng];
-    let custCoords = [customerLat, customerLng];
-
-    if (order?.pathFM && order.pathFM.length > 0) {
-      const lastNode = order.pathFM[order.pathFM.length - 1];
-      restCoords = [lastNode.latitude, lastNode.longitude];
-    }
-    if (order?.pathLM1 && order.pathLM1.length > 0) {
-      const lastNode = order.pathLM1[order.pathLM1.length - 1];
-      custCoords = [lastNode.latitude, lastNode.longitude];
-    }
+    // 2. Keep pins on the actual backend coordinates; route geometry may be road-snapped.
+    const restCoords = restaurantCoords;
+    const custCoords = customerCoords;
 
     // 3. Create or Update Markers
     if (!restaurantMarkerRef.current) {
@@ -216,38 +260,27 @@ const ActiveDeliveryMap = React.memo(({ order }) => {
       polylineLMRef.current = null;
     }
 
-    // 5. Draw VRP Paths if available
-    let drawn = false;
-    if (order?.pathFM && order.pathFM.length > 0) {
-      const latlngsFM = order.pathFM.map(n => [n.latitude, n.longitude]);
+    // 5. Draw only the active road-geometry leg. Do not synthesize straight fallback lines.
+    const latlngsFM = isFirstMileRouteVisible(order?.status) ? getRouteLatLngs(order?.pathFM) : [];
+    const latlngsLM = isLastMileRouteVisible(order?.status) ? getRouteLatLngs(order?.pathLM1) : [];
+    if (hasDrawableRoutePath(latlngsFM)) {
       polylineFMRef.current = L.polyline(latlngsFM, { color: '#06b6d4', weight: 4, opacity: 0.8 }).addTo(map);
-      drawn = true;
     }
-    if (order?.pathLM1 && order.pathLM1.length > 0) {
-      const latlngsLM = order.pathLM1.map(n => [n.latitude, n.longitude]);
+    if (hasDrawableRoutePath(latlngsLM)) {
       polylineLMRef.current = L.polyline(latlngsLM, { color: '#8b5cf6', weight: 4, opacity: 0.8, dashArray: '6, 6' }).addTo(map);
-      drawn = true;
-    }
-
-    // Fallback static path if VRP paths are not available
-    if (!drawn) {
-      const fallbackPoints = [
-        [currentLat, currentLng],
-        restCoords,
-        custCoords
-      ];
-      routePolylineRef.current = L.polyline(fallbackPoints, { color: '#8b5cf6', weight: 4, opacity: 0.7, dashArray: '8, 8' }).addTo(map);
     }
 
     // 6. Fit map bounds to cover all points
     const bounds = L.latLngBounds([
       [currentLat, currentLng],
       restCoords,
-      custCoords
+      custCoords,
+      ...latlngsFM,
+      ...latlngsLM
     ]);
     map.fitBounds(bounds, { padding: [40, 40] });
 
-  }, [leafletLoaded, order?.pathFM, order?.pathLM1, currentLat, currentLng, order?.orderId, order?.gpsCoordinates, order?.status, order?.gpsProgress, L]);
+  }, [leafletLoaded, order?.pathFM, order?.pathLM1, currentLat, currentLng, restaurantCoords, customerCoords, order?.orderId, order?.gpsCoordinates, order?.status, order?.gpsProgress, L]);
 
   const mapWrapperStyle = useMemo(() => ({
     height: '200px', position: 'relative', marginTop: '16px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-medium)'

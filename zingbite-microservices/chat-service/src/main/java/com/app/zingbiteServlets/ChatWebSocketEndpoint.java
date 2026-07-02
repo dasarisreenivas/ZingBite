@@ -172,6 +172,23 @@ public class ChatWebSocketEndpoint {
         }
     }
 
+    /**
+     * Broadcasts a JSON message to all active WebSocket sessions in a room.
+     * Called by ChatServlet when a message is sent via REST fallback so that
+     * other connected clients receive the message in real-time.
+     */
+    public static void broadcastToRoom(String type, int targetId, String jsonMessage) {
+        String roomKey = type + ":" + targetId;
+        Set<jakarta.websocket.Session> sessions = roomSessions.get(roomKey);
+        if (sessions != null) {
+            for (jakarta.websocket.Session s : sessions) {
+                if (s.isOpen()) {
+                    s.getAsyncRemote().sendText(jsonMessage);
+                }
+            }
+        }
+    }
+
     @OnClose
     public void onClose(jakarta.websocket.Session session, CloseReason reason) {
         String type = (String) session.getUserProperties().get("type");

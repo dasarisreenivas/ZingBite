@@ -142,29 +142,69 @@ export const CartProvider = ({ children }) => {
   }, []);
 
   const removeFromCart = useCallback(async (itemId) => {
+    const snapshot = cart;
+    // Optimistic: remove the item locally
+    const items = Array.isArray(cart.items) ? cart.items : Object.values(cart.items || {});
+    const removedItem = items.find(i => (i.menuId || i.itemId || i.id) === itemId);
+    const optimisticItems = items.filter(i => (i.menuId || i.itemId || i.id) !== itemId);
+    const removedAmount = removedItem ? (removedItem.price || 0) * (removedItem.quantity || 1) : 0;
+    setCart(prev => ({
+      ...prev,
+      items: optimisticItems,
+      itemCount: Math.max(0, (prev.itemCount || 0) - (removedItem?.quantity || 1)),
+      subtotal: Math.max(0, (prev.subtotal || 0) - removedAmount),
+      total: Math.max(0, (prev.total || 0) - removedAmount),
+    }));
     try {
       const res = await axios.post('/api/cart', { action: 'remove', itemId });
       setCart(res.data);
     } catch (err) {
+      setCart(snapshot);
+      const msg = err.response?.data?.error || 'Failed to remove item';
+      setCartError(msg);
       console.error(err);
+      setTimeout(() => setCartError(null), 4000);
     }
-  }, []);
+  }, [cart]);
 
   const updateQuantity = useCallback(async (itemId, quantity) => {
     if (quantity <= 0) return removeFromCart(itemId);
-    
+
+    const snapshot = cart;
+    // Optimistic: update the quantity locally
+    const items = Array.isArray(cart.items) ? cart.items : Object.values(cart.items || {});
+    const optimisticItems = items.map(i => {
+      if ((i.menuId || i.itemId || i.id) === itemId) {
+        const oldQty = i.quantity || 1;
+        const diff = quantity - oldQty;
+        return { ...i, quantity, subtotal: (i.price || 0) * quantity };
+      }
+      return i;
+    });
+    const targetItem = items.find(i => (i.menuId || i.itemId || i.id) === itemId);
+    const oldQty = targetItem?.quantity || 1;
+    const diff = quantity - oldQty;
+    const priceDiff = (targetItem?.price || 0) * diff;
+    setCart(prev => ({
+      ...prev,
+      items: optimisticItems,
+      itemCount: Math.max(0, (prev.itemCount || 0) + diff),
+      subtotal: Math.max(0, (prev.subtotal || 0) + priceDiff),
+      total: Math.max(0, (prev.total || 0) + priceDiff),
+    }));
     try {
       const res = await axios.post('/api/cart', { action: 'updateQuantity', itemId, quantity });
       setCart(res.data);
       setCartError(null);
       trackEvent('ADD_TO_CART', { itemId, quantity });
     } catch (err) {
+      setCart(snapshot);
       const msg = err.response?.data?.error || 'Failed to update cart';
       setCartError(msg);
       console.error(err);
       setTimeout(() => setCartError(null), 4000);
     }
-  }, [removeFromCart]);
+  }, [cart, removeFromCart]);
 
   const clearAndAdd = useCallback(async (itemId, quantity) => {
     try {

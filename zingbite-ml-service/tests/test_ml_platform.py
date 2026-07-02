@@ -77,3 +77,56 @@ def test_flask_predict_endpoint(tmp_path):
 
     assert response.status_code == 200
     assert response.get_json()['items']
+
+
+def test_flask_route_prediction_endpoint_returns_path_geometry(tmp_path, monkeypatch):
+    config = MlConfig(
+        root_dir=tmp_path,
+        models_dir=tmp_path / 'models',
+        imports_dir=tmp_path / 'imports',
+        route_csv=tmp_path / 'missing.csv',
+        db_url=None,
+    )
+
+    import ml_platform.service as service
+
+    def fake_fetch_osrm_leg(start_lat, start_lon, end_lat, end_lon, start_id, label_prefix):
+        return [
+            {
+                'id': start_id,
+                'label': f'{label_prefix} Road Point 1',
+                'latitude': start_lat,
+                'longitude': start_lon,
+                'earliestTime': 0.0,
+                'latestTime': 1.7976931348623157e308,
+            },
+            {
+                'id': start_id + 1,
+                'label': f'{label_prefix} Road Point 2',
+                'latitude': end_lat,
+                'longitude': end_lon,
+                'earliestTime': 0.0,
+                'latestTime': 1.7976931348623157e308,
+            },
+        ], 2.5
+
+    monkeypatch.setattr(service, '_fetch_osrm_leg', fake_fetch_osrm_leg)
+
+    client = service.create_app(config).test_client()
+    response = client.post('/predict/route', json={
+        'riderLat': 12.9580,
+        'riderLon': 77.5890,
+        'restLat': 12.9716,
+        'restLon': 77.5946,
+        'custLat': 12.9821,
+        'custLon': 77.6085,
+    })
+
+    data = response.get_json()
+    assert response.status_code == 200
+    assert data['source'] == 'ml'
+    assert data['routeSource'] == 'ml_osrm'
+    assert len(data['pathFM']) == 2
+    assert len(data['pathLM1']) == 2
+    assert data['routeDistanceKm'] == 5.0
+    assert data['estimatedEtaMinutes'] > 0

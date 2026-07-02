@@ -22,6 +22,7 @@ import com.app.ai.ZingBiteAiModel.MenuMatch;
 import com.app.ai.ZingBiteAiModel.ReviewInsights;
 import com.app.ai.ZingBiteAiModel.VoiceIntent;
 import com.app.zingbitemodels.Menu;
+import com.app.zingbitemodels.ChatMessage;
 import com.app.zingbitemodels.Review;
 import com.app.zingbitemodels.User;
 import com.app.zingbitemodels.Restaurant;
@@ -942,6 +943,34 @@ public class AIServlet extends HttpServlet {
         }
         result.addProperty("senderName", "ZingBite Support AI");
         result.addProperty("timestamp", new Date().toString());
+
+        // Persist the AI reply to chat_messages so it survives page refreshes
+        String reply = result.has("reply") ? result.get("reply").getAsString() : "";
+        if (!reply.isEmpty()) {
+            Integer orderId = requestBody.has("orderId") && !requestBody.get("orderId").isJsonNull()
+                    ? requestBody.get("orderId").getAsInt() : null;
+            Integer applicationId = requestBody.has("applicationId") && !requestBody.get("applicationId").isJsonNull()
+                    ? requestBody.get("applicationId").getAsInt() : null;
+            Transaction aiTx = null;
+            try (Session aiDbSession = DBUtils.openSession()) {
+                aiTx = aiDbSession.beginTransaction();
+                ChatMessage aiMsg = new ChatMessage(
+                    orderId, applicationId,
+                    0, // senderId 0 = system/AI
+                    "ZingBite Support AI",
+                    user.getUserID(),
+                    reply,
+                    new Date()
+                );
+                aiDbSession.persist(aiMsg);
+                aiTx.commit();
+                result.addProperty("id", aiMsg.getId());
+            } catch (Exception dbEx) {
+                if (aiTx != null && aiTx.isActive()) aiTx.rollback();
+                LOGGER.warn("[AIServlet] Failed to persist AI chat reply: " + dbEx.getMessage());
+            }
+        }
+
         resp.getWriter().write(gson.toJson(result));
     }
 

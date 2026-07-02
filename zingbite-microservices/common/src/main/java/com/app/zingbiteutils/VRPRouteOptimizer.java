@@ -1,9 +1,40 @@
 package com.app.zingbiteutils;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class VRPRouteOptimizer {
+    private static final String DEFAULT_ML_SERVICE_URL = "http://localhost:5010";
+    private static final Duration ML_ROUTE_CONNECT_TIMEOUT = Duration.ofSeconds(2);
+    private static final Duration ML_ROUTE_REQUEST_TIMEOUT = Duration.ofSeconds(4);
+    private static final long ML_ROUTE_CACHE_TTL_MS = 60_000;
+    private static final HttpClient ROUTE_HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(ML_ROUTE_CONNECT_TIMEOUT)
+            .build();
+    private static final Map<String, CachedRoutePaths> mlRouteCache = new ConcurrentHashMap<>();
+
+    private static class CachedRoutePaths {
+        final Map<String, List<Node>> paths;
+        final long timestamp;
+
+        CachedRoutePaths(Map<String, List<Node>> paths) {
+            this.paths = copyRoutePaths(paths);
+            this.timestamp = System.currentTimeMillis();
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() - timestamp > ML_ROUTE_CACHE_TTL_MS;
+        }
+    }
 
     public static class Node {
         public int id;
@@ -541,33 +572,232 @@ public class VRPRouteOptimizer {
         return Math.max(2.0, predictedETA);
     }
 
-    private static List<Node> fetchOSRMRoute(double startLat, double startLon, double endLat, double endLon, int startNodeId, String labelPrefix) {
-        return new ArrayList<>();
+    private static Map<String, List<Node>> fetchMlRoutePaths(double riderLat, double riderLon,
+                                                             double restLat, double restLon,
+                                                             double custLat, double custLon) {
+        if (!isValidRouteCoordinate(riderLat, riderLon)
+                || !isValidRouteCoordinate(restLat, restLon)
+                || !isValidRouteCoordinate(custLat, custLon)) {
+            return new HashMap<>();
+        }
+
+        String cacheKey = buildRouteCacheKey(riderLat, riderLon, restLat, restLon, custLat, custLon);
+        CachedRoutePaths cached = mlRouteCache.get(cacheKey);
+        if (cached != null && !cached.isExpired()) {
+            return copyRoutePaths(cached.paths);
+        }
+
+        JsonObject payload = new JsonObject();
+        payload.addProperty("riderLat", riderLat);
+        payload.addProperty("riderLon", riderLon);
+        payload.addProperty("restLat", restLat);
+        payload.addProperty("restLon", restLon);
+        payload.addProperty("custLat", custLat);
+        payload.addProperty("custLon", custLon);
+        payload.addProperty("custALat", custLat);
+        payload.addProperty("custALon", custLon);
+        payload.addProperty("custBLat", custLat);
+        payload.addProperty("custBLon", custLon);
+        payload.addProperty("weather", weather);
+        payload.addProperty("perishableLifo", perishableLifo);
+        payload.addProperty("useAStar", useAStar);
+
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(getMlRouteUri())
+                    .timeout(ML_ROUTE_REQUEST_TIMEOUT)
+                    .header("Accept", "application/json")
+                    .header("Content-Type", "application/json")
+                    .header("User-Agent", "ZingBite/1.0")
+                    .POST(HttpRequest.BodyPublishers.ofString(payload.toString()))
+                    .build();
+
+            HttpResponse<String> response = ROUTE_HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                return new HashMap<>();
+            }
+
+            Map<String, List<Node>> paths = parseMlRouteResponse(response.body());
+            if (hasUsableRoute(paths.get("pathFM")) || hasUsableRoute(paths.get("pathLM1"))) {
+                mlRouteCache.put(cacheKey, new CachedRoutePaths(paths));
+            }
+            return paths;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return new HashMap<>();
+        } catch (Exception ex) {
+            return new HashMap<>();
+        }
+    }
+
+    static Map<String, List<Node>> parseMlRouteResponse(String responseBody) {
+        Map<String, List<Node>> paths = new HashMap<>();
+        try {
+            JsonElement parsed = JsonParser.parseString(responseBody);
+            if (!parsed.isJsonObject()) {
+                return paths;
+            }
+
+            JsonObject root = parsed.getAsJsonObject();
+            if (root.has("pathFM") && root.get("pathFM").isJsonArray()) {
+                paths.put("pathFM", parseRouteNodeArray(root.getAsJsonArray("pathFM"), 0, "First Mile"));
+            }
+            if (root.has("pathLM1") && root.get("pathLM1").isJsonArray()) {
+                paths.put("pathLM1", parseRouteNodeArray(root.getAsJsonArray("pathLM1"), 100, "Last Mile"));
+            }
+        } catch (Exception ex) {
+            return new HashMap<>();
+        }
+        return paths;
+    }
+
+    private static List<Node> parseRouteNodeArray(JsonArray coordinates, int startNodeId, String labelPrefix) {
+        List<Node> routeNodes = new ArrayList<>();
+        String safeLabelPrefix = (labelPrefix == null || labelPrefix.isBlank()) ? "Road Route" : labelPrefix;
+        for (JsonElement element : coordinates) {
+            double lat;
+            double lon;
+            int id = startNodeId + routeNodes.size();
+            String label = safeLabelPrefix + " Point " + (routeNodes.size() + 1);
+
+            if (element.isJsonArray()) {
+                JsonArray coordinate = element.getAsJsonArray();
+                if (coordinate.size() < 2) continue;
+                lat = coordinate.get(0).getAsDouble();
+                lon = coordinate.get(1).getAsDouble();
+            } else if (element.isJsonObject()) {
+                JsonObject node = element.getAsJsonObject();
+                Double parsedLat = getFirstJsonNumber(node, "latitude", "lat");
+                Double parsedLon = getFirstJsonNumber(node, "longitude", "lon", "lng");
+                if (parsedLat == null || parsedLon == null) continue;
+                lat = parsedLat;
+                lon = parsedLon;
+                if (node.has("id") && node.get("id").isJsonPrimitive()) {
+                    id = node.get("id").getAsInt();
+                }
+                if (node.has("label") && node.get("label").isJsonPrimitive()) {
+                    label = node.get("label").getAsString();
+                }
+            } else {
+                continue;
+            }
+
+            if (!isValidRouteCoordinate(lat, lon)) continue;
+            routeNodes.add(new Node(
+                    id,
+                    label,
+                    lat,
+                    lon
+            ));
+        }
+        return routeNodes;
+    }
+
+    private static Double getFirstJsonNumber(JsonObject object, String... keys) {
+        for (String key : keys) {
+            if (!object.has(key) || object.get(key).isJsonNull()) continue;
+            try {
+                double value = object.get(key).getAsDouble();
+                if (Double.isFinite(value)) return value;
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static boolean isValidRouteCoordinate(double latitude, double longitude) {
+        return Double.isFinite(latitude) && latitude >= -90.0 && latitude <= 90.0
+                && Double.isFinite(longitude) && longitude >= -180.0 && longitude <= 180.0;
+    }
+
+    private static String buildRouteCacheKey(double riderLat, double riderLon, double restLat, double restLon, double custLat, double custLon) {
+        return String.format(
+                Locale.US,
+                "%s|%.4f,%.4f|%.4f,%.4f|%.4f,%.4f",
+                getMlRouteUrl(),
+                riderLat,
+                riderLon,
+                restLat,
+                restLon,
+                custLat,
+                custLon
+        );
+    }
+
+    private static URI getMlRouteUri() {
+        return URI.create(getMlRouteUrl());
+    }
+
+    private static String getMlRouteUrl() {
+        String explicitRouteUrl = System.getProperty("zingbite.ml.routeUrl");
+        if (explicitRouteUrl == null || explicitRouteUrl.isBlank()) {
+            explicitRouteUrl = System.getenv("ZINGBITE_ML_ROUTE_URL");
+        }
+        if (explicitRouteUrl != null && !explicitRouteUrl.isBlank()) {
+            return explicitRouteUrl.trim();
+        }
+
+        String baseUrl = System.getProperty("zingbite.ml.serviceUrl");
+        if (baseUrl == null || baseUrl.isBlank()) {
+            baseUrl = System.getenv("ZINGBITE_ML_SERVICE_URL");
+        }
+        if (baseUrl == null || baseUrl.isBlank()) {
+            baseUrl = DEFAULT_ML_SERVICE_URL;
+        }
+        return baseUrl.replaceAll("/+$", "") + "/predict/route";
+    }
+
+    private static boolean hasUsableRoute(List<Node> route) {
+        return route != null && route.size() > 1;
+    }
+
+    private static Map<String, List<Node>> copyRoutePaths(Map<String, List<Node>> paths) {
+        Map<String, List<Node>> copy = new HashMap<>();
+        if (paths == null) return copy;
+        for (Map.Entry<String, List<Node>> entry : paths.entrySet()) {
+            copy.put(entry.getKey(), copyRoute(entry.getValue()));
+        }
+        return copy;
+    }
+
+    private static List<Node> copyRoute(List<Node> route) {
+        List<Node> copy = new ArrayList<>();
+        if (route == null) return copy;
+        for (Node node : route) {
+            if (node != null) {
+                copy.add(new Node(node.id, node.label, node.latitude, node.longitude, node.earliestTime, node.latestTime));
+            }
+        }
+        return copy;
     }
 
     /**
-     * Dynamically calculates first-mile and last-mile VRP routing path coordinate nodes
-     * based on active coordinates of the rider, restaurant, and customer.
+     * Dynamically calculates first-mile and last-mile routing path coordinate nodes.
+     * It asks the ML routing service first and falls back to the built-in VRP graph
+     * only for route legs that the ML service cannot provide.
      */
     public static Map<String, List<Node>> getVRPPathsForOrder(double riderLat, double riderLon, 
                                                               double restLat, double restLon, 
                                                               double custLat, double custLon) {
-        // Try fetching actual road path from OSRM first
-        List<Node> pathFM = fetchOSRMRoute(riderLat, riderLon, restLat, restLon, 0, "First Mile");
-        List<Node> pathLM = fetchOSRMRoute(restLat, restLon, custLat, custLon, 100, "Last Mile");
+        Map<String, List<Node>> mlPaths = fetchMlRoutePaths(
+            riderLat, riderLon,
+            restLat, restLon,
+            custLat, custLon
+        );
+        List<Node> pathFM = copyRoute(mlPaths.get("pathFM"));
+        List<Node> pathLM = copyRoute(mlPaths.get("pathLM1"));
 
-        // Fallback to mock VRP graph if OSRM is offline or fails
-        if (pathFM.isEmpty() || pathLM.isEmpty()) {
+        if (!hasUsableRoute(pathFM) || !hasUsableRoute(pathLM)) {
             VRPRouteOptimizer optimizer = new VRPRouteOptimizer(
                 riderLat, riderLon,
                 restLat, restLon,
                 custLat, custLon,
                 custLat, custLon // Single customer order tracking
             );
-            if (pathFM.isEmpty()) {
+            if (!hasUsableRoute(pathFM)) {
                 pathFM = optimizer.findRoute(0, 1, useAStar); // Rider -> Restaurant
             }
-            if (pathLM.isEmpty()) {
+            if (!hasUsableRoute(pathLM)) {
                 pathLM = optimizer.findRoute(1, 2, useAStar); // Restaurant -> Customer
             }
         }

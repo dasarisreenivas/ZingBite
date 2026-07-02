@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AlertTriangle, Loader, ChevronDown, MapPin, Flame, Mail, Lock, User, Phone } from 'lucide-react';
+import { AuthContext, setCsrfToken } from '../context/AuthContext';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -19,6 +20,7 @@ const Register = () => {
   const [focusedField, setFocusedField] = useState(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const navigate = useNavigate();
+  const { updateUser } = useContext(AuthContext);
 
   const detectLocation = () => {
     if (!navigator.geolocation) {
@@ -121,7 +123,13 @@ const Register = () => {
       
       const res = await axios.post('/api/register', submissionData);
       if(res.data.success) {
-        navigate('/login');
+        if (res.data.csrfToken) {
+          setCsrfToken(res.data.csrfToken);
+        }
+        if (res.data.user) {
+          updateUser(res.data.user);
+        }
+        navigate('/');
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed');
