@@ -26,6 +26,15 @@ import { CategoryCartOverlays, CategoryMenuSheet } from '../components/home/Cate
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?q=80&w=2200&auto=format&fit=crop';
 const RESTAURANT_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop';
 const CATEGORY_DISH_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1200&auto=format&fit=crop';
+const PUBLIC_ASSET_BASE = import.meta.env.BASE_URL || '/';
+const PROMO_50_OFF_CHARACTER = `${PUBLIC_ASSET_BASE}images/promo-50-off-character.png`;
+const withPublicAssetBase = (assetPath) => `${PUBLIC_ASSET_BASE}${assetPath.replace(/^\/+/, '')}`;
+const normalizePublicAssetUrl = (assetUrl) => {
+  if (!assetUrl) return '';
+  if (/^(?:https?:|data:|blob:)/i.test(assetUrl)) return assetUrl;
+  if (/^\/?images\//i.test(assetUrl)) return withPublicAssetBase(assetUrl);
+  return assetUrl;
+};
 const PROMO_POSTER_IMAGES = [
   'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?q=80&w=1400&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1600891964599-f61ba0e24092?q=80&w=1400&auto=format&fit=crop',
@@ -111,7 +120,7 @@ const DEFAULT_SDUI_CONFIG = {
     { id: "hero_banner", visible: true, order: 1, props: { title: "Hungry? Grab a ZingBite!", subtitle: "Delivering fresh meals to your doorstep within minutes." } },
     { id: "weather_surge_banner", visible: true, order: 2, props: { title: "Weather Alert", subtitle: "Raining heavily outside. Weather surge helps support our delivery partners." } },
     { id: "group_order_cta", visible: true, order: 3, props: { title: "Planning a Group Meal?", description: "Browse restaurants and choose a menu everyone can enjoy.", ctaText: "Browse Restaurants" } },
-    { id: "promo_deals", visible: true, order: 4, props: { deals: [ { id: 1, title: "50% OFF", description: "Up to ₹100 | Use Code: ZING50", bgGradient: "linear-gradient(135deg, #f97316, #ec4899)" }, { id: 2, title: "Free Delivery", description: "On orders above ₹299", bgGradient: "linear-gradient(135deg, #3b82f6, #4f46e5)" } ] } },
+    { id: "promo_deals", visible: true, order: 4, props: { deals: [ { id: 1, title: "50% OFF", description: "Up to ₹100 | Use Code: ZING50", bgGradient: "linear-gradient(135deg, #f97316, #ec4899)", characterImage: PROMO_50_OFF_CHARACTER }, { id: 2, title: "Free Delivery", description: "On orders above ₹299", bgGradient: "linear-gradient(135deg, #3b82f6, #4f46e5)" } ] } },
     { id: "category_carousel", visible: true, order: 5, props: { title: "In the Mood for..." } },
     { id: "food_moods", visible: true, order: 6, props: { title: "What's your vibe today?", moods: [ { iconName: "Dumbbell", tag: "Gym Fuel", cuisine: "healthy" }, { iconName: "Code2", tag: "Late Night Coding", cuisine: "chinese" }, { iconName: "Film", tag: "Movie Night", cuisine: "pizza" }, { iconName: "Flame", tag: "Spicy Craving", cuisine: "biryani" } ] } },
     { id: "trending_combos", visible: true, order: 8, props: { title: "Popular AI Combos", subtitle: "Perfect food pairings calculated by our AI engine", maxCombos: 3 } },
@@ -1901,6 +1910,30 @@ const Home = () => {
           background-size: cover, cover, cover, cover;
           background-position: center;
         }
+        .promo-poster-card.promo-50-off-art {
+          padding-right: clamp(190px, 36vw, 440px);
+        }
+        .promo-poster-card.promo-50-off-art::before {
+          background:
+            radial-gradient(circle at 82% 42%, rgba(255,255,255,0.2), transparent 31%),
+            linear-gradient(135deg, rgba(247,55,79,0.2), transparent 42%);
+        }
+        .promo-poster-character {
+          position: absolute;
+          right: clamp(16px, 4vw, 62px);
+          bottom: clamp(-20px, -2vw, -6px);
+          z-index: 1;
+          width: min(29vw, 350px);
+          max-width: 36%;
+          max-height: 78%;
+          object-fit: contain;
+          object-position: right bottom;
+          pointer-events: none;
+          filter: drop-shadow(0 22px 30px rgba(0,0,0,0.34));
+        }
+        .promo-poster-card.promo-50-off-art .promo-poster-content {
+          max-width: min(560px, 50%);
+        }
         .promo-poster-card.promo-tint-delivery {
           background:
             linear-gradient(90deg, rgba(6,14,36,0.92) 0%, rgba(21,35,79,0.62) 48%, rgba(14,55,83,0.22) 100%),
@@ -2016,8 +2049,21 @@ const Home = () => {
             min-height: 216px;
             padding: 20px;
           }
+          .promo-poster-card.promo-50-off-art {
+            padding-right: min(34vw, 180px);
+          }
+          .promo-poster-character {
+            right: -4px;
+            bottom: -16px;
+            width: min(36vw, 210px);
+            max-width: 38%;
+            max-height: 72%;
+          }
           .promo-poster-content {
             max-width: 82%;
+          }
+          .promo-poster-card.promo-50-off-art .promo-poster-content {
+            max-width: 62%;
           }
           .promo-poster-content strong {
             font-size: clamp(2rem, 12vw, 3.4rem);
@@ -2029,8 +2075,22 @@ const Home = () => {
             min-height: 202px;
             padding: 18px;
           }
+          .promo-poster-card.promo-50-off-art {
+            padding-right: 18px;
+            padding-bottom: 76px;
+          }
+          .promo-poster-character {
+            right: -8px;
+            bottom: -20px;
+            width: min(50vw, 180px);
+            max-width: 52%;
+            max-height: 52%;
+          }
           .promo-poster-content {
             max-width: 88%;
+          }
+          .promo-poster-card.promo-50-off-art .promo-poster-content {
+            max-width: 100%;
           }
           .promo-poster-content span:last-child {
             font-size: 0.84rem;
@@ -4181,13 +4241,22 @@ const Home = () => {
 
 function PromoDealsCarousel({ deals }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const posterDeals = useMemo(() => deals.map((deal, index) => ({
-    ...deal,
-    posterImage: deal.posterImage || deal.imageUrl || PROMO_POSTER_IMAGES[index % PROMO_POSTER_IMAGES.length],
-    accent: getPromoBackground(deal.bgGradient),
-    code: deal.code || (String(deal.description || '').match(/code:\s*([A-Z0-9]+)/i)?.[1]),
-    tintVariant: getPromoTintVariant(deal, index)
-  })), [deals]);
+  const posterDeals = useMemo(() => deals.map((deal, index) => {
+    const tintVariant = getPromoTintVariant(deal, index);
+    const isFiftyOffDeal = tintVariant === 'discount' && /50|zing50/i.test(`${deal?.title || ''} ${deal?.description || ''} ${deal?.code || ''}`);
+
+    return {
+      ...deal,
+      posterImage: deal.posterImage || deal.imageUrl || PROMO_POSTER_IMAGES[index % PROMO_POSTER_IMAGES.length],
+      characterImage: isFiftyOffDeal
+        ? PROMO_50_OFF_CHARACTER
+        : normalizePublicAssetUrl(deal.characterImage || deal.mascotImage),
+      accent: getPromoBackground(deal.bgGradient),
+      code: deal.code || (String(deal.description || '').match(/code:\s*([A-Z0-9]+)/i)?.[1]),
+      tintVariant,
+      isFiftyOffDeal
+    };
+  }), [deals]);
 
   useEffect(() => {
     if (posterDeals.length <= 1) return undefined;
@@ -4224,7 +4293,7 @@ function PromoDealsCarousel({ deals }) {
             <button
               key={deal.id || deal.title || index}
               type="button"
-              className={`promo-poster-card promo-tint-${deal.tintVariant}`}
+              className={`promo-poster-card promo-tint-${deal.tintVariant} ${deal.isFiftyOffDeal ? 'promo-50-off-art' : ''}`}
               style={{
                 '--deal-poster-image': `url("${deal.posterImage}")`,
                 '--deal-accent': deal.accent
@@ -4243,6 +4312,9 @@ function PromoDealsCarousel({ deals }) {
                 <span>{deal.code ? `Code ${deal.code}` : 'Tap to redeem'}</span>
                 <ArrowRight size={16} />
               </span>
+              {deal.characterImage && (
+                <img className="promo-poster-character" src={deal.characterImage} alt="" aria-hidden="true" />
+              )}
             </button>
           ))}
         </div>

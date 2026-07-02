@@ -1,338 +1,431 @@
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import {
+  AlertCircle,
+  ArrowUpDown,
+  ChevronRight,
+  Heart,
+  Minus,
+  Plus,
+  RefreshCw,
+  Search,
+  ShoppingBag,
+  ShoppingCart,
+  SlidersHorizontal,
+  Sparkles,
+  Trash2,
+  Utensils,
+  X
+} from 'lucide-react';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
-import { createPortal } from 'react-dom';
-import { AlertCircle, Heart, ShoppingBag, Minus, Plus, Trash2 } from 'lucide-react';
 import { getMenuItemDisplayText, isVegDish } from '../utils/menuDisplay';
+import '../styles/wishlist.css';
 
 const DEFAULT_DISH_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1760&auto=format&fit=crop';
 
-const Wishlist = () => {
-  const { wishlist, toggleWishlist, loading } = useWishlist();
-  const { cart, addToCart, updateQuantity, conflictPopup, clearAndAdd, setConflictPopup } = useCart();
+const getItemId = (item = {}) => item.menuId ?? item.itemId ?? item.id;
 
-  const getCartQuantity = (itemId) => {
-    if (!cart || !cart.items) return 0;
-    const itemsArray = Array.isArray(cart.items) ? cart.items : Object.values(cart.items);
-    const item = itemsArray.find(i => i.itemId === itemId);
-    return item ? item.quantity : 0;
+const getItemPrice = (item = {}) => {
+  const price = Number(item.price ?? item.offerPrice ?? 0);
+  return Number.isFinite(price) ? price : 0;
+};
+
+const formatPrice = (value) => (
+  Number(value || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  })
+);
+
+const getRestaurantName = (item = {}) => (
+  item.restaurant?.restaurantName || item.restaurantName || item.kitchenName || 'ZingBite kitchen'
+);
+
+const isItemAvailable = (item = {}) => item.isAvailable !== false && item.available !== false;
+
+const Wishlist = () => {
+  const { wishlist, toggleWishlist, loading, wishlistError, fetchWishlist } = useWishlist();
+  const { cart, addToCart, updateQuantity, conflictPopup, clearAndAdd, setConflictPopup } = useCart();
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [sort, setSort] = useState('recent');
+
+  const cartItems = useMemo(() => {
+    if (!cart?.items) return [];
+    return Array.isArray(cart.items) ? cart.items : Object.values(cart.items);
+  }, [cart]);
+
+  const cartQuantityById = useMemo(() => {
+    const quantities = new Map();
+    cartItems.forEach((item) => {
+      const itemId = getItemId(item);
+      if (itemId == null) return;
+      quantities.set(String(itemId), Number(item.quantity ?? item.qty ?? 0));
+    });
+    return quantities;
+  }, [cartItems]);
+
+  const enrichedItems = useMemo(() => (
+    wishlist.map((item, index) => {
+      const itemId = getItemId(item);
+      const display = getMenuItemDisplayText(item);
+      const restaurantName = getRestaurantName(item);
+      const quantity = itemId == null ? 0 : cartQuantityById.get(String(itemId)) || 0;
+
+      return {
+        item,
+        itemId,
+        index,
+        title: display.title,
+        subtitle: display.subtitle,
+        restaurantName,
+        price: getItemPrice(item),
+        isVeg: isVegDish(item),
+        isAvailable: isItemAvailable(item),
+        quantity
+      };
+    })
+  ), [cartQuantityById, wishlist]);
+
+  const availableCount = enrichedItems.filter(item => item.isAvailable).length;
+  const vegCount = enrichedItems.filter(item => item.isVeg).length;
+  const cartSavedCount = enrichedItems.filter(item => item.quantity > 0).length;
+  const savedValue = enrichedItems.reduce((sum, item) => sum + item.price, 0);
+  const restaurantCount = new Set(enrichedItems.map(item => item.restaurantName)).size;
+
+  const filterOptions = [
+    { id: 'all', label: 'All', count: enrichedItems.length },
+    { id: 'available', label: 'Available', count: availableCount },
+    { id: 'veg', label: 'Veg', count: vegCount },
+    { id: 'nonVeg', label: 'Non-veg', count: enrichedItems.length - vegCount },
+    { id: 'cart', label: 'In cart', count: cartSavedCount }
+  ];
+
+  const filteredItems = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const nextItems = enrichedItems.filter((entry) => {
+      if (filter === 'available' && !entry.isAvailable) return false;
+      if (filter === 'veg' && !entry.isVeg) return false;
+      if (filter === 'nonVeg' && entry.isVeg) return false;
+      if (filter === 'cart' && entry.quantity === 0) return false;
+      if (!needle) return true;
+
+      return [entry.title, entry.subtitle, entry.restaurantName]
+        .some(value => String(value || '').toLowerCase().includes(needle));
+    });
+
+    return [...nextItems].sort((first, second) => {
+      if (sort === 'priceAsc') return first.price - second.price;
+      if (sort === 'priceDesc') return second.price - first.price;
+      if (sort === 'name') return first.title.localeCompare(second.title);
+      return first.index - second.index;
+    });
+  }, [enrichedItems, filter, query, sort]);
+
+  const hasActiveFilters = query.trim() || filter !== 'all' || sort !== 'recent';
+
+  const resetFilters = () => {
+    setQuery('');
+    setFilter('all');
+    setSort('recent');
   };
 
-  // --- 1. Loading State ---
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-        <div className="skeleton" style={{ width: '48px', height: '48px', borderRadius: '50%' }} />
-      </div>
-    );
-  }
+  const handleAddToCart = (itemId) => {
+    if (itemId == null) return;
+    addToCart(itemId, 1);
+  };
 
-  // --- 2. Empty State ---
-  if (wishlist.length === 0) {
-    return (
-      <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 20px', textAlign: 'center' }}>
-        <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'rgba(247,55,79,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
-          <Heart size={44} color="var(--brand-red)" strokeWidth={1.2} />
-        </div>
-        <h3 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '8px', fontFamily: "'Outfit', sans-serif" }}>Your wishlist is empty</h3>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '28px', fontSize: '0.95rem', maxWidth: '400px' }}>
-          Save your favorite meals here to order them quickly anytime you crave them!
-        </p>
-        <Link to="/" style={{ padding: '14px 36px', background: 'linear-gradient(135deg, var(--brand-red), #d42d42)', color: '#fff', borderRadius: '12px', fontWeight: 700, textDecoration: 'none', boxShadow: '0 8px 24px rgba(247,55,79,0.25)', transition: 'transform 0.2s, box-shadow 0.2s', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-          onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 12px 32px rgba(247,55,79,0.35)'; }}
-          onMouseLeave={e => { e.target.style.transform = ''; e.target.style.boxShadow = '0 8px 24px rgba(247,55,79,0.25)'; }}
-        >
-          <ShoppingBag size={16} /> EXPLORE MENU
+  const handleQuantityChange = (itemId, quantity) => {
+    if (itemId == null) return;
+    updateQuantity(itemId, quantity);
+  };
+
+  const renderHeader = () => (
+    <section className="wishlist-toolbar-band">
+      <div className="wishlist-title-block">
+        <span className="wishlist-kicker">
+          <Heart size={16} fill="currentColor" />
+          Saved tastes
+        </span>
+        <h1>Wishlist</h1>
+        <p>Keep your favorite dishes close, compare them quickly, and send cravings straight to cart.</p>
+      </div>
+      <div className="wishlist-toolbar-actions">
+        <Link className="wishlist-link-btn secondary" to="/">
+          <ShoppingBag size={18} />
+          Browse menu
+        </Link>
+        <Link className="wishlist-link-btn primary" to="/cart">
+          <ShoppingCart size={18} />
+          Cart
+          <span>{cart?.itemCount || cartItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0)}</span>
         </Link>
       </div>
-    );
-  }
+    </section>
+  );
 
-  // --- 3. Populated State ---
-  return (
-    <>
-      <style>{`
-        .wishlist-container {
-          max-width: 1200px;
-          width: 92%;
-          margin: 40px auto 64px;
-        }
-        .wishlist-header {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin-bottom: 32px;
-          border-bottom: 1.5px solid var(--border-light);
-          padding-bottom: 16px;
-        }
-        .wishlist-header h2 {
-          font-family: 'Outfit', sans-serif;
-          font-weight: 800;
-          font-size: 1.8rem;
-          margin: 0;
-          color: var(--text-primary);
-        }
-        .wishlist-count {
-          font-size: 0.85rem;
-          color: var(--brand-red);
-          background: rgba(247, 55, 79, 0.06);
-          padding: 4px 12px;
-          border-radius: 20px;
-          border: 1px solid rgba(247, 55, 79, 0.12);
-          font-weight: 700;
-        }
-        .wishlist-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-          gap: 24px;
-        }
-        .wishlist-card {
-          background: var(--bg-card);
-          border: 1px solid var(--border-light);
-          border-radius: 20px;
-          padding: 20px;
-          display: flex;
-          gap: 16px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
-          transition: all 0.3s var(--ease-premium);
-          position: relative;
-        }
-        .wishlist-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 30px rgba(247, 55, 79, 0.05);
-          border-color: rgba(247, 55, 79, 0.1);
-        }
-        .wishlist-card-details {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          min-width: 0;
-        }
-        .wishlist-card-img-wrapper {
-          position: relative;
-          width: 100px;
-          height: 100px;
-          flex-shrink: 0;
-        }
-        .wishlist-card-img {
-          width: 100%;
-          height: 100%;
-          border-radius: 12px;
-          object-fit: cover;
-          border: 1px solid var(--border-light);
-        }
-        .wishlist-card-title {
-          font-family: 'Outfit', sans-serif;
-          font-size: 1.15rem;
-          font-weight: 700;
-          color: var(--text-primary);
-          margin: 0 0 4px;
-          line-height: 1.3;
-        }
-        .wishlist-card-price {
-          font-weight: 800;
-          font-size: 1.1rem;
-          color: var(--brand-red);
-          margin-bottom: 8px;
-        }
-        .wishlist-card-desc {
-          font-size: 0.8rem;
-          color: var(--text-secondary);
-          line-height: 1.4;
-          margin: 0 0 12px;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .remove-icon-btn {
-          position: absolute;
-          top: 12px;
-          right: 12px;
-          background: transparent;
-          border: none;
-          color: var(--text-muted);
-          cursor: pointer;
-          transition: color 0.2s;
-          padding: 4px;
-        }
-        .remove-icon-btn:hover {
-          color: var(--danger);
-        }
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 2000;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(0, 0, 0, 0.45);
-          backdrop-filter: blur(6px);
-          padding: 20px;
-        }
-        .modal-content {
-          background: var(--bg-card);
-          border: 1px solid var(--border-light);
-          border-radius: 20px;
-          padding: 32px;
-          max-width: 420px;
-          width: 100%;
-          box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
-          text-align: center;
-        }
-        .modal-icon {
-          width: 64px;
-          height: 64px;
-          border-radius: 50%;
-          background: rgba(247, 55, 79, 0.08);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 20px;
-        }
-        .modal-title {
-          margin: 0 0 10px;
-          color: var(--text-primary);
-          font-family: 'Outfit', sans-serif;
-          font-size: 1.3rem;
-          font-weight: 700;
-        }
-        .modal-desc {
-          margin: 0;
-          color: var(--text-secondary);
-          font-size: 0.95rem;
-          line-height: 1.6;
-        }
-        .modal-actions {
-          display: flex;
-          gap: 12px;
-          margin-top: 26px;
-        }
-        .modal-btn-outline,
-        .modal-btn-primary {
-          flex: 1;
-          border-radius: 12px;
-          padding: 13px;
-          font: inherit;
-          font-size: 0.9rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.25s var(--ease-premium);
-        }
-        .modal-btn-outline {
-          background: transparent;
-          border: 2px solid var(--border-medium);
-          color: var(--text-primary);
-        }
-        .modal-btn-outline:hover {
-          border-color: var(--brand-red);
-          color: var(--brand-red);
-        }
-        .modal-btn-primary {
-          background: linear-gradient(135deg, var(--brand-red), #d42d42);
-          border: none;
-          color: #fff;
-          box-shadow: 0 4px 14px rgba(247, 55, 79, 0.25);
-        }
-        .modal-btn-primary:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(247, 55, 79, 0.35);
-        }
-      `}</style>
+  const renderError = () => wishlistError && (
+    <div className="wishlist-alert" role="status">
+      <AlertCircle size={18} />
+      <span>{wishlistError}</span>
+      <button type="button" onClick={() => fetchWishlist?.(true)}>
+        <RefreshCw size={15} />
+        Retry
+      </button>
+    </div>
+  );
 
-      <div className="wishlist-container page-enter">
-        <div className="wishlist-header">
-          <h2>My Favorites</h2>
-          <span className="wishlist-count">{wishlist.length} ITEM{wishlist.length !== 1 ? 'S' : ''}</span>
+  const renderLoading = () => (
+    <section className="wishlist-loading" aria-label="Loading wishlist">
+      <div className="wishlist-loading-panel">
+        <span className="wishlist-skeleton line wide" />
+        <span className="wishlist-skeleton line" />
+        <span className="wishlist-skeleton field" />
+      </div>
+      <div className="wishlist-loading-grid">
+        {[1, 2, 3, 4, 5, 6].map(item => (
+          <div className="wishlist-skeleton-card" key={item}>
+            <span className="wishlist-skeleton image" />
+            <span className="wishlist-skeleton line" />
+            <span className="wishlist-skeleton line short" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+
+  const renderEmpty = () => (
+    <section className="wishlist-empty-state">
+      <div className="wishlist-empty-visual">
+        <img src={DEFAULT_DISH_IMAGE} alt="Fresh meal bowl" />
+        <span><Heart size={28} fill="currentColor" /></span>
+      </div>
+      <div className="wishlist-empty-copy">
+        <span className="wishlist-kicker compact">
+          <Sparkles size={15} />
+          Ready for your first save
+        </span>
+        <h2>Your wishlist is empty</h2>
+        <p>Save dishes from the menu and they will appear here with quick cart controls.</p>
+        <Link className="wishlist-link-btn primary" to="/">
+          <ShoppingBag size={18} />
+          Explore menu
+          <ChevronRight size={16} />
+        </Link>
+      </div>
+    </section>
+  );
+
+  const renderNoMatches = () => (
+    <div className="wishlist-no-matches">
+      <Search size={30} />
+      <h3>No saved dishes match</h3>
+      <p>Try a different search, filter, or sort option.</p>
+      <button type="button" className="wishlist-ghost-btn" onClick={resetFilters}>
+        <X size={16} />
+        Clear filters
+      </button>
+    </div>
+  );
+
+  const renderCard = (entry) => (
+    <article className="wishlist-item-card" key={entry.itemId ?? `${entry.title}-${entry.index}`}>
+      <div className="wishlist-item-media">
+        <img
+          src={entry.item.imagePath || DEFAULT_DISH_IMAGE}
+          alt={entry.title}
+          loading="lazy"
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.src = DEFAULT_DISH_IMAGE;
+          }}
+        />
+        <button
+          type="button"
+          className="wishlist-remove-btn"
+          onClick={() => toggleWishlist(entry.item)}
+          aria-label={`Remove ${entry.title} from wishlist`}
+        >
+          <Trash2 size={17} />
+        </button>
+        {!entry.isAvailable && <span className="wishlist-soldout-badge">Sold out</span>}
+      </div>
+
+      <div className="wishlist-item-body">
+        <div className="wishlist-item-tags">
+          <span className={`wishlist-food-type ${entry.isVeg ? 'veg' : 'nonveg'}`}>
+            <span />
+            {entry.isVeg ? 'Veg' : 'Non-veg'}
+          </span>
+          {entry.item.itemType === 'COMBO' && (
+            <span className="wishlist-combo-tag">
+              <Utensils size={13} />
+              Combo
+            </span>
+          )}
         </div>
 
-        <div className="wishlist-grid">
-          {wishlist.map((item) => {
-            const qty = getCartQuantity(item.menuId);
-            const isVeg = isVegDish(item);
-            const dishDisplay = getMenuItemDisplayText(item);
+        <div className="wishlist-item-copy">
+          <h3>{entry.title}</h3>
+          <p className="wishlist-restaurant-name">{entry.restaurantName}</p>
+          {entry.subtitle && <p className="wishlist-item-desc">{entry.subtitle}</p>}
+        </div>
 
-            return (
-              <div key={item.menuId} className="wishlist-card">
-                <button 
-                  type="button" 
-                  className="remove-icon-btn" 
-                  onClick={() => toggleWishlist(item)} 
-                  aria-label="Remove item"
-                >
-                  <Trash2 size={16} />
-                </button>
-
-                <div className="wishlist-card-img-wrapper">
-                  <img 
-                    src={item.imagePath || DEFAULT_DISH_IMAGE} 
-                    alt={dishDisplay.title}
-                    className="wishlist-card-img"
-                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_DISH_IMAGE; }}
-                  />
-                </div>
-
-                <div className="wishlist-card-details">
-                  <div>
-                    <div className="dish-card-header-tags" style={{ marginBottom: '6px' }}>
-                      <div className={isVeg ? "dish-type-badge veg" : "dish-type-badge nonveg"}>
-                        <span className="dot"></span>
-                        <span>{isVeg ? 'VEG' : 'NON-VEG'}</span>
-                      </div>
-                    </div>
-                    <h3 className="wishlist-card-title">{dishDisplay.title}</h3>
-                    {dishDisplay.subtitle && <p className="wishlist-card-desc">{dishDisplay.subtitle}</p>}
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div className="wishlist-card-price">&#8377;{item.price}</div>
-                    
-                    {/* Add to Cart / Qty Stepper */}
-                    <div style={{ position: 'relative' }}>
-                      {qty === 0 ? (
-                        <button 
-                          type="button"
-                          className="add-btn" 
-                          disabled={!item.isAvailable} 
-                          onClick={() => addToCart(item.menuId, 1)}
-                        >
-                          {item.isAvailable ? 'ADD' : 'SOLD OUT'}
-                        </button>
-                      ) : (
-                        <div className="qty-stepper" style={{ position: 'static' }}>
-                          <button type="button" className="step-btn" onClick={() => updateQuantity(item.menuId, qty - 1)}>
-                            <Minus size={12} />
-                          </button>
-                          <span className="step-val">{qty}</span>
-                          <button type="button" className="step-btn" onClick={() => updateQuantity(item.menuId, qty + 1)}>
-                            <Plus size={12} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="wishlist-item-footer">
+          <strong><span>&#8377;</span>{formatPrice(entry.price)}</strong>
+          {entry.quantity === 0 ? (
+            <button
+              type="button"
+              className="wishlist-add-btn"
+              disabled={!entry.isAvailable}
+              onClick={() => handleAddToCart(entry.itemId)}
+            >
+              <Plus size={16} />
+              {entry.isAvailable ? 'Add' : 'Unavailable'}
+            </button>
+          ) : (
+            <div className="wishlist-qty-control" aria-label={`${entry.title} quantity`}>
+              <button type="button" onClick={() => handleQuantityChange(entry.itemId, entry.quantity - 1)} aria-label="Decrease quantity">
+                <Minus size={14} />
+              </button>
+              <span>{entry.quantity}</span>
+              <button type="button" onClick={() => handleQuantityChange(entry.itemId, entry.quantity + 1)} aria-label="Increase quantity">
+                <Plus size={14} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
+    </article>
+  );
+
+  return (
+    <main className="wishlist-page page-enter">
+      <div className="wishlist-shell">
+        {renderHeader()}
+        {renderError()}
+
+        {loading ? renderLoading() : wishlist.length === 0 ? renderEmpty() : (
+          <>
+            <section className="wishlist-insight-strip" aria-label="Wishlist summary">
+              <div>
+                <span>Saved dishes</span>
+                <strong>{wishlist.length}</strong>
+              </div>
+              <div>
+                <span>Available now</span>
+                <strong>{availableCount}</strong>
+              </div>
+              <div>
+                <span>Kitchens</span>
+                <strong>{restaurantCount}</strong>
+              </div>
+              <div>
+                <span>Saved value</span>
+                <strong><small>&#8377;</small>{formatPrice(savedValue)}</strong>
+              </div>
+            </section>
+
+            <section className="wishlist-workspace">
+              <aside className="wishlist-controls" aria-label="Wishlist controls">
+                <label className="wishlist-search-field">
+                  <Search size={18} />
+                  <input
+                    type="search"
+                    placeholder="Search saved dishes"
+                    value={query}
+                    onChange={event => setQuery(event.target.value)}
+                  />
+                  {query && (
+                    <button type="button" onClick={() => setQuery('')} aria-label="Clear search">
+                      <X size={15} />
+                    </button>
+                  )}
+                </label>
+
+                <div className="wishlist-control-group">
+                  <div className="wishlist-control-heading">
+                    <SlidersHorizontal size={16} />
+                    Filter
+                  </div>
+                  <div className="wishlist-filter-list">
+                    {filterOptions.map(option => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={filter === option.id ? 'active' : ''}
+                        onClick={() => setFilter(option.id)}
+                      >
+                        <span>{option.label}</span>
+                        <small>{option.count}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="wishlist-sort-field">
+                  <span>
+                    <ArrowUpDown size={16} />
+                    Sort
+                  </span>
+                  <select value={sort} onChange={event => setSort(event.target.value)}>
+                    <option value="recent">Recently saved</option>
+                    <option value="name">Dish name</option>
+                    <option value="priceAsc">Price: low to high</option>
+                    <option value="priceDesc">Price: high to low</option>
+                  </select>
+                </label>
+              </aside>
+
+              <section className="wishlist-results">
+                <div className="wishlist-results-head">
+                  <div>
+                    <span>{filteredItems.length} of {wishlist.length} saved</span>
+                    <h2>{filterOptions.find(option => option.id === filter)?.label || 'Saved dishes'}</h2>
+                  </div>
+                  {hasActiveFilters && (
+                    <button type="button" className="wishlist-ghost-btn" onClick={resetFilters}>
+                      <X size={16} />
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {filteredItems.length === 0 ? renderNoMatches() : (
+                  <div className="wishlist-grid">
+                    {filteredItems.map(renderCard)}
+                  </div>
+                )}
+              </section>
+            </section>
+          </>
+        )}
+      </div>
+
       {conflictPopup && createPortal(
-        <div className="modal-overlay" onClick={() => setConflictPopup(null)}>
-          <div className="modal-content" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-icon"><AlertCircle size={32} color="var(--brand-red)" /></div>
-            <h3 className="modal-title">Items from another restaurant</h3>
-            <p className="modal-desc">Your cart contains items from a different restaurant. Start fresh to add this favorite?</p>
-            <div className="modal-actions">
-              <button type="button" className="modal-btn-outline" onClick={() => setConflictPopup(null)}>Cancel</button>
-              <button type="button" className="modal-btn-primary" onClick={() => clearAndAdd(conflictPopup.itemId, conflictPopup.quantity)}>Start Fresh</button>
+        <div className="wishlist-modal-overlay" onClick={() => setConflictPopup(null)}>
+          <div className="wishlist-modal" onClick={event => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="wishlist-conflict-title">
+            <div className="wishlist-modal-icon">
+              <AlertCircle size={30} />
+            </div>
+            <h3 id="wishlist-conflict-title">Cart has another kitchen</h3>
+            <p>Your cart already contains items from a different restaurant. Start fresh to add this wishlist item.</p>
+            <div className="wishlist-modal-actions">
+              <button type="button" className="wishlist-ghost-btn" onClick={() => setConflictPopup(null)}>
+                Cancel
+              </button>
+              <button type="button" className="wishlist-add-btn solid" onClick={() => clearAndAdd(conflictPopup.itemId, conflictPopup.quantity)}>
+                <ShoppingCart size={16} />
+                Start fresh
+              </button>
             </div>
           </div>
         </div>,
         document.body
       )}
-    </>
+    </main>
   );
 };
 
